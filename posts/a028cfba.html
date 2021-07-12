@@ -1,0 +1,2278 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Kafka总结（二）常见组件上 Broker、Producer和Consumer介绍, hnbian">
+    <meta name="description" content="1. Broker1.1 Broker 介绍
+Broker没有副本机制，一旦Broker宕机，该Broker的消息都将不可用。
+
+Broker不会保存Consumer 消费topic partition offset的状态，订阅者自己采用不">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Kafka总结（二）常见组件上 Broker、Producer和Consumer介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fnx-u8xnFMjm2uyPIgkS8quMIty3')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Kafka总结（二）常见组件上 Broker、Producer和Consumer介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/kafka/">
+                                <span class="chip bg-color">kafka</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/kafka/" class="post-category">
+                                kafka
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-02-09
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    11.5k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    46 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-Broker"><a href="#1-Broker" class="headerlink" title="1. Broker"></a>1. Broker</h2><h3 id="1-1-Broker-介绍"><a href="#1-1-Broker-介绍" class="headerlink" title="1.1 Broker 介绍"></a>1.1 Broker 介绍</h3><ol>
+<li><p>Broker没有副本机制，一旦Broker宕机，该Broker的消息都将不可用。</p>
+</li>
+<li><p>Broker不会保存Consumer 消费topic partition offset的状态，订阅者自己采用不同模式保存。</p>
+</li>
+<li><p>无状态导致消息的删除成为难题（有可能会删除正在被消费的消息），kafka采用基于事件的SLA（服务水平保证），消息保存一定时间（默认7天，168小时）会被自动删除</p>
+</li>
+<li><p>消费者可以将offset重新定位到任意位置进行重新消费，当Consumer故障时，可以选择最小的offset进行重新读取消费数据。</p>
+</li>
+</ol>
+<h3 id="1-2-Broker-的启动过程"><a href="#1-2-Broker-的启动过程" class="headerlink" title="1.2 Broker 的启动过程"></a>1.2 Broker 的启动过程</h3><ol>
+<li>Broker启动后先根据其ID在Zookeeper的/brokers/ids/idsznode 下面创建临时子节点，</li>
+<li>创建成功后 Controller 的 ReplicaStateMachine 注册其上的 Broker Change Watch 会被触发，从而通过回调 KafkaController.onBrokerStartup方法，</li>
+<li>回调方法向所有新启动的Broker发送 UpdateMetadataRequest。</li>
+<li>将新启动的 Broker上的所有副本设置为OnlineReplica状态，同时这些Broker会为这些Partition 启动 high watermark线程。</li>
+<li>通过partitionStateMachine 触发 OnlinePartitionStateChange。</li>
+</ol>
+<h3 id="1-3-Kafka-Controller（控制器）"><a href="#1-3-Kafka-Controller（控制器）" class="headerlink" title="1.3 Kafka Controller（控制器）"></a>1.3 Kafka Controller（控制器）</h3><p>Kafka 集群中会有一个或者多个Broker，有一个Broker会被选举为控制器（Kafka Controller），它负责整个集群中所有分区和副本的状态。</p>
+<ul>
+<li>选择Partition Leader：当某个分区副本出现故障时，由Kafka Controller负责为该分区选举新的leader副本。</li>
+<li>更新元数据：从Zookeeper中获取当前所有topic、partition以及Broker相关信息进行相应的管理。</li>
+<li>增/减/分配分区：当使用kafka-topics.sh 脚本为某个topic增加分区数量时，同样还是由Kafka Controller负责新增分区的分配。</li>
+</ul>
+<h4 id="1-3-1-Controller-选举与具体功能"><a href="#1-3-1-Controller-选举与具体功能" class="headerlink" title="1.3.1 Controller 选举与具体功能"></a>1.3.1 Controller 选举与具体功能</h4><p>每个Broker在启动的时候都会去尝试读取 /controller 节点的brokerid的值，</p>
+<ul>
+<li>如果ZK中不存在 /controller 节点，或者这个节点值为-1，那么会尝试去创建 /controller 节点，在去创建/controller节点的时候，也有可能其他的broker同时尝试创建这个节点，只有创建成功的broker会成为控制器，创建失败的则意味着竞选失败会在 /controller 上注册一个Watch。</li>
+<li>如果读取到brokerid的值不为-1，则表示已经有其他broker节点成功竞选为控制器，则该broker就会放弃竞选，并且会在 /controller 上注册一个Watch。</li>
+<li>当Controller挂掉时临时节点会自动消失，这时Watch会被触发，此时所有active的Broker都会去竞选成为新的Controller。</li>
+</ul>
+<p>/controller 临时节点值如下：</p>
+<pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>zk: localhost:2181<span class="token punctuation">(</span>CONNECTED<span class="token punctuation">)</span> 2<span class="token punctuation">]</span> get /controller
+<span class="token punctuation">{</span><span class="token string">"version"</span>:1,<span class="token string">"brokerid"</span>:0,<span class="token string">"timestamp"</span><span class="token keyword">:</span><span class="token string">"1581320839809"</span><span class="token punctuation">}</span>
+
+<span class="token comment" spellcheck="true"># version：目前版本中固定为1 </span>
+<span class="token comment" spellcheck="true"># brokerid：表示控制器的broker的id编号</span>
+<span class="token comment" spellcheck="true">#timestamp：表示竞选成为控制器的时间戳</span></code></pre>
+<p>每个broker都会在内存中保存当前控制器的brokerid的值，这个值标识位activeControllerId。当/controller节点的数据发生变化时，每个broker都会更新自身内存中保存的activeControllerId。</p>
+<ul>
+<li>如果broker在数据变更前是控制器，那么如果在数据变更后自身的brokerid值与新的activeControllerId值不一致的话，那么就需要“退位”，关闭相应的资源，比如关闭状态机、注销相应的监听器等。有可能控制器由于异常而下线，造成/controller这个临时节点会被自动删除；也有可能是其他原因将此节点删除了。</li>
+</ul>
+<p>当/controller节点被删除时，每个broker都会进行选举，</p>
+<ul>
+<li>如果broker在节点被删除前是控制器的话，在选举前还需要有一个“退位”的动作。</li>
+<li>如果有特殊需要，可以手动删除/controller节点来触发新一轮的选举。当然关闭控制器所对应的broker以及手动向/controller节点写入新的brokerid的所对应的数据同样可以触发新一轮的选举。</li>
+</ul>
+<p>Zookeeper中还有一个与控制器有关的节点：/controller_epoch节点，这个节点是一个持久化节点（Persistent），它保存的是一个整型的controller_epoch值。这个值用于记录控制器发生变更的次数。即记录当前的控制器是第几代控制器，当控制器发生变更时，每选出一个新的控制器都会在该值的基础上 +1 ，每个和控制器交互的请求都会携带上controller_epoch的值。</p>
+<pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>zk: localhost:2181<span class="token punctuation">(</span>CONNECTED<span class="token punctuation">)</span> 4<span class="token punctuation">]</span> get /controller_epoch
+3</code></pre>
+<ul>
+<li>如果请求的 controller_epoch 值小于内存中 controller_epoch 的值，则认为这个请求是向已经过期的控制器发送的请求，那么这个请求会被认定为无效请求。</li>
+<li>如果请求的 controller_epoch 值大于内存中 controller_epoch 的值，则说明已经有新的控制器当选了。</li>
+</ul>
+<p>由此可见，kafka通过controller_epoch 来保证控制器的唯一性，进而保证相关操作的一致性。</p>
+<h4 id="1-3-2-Controller-选举成功后的操作"><a href="#1-3-2-Controller-选举成功后的操作" class="headerlink" title="1.3.2 Controller 选举成功后的操作"></a>1.3.2 Controller 选举成功后的操作</h4><p>Broker成功竞选为Controller后会触发KafkaController.onControllerFailover 方法，并在该方法中完成如下操作：</p>
+<ol>
+<li>读取并在/controller_epoch的值基础上+1。</li>
+<li>增加一系列监听用于处理集群环境的变化，具体有哪些监听可以查看 Controller 事件监听章节。</li>
+<li>初始化 Controller对象，设置当前所有Topic、Broker列表、Partition的Leader以及ISR等</li>
+<li>启动 replicaStateMachine 和 partitionStateMachine</li>
+<li>将brokerState 状态设置为 partitionStateMachine</li>
+<li>将每个Partition的Leadership 发送给所有active 的Broker</li>
+<li>若auto.leader.rebalance.enable设置为true，则还会开启一个名为”auto-leader-rebalance-task”的定时任务来负责维护分区的有限副本的均衡。</li>
+<li>如果delete.topic.enable值为true，且/admin/delete_topics中有值，则删除对应的topic</li>
+</ol>
+<h4 id="1-3-2-Controller-事件监听"><a href="#1-3-2-Controller-事件监听" class="headerlink" title="1.3.2 Controller 事件监听"></a>1.3.2 Controller 事件监听</h4><p>在Kafka的早期版本中，并没有采用Kafka Controller这样一个概念来对分区和副本的状态进行管理，而是依赖于Zookeeper，每个broker都会在Zookeeper上为分区和副本注册大量的监听器（Watcher）。当分区或者副本状态变化时，会唤醒很多不必要的监听器，这种严重依赖于Zookeeper的设计会有脑裂、羊群效应以及造成Zookeeper过载的隐患。</p>
+<p>在目前的新版本的设计中，只有Kafka Controller在Zookeeper上注册相应的监听器，其他的broker极少需要再监听Zookeeper中的数据变化，这样省去了很多不必要的麻烦。不过每个broker还是会对/controller节点添加监听器的，以此来监听此节点的数据变化（参考ZkClient中的IZkDataListener）。</p>
+<p>控制器在选举成功之后会读取Zookeeper中各个节点的数据来初始化上下文信息（ControllerContext），并且也需要管理这些上下文信息，比如为某个topic增加了若干个分区，控制器在负责创建这些分区的同时也要更新上下文信息，并且也需要将这些变更信息同步到其他普通的broker节点中。</p>
+<p>不管是监听器触发的事件，还是定时任务触发的事件，亦或者是其他事件（比如ControlledShutdown）都会读取或者更新控制器中的上下文信息，那么这样就会涉及到多线程间的同步，如果单纯的使用锁机制来实现，那么整体的性能也会大打折扣。针对这一现象，Kafka的控制器使用单线程基于事件队列的模型，将每个事件都做一层封装，然后按照事件发生的先后顺序暂存到LinkedBlockingQueue中，然后使用一个专用的线程（ControllerEventThread）按照FIFO（First Input First Output, 先入先出）的原则顺序处理各个事件，这样可以不需要锁机制就可以在多线程间维护线程安全。<br><img src="https://images.hnbian.cn/FiiCakekeeWI8xC2FK5M8jvxazB8" alt="Kafka Controller事件监听处理"></p>
+<ol>
+<li>监听partition的变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理分区重分配</td>
+<td>/admin/reassign_partitions</td>
+<td>PartitionReassignmentListener</td>
+</tr>
+<tr>
+<td>处理优先副本选举</td>
+<td>/admin/preferred_replica_election</td>
+<td>PreferredReplicaElectionListener</td>
+</tr>
+<tr>
+<td>处理ISR集合变更</td>
+<td>/isr_change_notification</td>
+<td>IsrChangeNotificationListener</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>监听topic相关变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理topic增减的变化</td>
+<td>/brokers/topics</td>
+<td>TopicChangeListener</td>
+</tr>
+<tr>
+<td>处理删除topic动作</td>
+<td>/admin/delete_topics</td>
+<td>TopicDeletionListener</td>
+</tr>
+<tr>
+<td>处理topic分区变化</td>
+<td>/brokers/topics/[topic]</td>
+<td>PartitionModificationsListener</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li>监听broker相关的变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理broker增减变化</td>
+<td>/brokers/ids</td>
+<td>BrokerChangeListener</td>
+</tr>
+</tbody></table>
+<h4 id="1-3-4-Controller-对-Broker-的故障处理"><a href="#1-3-4-Controller-对-Broker-的故障处理" class="headerlink" title="1.3.4 Controller 对 Broker 的故障处理"></a>1.3.4 Controller 对 Broker 的故障处理</h4><ol>
+<li><p>Controller在Zookeeper的/brokers/ids节点上注册Watch 用来处理broker增减变化，一旦有Broker宕机对应的Zookeeper上的节点会自动删除，就会触发Controller的Watch，Controller即会获取最新的active的Broker列表。</p>
+</li>
+<li><p>Controller 决定Set_p，该集合包含了宕机的Broker上的所有Partition副本分布。</p>
+</li>
+<li><p>对于Set_p中的每个Partition会做如下操作：</p>
+</li>
+</ol>
+<ul>
+<li>从 /brokers/topics/topic-name/partitions/partition-id/state 读取该partition的ISR。ISR是什么会在下一个章节中介绍</li>
+<li>决定该partition的新leader，<ul>
+<li>如果当前ISR中至少有一个副本还处于active状态，则选择其中一个为新的Leader，新的ISR中包含当前ISR中所有幸存的副本</li>
+<li>如果当前ISR中没有副本存活，则选择该partition任意一个存活的副本作为新的Leader以及ISR（这种场景会存在数据丢失的风险）</li>
+<li>如果该partition所有的副本都宕机了，则将新的leader设置为-1</li>
+</ul>
+</li>
+<li>将新的Leader、新的leader_epochISR以及controller_epoch 写入/brokers/topics/topic-name/partitions/partition-id/state。</li>
+</ul>
+<ol start="4">
+<li>直接通过RPC向Set_p 相关的Broker发送LeaderAndISRRequest命令，Controller可以在一个RPC操作中发送多个命令从而提高效率。</li>
+</ol>
+<h4 id="1-3-5-LeaderAndISRRequest的响应过程"><a href="#1-3-5-LeaderAndISRRequest的响应过程" class="headerlink" title="1.3.5 LeaderAndISRRequest的响应过程"></a>1.3.5 LeaderAndISRRequest的响应过程</h4><p>Broker收到 LeaderAndISRRequest 主要通过ReplicaManager 的 becomeLeaderOrFollower 处理：</p>
+<ol>
+<li><p>若请求中controller_epoch 值小于最新的 controller_epoch 的值，则认为这个请求是向已经过期的控制器发送的请求，那么这个请求会被认定为无效请求，直接返回ErrorMapping.StaleControllerEpochCode</p>
+</li>
+<li><p>对于请求中 partitionStateInfos 中的每一个元素，即（(topic, partitionId), partitionStateInfo)：</p>
+<ul>
+<li>若 partitionStateInfo 中的 leader epoch 大于当前 ReplicManager 中存储的 (topic, partitionId) 对应的 partition 的 leader epoch，则：<ul>
+<li>若当前 brokerid（或者说 replica id）在 partitionStateInfo 中，则将该 partition 及 partitionStateInfo 存入一个名为 partitionState 的 HashMap 中</li>
+<li>否则说明该 Broker 不在该 Partition 分配的 Replica list 中，将该信息记录于 log 中</li>
+</ul>
+</li>
+<li>否则将相应的 Error code（ErrorMapping.StaleLeaderEpochCode）存入 Response 中</li>
+</ul>
+</li>
+<li><p>筛选出partitionState 中Leader与当前BrokerID相等的所有记录保存到 partitionsTobeLeader 中，其它记录存入 partitionsToBeFollower 中</p>
+</li>
+<li><p>若 partitionsTobeLeader 不为空，则对其执行 makeLeaders 方</p>
+</li>
+<li><p>若 partitionsToBeFollower 不为空，则对其执行 makeFollowers 方法</p>
+</li>
+<li><p>若 highwatermak 线程还未启动，则将其启动，并将 hwThreadInitialized 设为 true</p>
+</li>
+<li><p>关闭所有 Idle 状态的 Fetcher</p>
+</li>
+</ol>
+<h3 id="1-4-Broker-响应请求的流程"><a href="#1-4-Broker-响应请求的流程" class="headerlink" title="1.4 Broker 响应请求的流程"></a>1.4 Broker 响应请求的流程</h3><p>Broker 通过kafka.network.SocketServer 及其相关模块接受各种请求并作出相应，整个网络通信模块基于Java NIO 开发，并采用 Reactor模式，其中包括1个Acceptor负责接受客户请求，N个Processor负责读写数据，M个Handle 处理业务逻辑。</p>
+<ul>
+<li>Acceptor：主要负责监听并接受客户端发送的请求，包括Producer、Consumer、Controller、Admin Tool 等的请求，并建立和客户端的数据传输通道，然后为该客户端指定一个 Processor，至此它对该客户端的该次请求的任务就结束了，可以去响应下一个客户端的连接请求了。</li>
+<li>Processor：主要负责从客户端读取数据并将响应返回给客户端，它本身并不处理具体的业务逻辑，并且其内部维护了一个队列来保存分配给它的所有 SocketChannel。Processor 会循环调用run方法从队列中取出新的SocketChannel，并将其SelectionKey.OP_READ 注册到selector 上，然后循环处理已就绪的读（请求）和写（响应）。Processor读完数据之后，将其封装成 Request对象，并将其交给RequestChannel。<ul>
+<li>RequestChannel是Processor 和KafkaRequestHandler 交换数据的地方，它包含一个队列，requestQueue用来存放Processor 加入 Request 。</li>
+<li>Processor 会通过prosessNewReponses 方法依次将 requestChannel 中的ResponseQueue保存的Response取出，将其对应的SelectionKey.OP_WRITE事件注册到selector 上。当selector的select 方法返回时，对检测到的可写通道，调用write方法，将Response返回给客户端。</li>
+</ul>
+</li>
+<li>Handler：KafkaRequestHandler 循环送 RequestChannel 中读取Request 并交给kafka.server.kafkaAPIs 处理具体业务逻辑。同时 这个Request还包含一个respondQueue，用来存放KafkaRequestHandler处理完Request后返还给客户端的Response.</li>
+</ul>
+<h2 id="2-Producer"><a href="#2-Producer" class="headerlink" title="2. Producer"></a>2. Producer</h2><p>Producer（生产者）：从外部系统拿数据发送给broker，Producer直接发送数据到broker上的 leader partition，不需要经过任何中介或其他路由。为了实现这个特性，kafka集群中每个broker都可以响应producer的请求，并返回topic的一些元信息，这些原信息包括哪些机器是存活的，topic的leader partition都在哪，现阶段哪些 leader partition是可以直接被访问的。</p>
+<p>不同的应用场景对消息有不同的需求，即是否允许消息丢失、重复、延迟以及吞吐量的要求。不同场景对Kafka生产者的API使用和配置会有直接的影响。</p>
+<h3 id="2-1-Producer发送消息的流程"><a href="#2-1-Producer发送消息的流程" class="headerlink" title="2.1 Producer发送消息的流程"></a>2.1 Producer发送消息的流程</h3><p>消息格式：每个消息是一个ProducerRecord对象，必须的属性有Topic和消息Value值，此外还可以包含消息的Partition以及消息的Key。</p>
+<ol>
+<li><p>序列化ProducerRecord有多个构造器，这里使用了三个参数的，topic、key、value</p>
+</li>
+<li><p>如果ProducerRecord中指定了Partition，则Partitioner不做任何事情；否则，Partitioner根据消息的key得到一个Partition。这时生产者就知道向哪个Topic下的哪个Partition发送这条消息。</p>
+</li>
+<li><p>消息被添加到相应的batch中，独立的线程将这些batch发送到Broker上</p>
+</li>
+<li><p>broker收到消息会返回一个响应。如果消息成功写入Kafka，则返回RecordMetaData对象，该对象包含了Topic信息、Patition信息、消息在Partition中的Offset信息；若失败，返回一个错误</p>
+</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FsMBsKOwHIDZX79wLZ2aARSx1FVn" alt="Kafka生产者组件"></p>
+<h3 id="2-2-自定义partitioner"><a href="#2-2-自定义partitioner" class="headerlink" title="2.2 自定义partitioner"></a>2.2 自定义partitioner</h3><p>Producer 客户端自己控制着消息数据被推送到哪个partition。发送的方式可以是随机分配或者是某类随机负载均衡或者指定一些分区算法。<br>kafka提供了接口供用户自己实现自定义partition。用户可以为每个消息指定一个partitionKey，在某些hash算法中通过key将数据分发到不同的partition，比如把userID作为partitionKey的话，相同的userID将会被推送到同一个partition中。</p>
+<p>使用自定义partitioner 需要在producer端加入配置</p>
+<pre class=" language-java"><code class="language-java"><span class="token comment" spellcheck="true">//producer需要配置</span>
+properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"partitioner.class"</span><span class="token punctuation">,</span> PartitionerCLass<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<ul>
+<li>轮询Partitioner</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>Partitioner<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Cluster<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>PartitionInfo<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>List<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>concurrent<span class="token punctuation">.</span>atomic<span class="token punctuation">.</span>AtomicLong<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description Round Robin Partitioner
+ *              不管key是什么样子 如果第一条消息发送0partition 第二条消息发送到1partition...
+ *              不需要根据key去做定向的分发
+ * @Date 2020-02-13 22:31
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">RoundRobinPartitioner</span> <span class="token keyword">implements</span> <span class="token class-name">Partitioner</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">//首先定义一个全局计数器</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> AtomicLong next <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AtomicLong</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 重写 partition方法
+     * @param topic 发送到哪个topic
+     * @param key key 值
+     * @param keyBytes key字节数组
+     * @param value 发送消息内容
+     * @param valueBytes 发送消息内容字节数组
+     * @param cluster
+     * @return 返回值是int 返回消息应该发送到哪个partition
+     */</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">int</span> <span class="token function">partition</span><span class="token punctuation">(</span>String topic<span class="token punctuation">,</span> Object key<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> keyBytes<span class="token punctuation">,</span> Object value<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> valueBytes<span class="token punctuation">,</span> Cluster cluster<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        List<span class="token operator">&lt;</span>PartitionInfo<span class="token operator">></span> partitions <span class="token operator">=</span> cluster<span class="token punctuation">.</span><span class="token function">partitionsForTopic</span><span class="token punctuation">(</span>topic<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">int</span> numPartitions <span class="token operator">=</span> partitions<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">//线程安全的 +1 去除</span>
+        <span class="token keyword">long</span> nextIndex <span class="token operator">=</span> next<span class="token punctuation">.</span><span class="token function">incrementAndGet</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">//对partition取余数</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token keyword">int</span><span class="token punctuation">)</span> nextIndex <span class="token operator">%</span> numPartitions<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">configure</span><span class="token punctuation">(</span>Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> <span class="token operator">?</span><span class="token operator">></span> map<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<ul>
+<li>Hash Partitioner</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>Partitioner<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Cluster<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>PartitionInfo<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>record<span class="token punctuation">.</span>InvalidRecordException<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>List<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description Hash Partitioner
+ *              实现partition接口   重写 partition方法
+ *              一般取key的 在不考虑备份的情况下一个partition只会在一个broker上面
+ *              hash partition 一般取key的hash值 对 partition的总数取余数,这样相同的key会发送到一个partition中 比如相同的用户信息发送到一个partition上面
+ * @Date 2020-02-13 22:19
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">HashPartitioner</span> <span class="token keyword">implements</span> <span class="token class-name">Partitioner</span> <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 重写 partition方法
+     * @param topic 发送到哪个topic
+     * @param key key 值
+     * @param keyBytes key字节数组
+     * @param value 发送消息内容
+     * @param valueBytes 发送消息内容字节数组
+     * @param cluster
+     * @return 返回值是int 返回消息应该发送到哪个partition
+     */</span>
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">int</span> <span class="token function">partition</span><span class="token punctuation">(</span>String topic<span class="token punctuation">,</span> Object key<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> keyBytes<span class="token punctuation">,</span> Object value<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> valueBytes<span class="token punctuation">,</span> Cluster cluster<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        List<span class="token operator">&lt;</span>PartitionInfo<span class="token operator">></span> partitions <span class="token operator">=</span> cluster<span class="token punctuation">.</span><span class="token function">partitionsForTopic</span><span class="token punctuation">(</span>topic<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">int</span> numPartitions <span class="token operator">=</span> partitions<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>keyBytes <span class="token operator">==</span> null<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">InvalidRecordException</span><span class="token punctuation">(</span><span class="token string">"key cannot be null"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token comment" spellcheck="true">//对数值型的key直接取余数</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>key <span class="token keyword">instanceof</span> <span class="token class-name">Integer</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">abs</span><span class="token punctuation">(</span>Integer<span class="token punctuation">.</span><span class="token function">parseInt</span><span class="token punctuation">(</span>key<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">%</span> numPartitions<span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token keyword">return</span> Math<span class="token punctuation">.</span><span class="token function">abs</span><span class="token punctuation">(</span>key<span class="token punctuation">.</span><span class="token function">hashCode</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">%</span> numPartitions<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">configure</span><span class="token punctuation">(</span>Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> <span class="token operator">?</span><span class="token operator">></span> map<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<ul>
+<li>随机Partitioner</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>Partitioner<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Cluster<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>PartitionInfo<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>record<span class="token punctuation">.</span>InvalidRecordException<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>List<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Random<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description 将数据随机发送到某个partition
+ * @Date 2020-02-13 21:58
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">RandomPartitioner</span> <span class="token keyword">implements</span> <span class="token class-name">Partitioner</span> <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 重写 partition方法
+     * @param topic 发送到哪个topic
+     * @param key key 值
+     * @param keyBytes key字节数组
+     * @param value 发送消息内容
+     * @param valueBytes 发送消息内容字节数组
+     * @param cluster
+     * @return 返回值是int 返回消息应该发送到哪个partition
+     */</span>
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">int</span> <span class="token function">partition</span><span class="token punctuation">(</span>String topic<span class="token punctuation">,</span> Object key<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> keyBytes<span class="token punctuation">,</span> Object value<span class="token punctuation">,</span> <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> valueBytes<span class="token punctuation">,</span> Cluster cluster<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        List<span class="token operator">&lt;</span>PartitionInfo<span class="token operator">></span> partitions <span class="token operator">=</span> cluster<span class="token punctuation">.</span><span class="token function">partitionsForTopic</span><span class="token punctuation">(</span>topic<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">int</span> numPartitions <span class="token operator">=</span> partitions<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>keyBytes <span class="token operator">==</span> null<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">InvalidRecordException</span><span class="token punctuation">(</span><span class="token string">"key cannot be null"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        Random rand <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Random</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">int</span> i <span class="token operator">=</span> rand<span class="token punctuation">.</span><span class="token function">nextInt</span><span class="token punctuation">(</span>numPartitions<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">//生成0-3以内的随机数</span>
+        <span class="token comment" spellcheck="true">//i = (int) (Math.random() * 3); //0-3以内的随机数，用Matn.random()方式</span>
+        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"发送到partition : "</span><span class="token operator">+</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> i<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">configure</span><span class="token punctuation">(</span>Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> <span class="token operator">?</span><span class="token operator">></span> map<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-3-消息投递顺序"><a href="#2-3-消息投递顺序" class="headerlink" title="2.3 消息投递顺序"></a>2.3 消息投递顺序</h3><p>Kafka保证分区的顺序，也就是说，如果生产者以一定的顺序发送消息到Kafka的某个分区，那么Kafka在分区内部保持此顺序，而且消费者也按照同样的顺序消费。但是，应用调用send方法的顺序和实际发送消息的顺序不一定是一致的。</p>
+<p>举个例子，如果retries参数不为0，而max.in.flight.requests.per.connection参数大于1，那么有可能第一个批量消息写入失败，但是第二个批量消息写入成功，然后第一个批量消息重试写入成功，那么这个顺序乱序的。因此，如果需要保证消息顺序，建议设置max.in.flight.requests.per.connection为1，这样可以在第一个批量消息发送失败重试时，第二个批量消息需要等待。</p>
+<h3 id="2-4-批量发送数据"><a href="#2-4-批量发送数据" class="headerlink" title="2.4 批量发送数据"></a>2.4 批量发送数据</h3><p>生产者发送多个消息到同一个分区的时候，为了减少网络带来的系能开销，kafka会对消息进行批量发送</p>
+<ul>
+<li>batch.size：通过这个参数来设置批量提交的数据大小，默认是16k,当积压的消息达到这个值的时候就会统一发送（发往同一分区的消息）</li>
+<li>linger.ms：这个设置是为发送设置一定是延迟来收集更多的消息，默认大小是0ms（就是有消息就立即发送）</li>
+</ul>
+<p>当这两个参数同时设置的时候，只要两个条件中满足一个就会发送。比如说batch.size设置16kb，linger.ms设置50ms，那么当消息积压达到16kb就会发送，如果没有到达16kb，那么在第一个消息到来之后的50ms之后消息将会发送。</p>
+<ul>
+<li>max.request.size：默认是1M，请求的最大字节数</li>
+</ul>
+<h3 id="2-5-同步Producer与异步Producer"><a href="#2-5-同步Producer与异步Producer" class="headerlink" title="2.5 同步Producer与异步Producer"></a>2.5 同步Producer与异步Producer</h3><ol>
+<li><p>同步Producer </p>
+<ul>
+<li>低延迟</li>
+<li>低吞吐率</li>
+<li>无数据丢失<br>只有消息发送成功了才会发送下一条消息,不成功重试,三次失败之后抛出异常,自行进行操作</li>
+</ul>
+</li>
+</ol>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>KafkaProducer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>ProducerRecord<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>RecordMetadata<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Properties<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>concurrent<span class="token punctuation">.</span>Future<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description 同步Producer
+ * @Date 2020-02-13 21:55
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">TestSyncProducer</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_BOOTSTRAP_SERVERS <span class="token operator">=</span> <span class="token string">"hnode1:9092,hnode2:9092,hnode3:9092"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test1"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> bath <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+        Properties properties <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"bootstrap.servers"</span><span class="token punctuation">,</span>KAFKA_BOOTSTRAP_SERVERS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"key.serializer"</span><span class="token punctuation">,</span><span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"value.serializer"</span><span class="token punctuation">,</span><span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"producer.type"</span><span class="token punctuation">,</span> <span class="token string">"sync"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">//同步发送</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"acks"</span><span class="token punctuation">,</span> <span class="token string">"1"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">//Leader写成功才算成功</span>
+        KafkaProducer producer <span class="token operator">=</span> null<span class="token punctuation">;</span>
+        <span class="token keyword">try</span><span class="token punctuation">{</span>
+            producer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">KafkaProducer</span><span class="token punctuation">(</span>properties<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">int</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span>bath<span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+                ProducerRecord<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> record <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ProducerRecord</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span>String<span class="token punctuation">.</span><span class="token function">valueOf</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token string">"message"</span><span class="token operator">+</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                Future<span class="token operator">&lt;</span>RecordMetadata<span class="token operator">></span> future <span class="token operator">=</span> producer<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span>record<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"partition=%s,offset=%s \n"</span><span class="token punctuation">,</span>future<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>future<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                Thread<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span><span class="token keyword">catch</span><span class="token punctuation">(</span>Exception ex<span class="token punctuation">)</span><span class="token punctuation">{</span>
+            ex<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token keyword">finally</span><span class="token punctuation">{</span>
+            <span class="token keyword">if</span><span class="token punctuation">(</span>producer <span class="token operator">!=</span> null<span class="token punctuation">)</span><span class="token punctuation">{</span>
+                producer<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<ol start="2">
+<li><p>异步Producer </p>
+<ul>
+<li>高延迟</li>
+<li>高吞吐率</li>
+<li>可能会有数据丢失</li>
+</ul>
+</li>
+</ol>
+<p>数据send之后 将数据放进队列,队列数量到达一定程度之后,后台线程拿数据批量发送给 broker ,如果队列数据满了阻塞超过一定时间,会直接丢掉新的数据</p>
+<p>异步发送将多条消息暂时和客户端buff起来并将他们批量发送到broker，小数据IO太多会拖慢整体的网络延迟，批量发会提高网络效率，不过这也有一定的隐患，比如当producer异常时那些尚未发送的数据将会丢失。</p>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>Callback<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>KafkaProducer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>ProducerRecord<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>producer<span class="token punctuation">.</span>RecordMetadata<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Properties<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>concurrent<span class="token punctuation">.</span>Future<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description kafka异步producer
+ * @Date 2020-02-13 21:29
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">TestAsyncProducer</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_BOOTSTRAP_SERVERS <span class="token operator">=</span> <span class="token string">"hnode1:9092,hnode2:9092,hnode3:9092"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test1"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> bath <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+        Properties properties <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"bootstrap.servers"</span><span class="token punctuation">,</span>KAFKA_BOOTSTRAP_SERVERS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"key.serializer"</span><span class="token punctuation">,</span><span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"value.serializer"</span><span class="token punctuation">,</span><span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"producer.type"</span><span class="token punctuation">,</span> <span class="token string">"async"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">//异步发送</span>
+        properties<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"acks"</span><span class="token punctuation">,</span> <span class="token string">"1"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">//Leader写成功才算成功</span>
+        KafkaProducer producer <span class="token operator">=</span> null<span class="token punctuation">;</span>
+        <span class="token keyword">try</span><span class="token punctuation">{</span>
+            producer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">KafkaProducer</span><span class="token punctuation">(</span>properties<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">int</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span>bath<span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+                ProducerRecord<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> record <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ProducerRecord</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span>String<span class="token punctuation">.</span><span class="token function">valueOf</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token string">"message"</span><span class="token operator">+</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token comment" spellcheck="true">//在1.0 版本之前 异步producer不支持Java版本的回调函数</span>
+                Future<span class="token operator">&lt;</span>RecordMetadata<span class="token operator">></span> future <span class="token operator">=</span> producer<span class="token punctuation">.</span><span class="token function">send</span><span class="token punctuation">(</span>record<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Callback</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                    <span class="token annotation punctuation">@Override</span>
+                    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">onCompletion</span><span class="token punctuation">(</span>RecordMetadata recordMetadata<span class="token punctuation">,</span> Exception e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                        <span class="token comment" spellcheck="true">//如果Kafka返回一个错误，onCompletion方法抛出一个non null异常。</span>
+                        <span class="token keyword">if</span> <span class="token punctuation">(</span>e <span class="token operator">!=</span> null<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                            <span class="token comment" spellcheck="true">//对异常进行一些处理，这里只是简单打印出来</span>
+                            e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                        <span class="token punctuation">}</span>
+                    <span class="token punctuation">}</span>
+                <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"partition=%s,offset=%s \n"</span><span class="token punctuation">,</span>future<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>future<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                Thread<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span><span class="token keyword">catch</span><span class="token punctuation">(</span>Exception ex<span class="token punctuation">)</span><span class="token punctuation">{</span>
+            ex<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token keyword">finally</span><span class="token punctuation">{</span>
+            <span class="token keyword">if</span><span class="token punctuation">(</span>producer <span class="token operator">!=</span> null<span class="token punctuation">)</span><span class="token punctuation">{</span>
+                producer<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="3-Consumer"><a href="#3-Consumer" class="headerlink" title="3. Consumer"></a>3. Consumer</h2><h3 id="3-1-Consumer-介绍"><a href="#3-1-Consumer-介绍" class="headerlink" title="3.1 Consumer 介绍"></a>3.1 Consumer 介绍</h3><p>Consumer：消费者（订阅者）从kafka订阅数据供外部系统去使用，在kafka中当前消费到哪条消息的offset值是由consumer来维护的。因此consumer可以自己决定如何读取kafka的数据。比如，consumer可以通过重设offset值来重新消费已经消费的数据。kafka数据的生命周期是可配置的。只有到达规定时间数据才会被删除，不管该数据有没有被消费到。</p>
+<h3 id="3-2-Consumer-Group"><a href="#3-2-Consumer-Group" class="headerlink" title="3.2 Consumer Group"></a>3.2 Consumer Group</h3><ul>
+<li>多个Consumer线程 可以组成一个Consumer组（Concumer Group）</li>
+<li>partition中的任意一条数据只能被同组内的一个Consumer消费，也就是说当一条消息在一个Consumer Group 内的consumer线程消费后，该Consumer Group 内的其他Consumer线程就无法消费该数据了，</li>
+<li>但是其他Consumer Group 中的Consumer线程仍然能消费这条数据。所以如果想同时对一个topic做消费的话，启动多个Consumer Group就可以了，但是需要注意的是，这里的多个Consumer的消费都是顺序读取partition里面的message，新启动的Consumer默认从partition队列最头端最新的地方阻塞的读message。</li>
+</ul>
+<p>kafka为了提高吞吐量，一个partition最多只允许一个Consumer Group 下的一个Consumer线程去消费，但是不同的 Consumer Group 中的Consumer线程还是可以去消费这个partition内的数据的。</p>
+<ul>
+<li>当Consumer Group中的Consumer线程数量小于partition 数量时，该Consumer线程还是会消费全部partition内的数据。</li>
+<li>当Consumer Group中的Consumer线程数量大于partition 数量时，每个Consumer线程消费一个partition的数据，会有超过partition数量个consumer线程费不到数据。</li>
+<li>当Consumer Group中的Consumer线程数量等于partition 数量时，每个Consumer线程消费一个partition的数据，此时是最优设计，效率也是最高的。</li>
+</ul>
+<p>当一份数据需要多次使用的时候就需要建立多个Consumer Group 同时消费topic数据，这时offset的值互不影响，所以上面三点同样适用于该场景。当我们觉得数据消费效率不高时可以增加partition来横向扩展，同时增加相应数量的Consumer线程去消费新增partition的数据。在设定consumer group的时候，只需要指明里面有几个consumer数量即可，无需指定对应的消费partition序号，consumer会自动进行rebalance。如下图</p>
+<p>我们看一下下面图示的场景：</p>
+<p><img src="https://images.hnbian.cn/FsfjLFLxwFMX7WVRpWUCw3qJItTn" alt="Consumer Group 消费 Topic内的数据"></p>
+<ul>
+<li>TopicA 有2个partition</li>
+<li>GroupA有一个Consumer 线程，那么这个线程消费两个分区的数据。</li>
+<li>GroupB有两个Consumer 线程，这时Consumer与partition是一对一的消费关系。</li>
+<li>GroupC有三个Consumer 线程，有两个线程能够消费到数据，会有一个Consumer线程处于空闲状态。当能够消费到数据的两个Consumer线程某个挂掉了，那么这个线程就可以消费到数据了。</li>
+</ul>
+<h3 id="3-3-Consumer-Rebalance"><a href="#3-3-Consumer-Rebalance" class="headerlink" title="3.3 Consumer Rebalance"></a>3.3 Consumer Rebalance</h3><h4 id="3-3-1-Rebalance-介绍"><a href="#3-3-1-Rebalance-介绍" class="headerlink" title="3.3.1 Rebalance 介绍"></a>3.3.1 Rebalance 介绍</h4><p>为Consumer Group 中的多个线程分配要进行消费的topic的分区的过程，称为 Consumer Rebalance。比如有10分区，5个消费线程，那么正常情况下每个消费线程会消费2个分区的数据，这个均衡的过程叫做Consumer Rebalance。 </p>
+<h4 id="3-3-2-Rebalance-触发条件"><a href="#3-3-2-Rebalance-触发条件" class="headerlink" title="3.3.2 Rebalance 触发条件"></a>3.3.2 Rebalance 触发条件</h4><ol>
+<li>Consumer 线程数增加或减少时</li>
+<li>订阅的 Topic 个数发生变化时</li>
+<li>Topic 分区发生变化时</li>
+</ol>
+<p>Consumer Rebalance 发生时，同一Group下的 Consumer实例会共同参与，Kafka Controller  确保达到最公平的分配，在Rebalance 过程中Consumer Group下面的所有线程需要停止工作，等待Rebalance完成，所以会对消费数据的效率有一些影响。</p>
+<h4 id="3-3-4-group-coordinator"><a href="#3-3-4-group-coordinator" class="headerlink" title="3.3.4 group coordinator"></a>3.3.4 group coordinator</h4><ul>
+<li>kafka0.9.0版本的时候，在 Server 端增加了 GroupCoordinator 这个角色。</li>
+<li>Broker在启动的时候都会启动一个GroupCoordinator实例，用于管理多个Consumer Group和各Consumer Group中各个成员，主要用于offset位移管理和Consumer Rebalance。</li>
+<li>Group会选择一个Coordinator来完成自己组内各Partition的Offset信息，选择的规则如下：</li>
+</ul>
+<ol>
+<li>计算Group对应在__consumer_offsets上的Partition</li>
+<li>根据对应的Partition寻找该Partition的leader所对应的Broker，该Broker上的Group Coordinator即就是该Group的Coordinator<br>Partition计算规则：</li>
+</ol>
+<pre class=" language-java"><code class="language-java"><span class="token comment" spellcheck="true">//groupMetadataTopicPartitionCount对应offsets.topic.num.partitions参数值，默认值是50个分区</span>
+partition<span class="token operator">-</span><span class="token function">Id</span><span class="token punctuation">(</span>__consumer_offsets<span class="token punctuation">)</span> <span class="token operator">=</span> Math<span class="token punctuation">.</span><span class="token function">abs</span><span class="token punctuation">(</span>groupId<span class="token punctuation">.</span><span class="token function">hashCode</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">%</span> groupMetadataTopicPartitionCount<span class="token punctuation">)</span>
+</code></pre>
+<h4 id="3-3-3-Rebalance-过程分析"><a href="#3-3-3-Rebalance-过程分析" class="headerlink" title="3.3.3 Rebalance 过程分析"></a>3.3.3 Rebalance 过程分析</h4><p>Consumer Rebalance 过程分为两步：Join 和 Sync。</p>
+<ul>
+<li>Join</li>
+</ul>
+<p>所有成员都向coordinator发送JoinGroup请求，请求加入消费组。当所有成员都发送了JoinGroup请求，coordinator会从中选择一个consumer担任leader的角色，并把组成员信息以及订阅信息发给leader——注意leader和coordinator不是一个概念。leader负责消费分配方案的制定。</p>
+<ul>
+<li>Sync</li>
+</ul>
+<p>leader开始分配消费方案，即哪个consumer负责消费哪些topic的哪些partition。分配完成后，leader会将这个方案封装进SyncGroup请求中发给coordinator，非leader也会发SyncGroup请求，只是内容为空。coordinator接收到分配方案之后会把方案塞进SyncGroup的response中发给各个consumer。这样组内的所有成员就都知道自己应该消费哪些分区了。</p>
+<h4 id="3-3-4-Rebalance-场景分析"><a href="#3-3-4-Rebalance-场景分析" class="headerlink" title="3.3.4 Rebalance 场景分析"></a>3.3.4 Rebalance 场景分析</h4><ol>
+<li>新的 Consumer 加入 Group</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FolQh0sy_XyNqHqTv3KT6Ib8AO5k" alt="新的 Consumer 加入 Group"></p>
+<ol start="2">
+<li>Group 中的Consumer 崩溃</li>
+</ol>
+<p>崩溃则是被动地发起rebalance，崩溃时成员并不会主动地告知coordinator，coordinator有可能需要一个完整的session.timeout周期(心跳周期)才能检测到这种崩溃，而且会造成consumer的滞后。</p>
+<p><img src="https://images.hnbian.cn/FnEj0GrNolFmZMyBxZANOwK5_Zfi" alt="Group 中的Consumer 崩溃"></p>
+<ol start="3">
+<li>Group 中的Consumer 主动离开 （离开组会主动地发起rebalance）</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FqzZsT7YjFed-DUkRl585a4lxgIo" alt="Group 中的Consumer 主动离开"></p>
+<ol start="4">
+<li>Offset 提交</li>
+</ol>
+<p><img src="https://images.hnbian.cn/Fh8JuD4AnPAIT7KTLozj2nT35dUX" alt="Offset 提交"></p>
+<h4 id="3-3-5-避免不必要的-Rebalance"><a href="#3-3-5-避免不必要的-Rebalance" class="headerlink" title="3.3.5 避免不必要的 Rebalance"></a>3.3.5 避免不必要的 Rebalance</h4><p>调整参数：</p>
+<p>session.timeout.ms 增大session超时时间,默认10s<br>heartbeat.interval.ms 缩短心跳时间间隔，但是会增加资源消耗<br>max.poll.interval.ms Consumer 增大两次调用poll方法的最大时间间隔，默认5min</p>
+<h3 id="3-4-Consumer-投递保证"><a href="#3-4-Consumer-投递保证" class="headerlink" title="3.4 Consumer 投递保证"></a>3.4 Consumer 投递保证</h3><ul>
+<li>Consumer消费partition 里面数据的时候是以 O(1) 顺序读取的，所以必须维护着上一次读到哪里的offset信息。</li>
+<li>high level API 的 offset 可以选择存储在 Zookeeper 或者 kafka 中。一般来说都是使用high level API 的。kafka为每条消息计算CRC校验，用于错误检测，CRC校验不通过的消息会被直接丢掉。</li>
+<li>low level API 的offset由自己维护。</li>
+</ul>
+<blockquote>
+<p>访问指定元素时无需从头遍历，通过计算便可获得对应地址，其时间复杂度为O(1)</p>
+</blockquote>
+<p>Producer向broker发送消息时，一旦这条消息被commit，因为replication的存在，它就不会丢。</p>
+<p>投递保证（Consumer delivery guarantee）有下面三种情况：</p>
+<ol>
+<li><p>At most once模式：</p>
+<ul>
+<li>消息可能会丢，但绝不会重复传输</li>
+<li>读完消息先commit再处理消息，在这种模式下，如果Consumer在commit后来没来得及处理消息就crash了，下次重新开始工作就就无法读到刚刚已提交而未处理的消息。这时这些未处理的数据就丢失了。</li>
+</ul>
+</li>
+<li><p>At least once模式（默认）：</p>
+<ul>
+<li>消息绝不会丢，但可能会重复传输</li>
+<li>Kafka默认保证 At least once，并且允许通过设置Producer异步提交来实现At most once</li>
+<li>读完消息先处理再commit。在这种模式下，如果在处理完消息之后commit之前 Consumer crash了，下次重新开始工作时还会处理刚刚未commit的消息，实际上该消息已经被处理过了，这就是导致该消息被处理多次，但不会丢数据。这种模式下数据处理相对于At most once会慢一些。</li>
+</ul>
+</li>
+<li><p>Exactly once默认：</p>
+<ul>
+<li>Exactly once 每条消息肯定会被传输一次且仅传输一次，很多时候这是用户所想要的。</li>
+<li>Exactly once要求与外部存储系统写作，幸运的是Kafka提供的offset可以非常容易的使用这种方式。</li>
+<li>如果一定要做到Exactly once 在0.11.0.0 之前的版本就需要协调offset和实际操作的输出。经典的做法是引入两个阶段提交。如果能让offset和操作输入存在同一个地方，会更简洁和通用。</li>
+</ul>
+</li>
+</ol>
+<h3 id="3-5-kafka-对offset的管理"><a href="#3-5-kafka-对offset的管理" class="headerlink" title="3.5 kafka 对offset的管理"></a>3.5 kafka 对offset的管理</h3><ul>
+<li><p>自动commit</p>
+<ul>
+<li>将Consumer设置为autocommit，即Consumer一旦读到数据立即自动commit。该操作会在Zookeeper中保存该Consumer在该Partition中读取的消息的offset。该Consumer下次再读该Partition时会从该offset位置的下一条开始读取。如未commit，下次读取的开始位置会跟上一次commit之后的开始位置相同。</li>
+</ul>
+</li>
+<li><p>手动commit</p>
+<ul>
+<li>手动commit全部offset</li>
+<li>手动commit特定partition的offset</li>
+<li>支持同步和异步commit并支持commit回调</li>
+</ul>
+</li>
+<li><p>消费流程控制 可暂停/恢复对某些Partition的消费</p>
+<ul>
+<li>pause 暂停消费指定的Partition</li>
+<li>resume 恢复对指定partition的消费</li>
+<li>wakeup 唤醒poll阻塞，并抛出WakeupException</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-6-Log-compaction"><a href="#3-6-Log-compaction" class="headerlink" title="3.6 Log compaction"></a>3.6 Log compaction</h3><h4 id="3-6-1-Log-compaction-介绍"><a href="#3-6-1-Log-compaction-介绍" class="headerlink" title="3.6.1 Log compaction 介绍"></a>3.6.1 Log compaction 介绍</h4><p>Log Compaction是kafka提供的一种整理offset数据的方式。Log Compaction对于有相同key的的不同value值，只保留最后一个版本。如果应用只关心key对应的最新value值，可以开启Kafka的日志清理功能，Kafka会定期将相同key的消息进行合并，只保留最新的value值。</p>
+<p><img src="https://images.hnbian.cn/Fmko6EF7W0-MoYGZh50l3ByV0KI1" alt="Log compaction效果"></p>
+<p>如果一个系统使用Kafka来保存topic消费数据的状态，每次有状态变更都会将其写入Kafka中。当某一时刻此系统异常崩溃，需要在恢复阶段通过读取Kafka中的消息来恢复其应有的状态，那么此时系统关心的是它原本的最新状态而不是历史时刻中的每一个状态。如果Kafka的日志保存策略是日志删除（Log Deletion），那么系统势必要一股脑的读取Kafka中的所有数据来恢复，而如果日志保存策略是Log Compaction，那么可以减少数据的加载量进而加快系统的恢复速度。Log Compaction在某些应用场景下可以简化技术栈，提高系统整体的质量。</p>
+<p>Log Compaction执行前后，日志分段中的每条消息的偏移量和写入时的保持一致。Log Compaction会生成新的日志分段文件，日志分段中每条消息的物理位置会重新按照新文件来组织。Log Compaction执行过后的偏移量不再是连续的，会将大量过期数据过滤掉保留最新数据，大大增加了查询速度。Kafka中用于保存消费者消费位移的主题 “ <strong>__consumer_offsets</strong> “ 使用的就是Log Compaction策略。</p>
+<h4 id="3-6-2-Log-compaction-筛选文件"><a href="#3-6-2-Log-compaction-筛选文件" class="headerlink" title="3.6.2 Log compaction 筛选文件"></a>3.6.2 Log compaction 筛选文件</h4><p>在配置文件中可以通过配置log.dir或者log.dirs参数来设置Kafka日志的存放目录，而对于每一个日志目录下都有一个名为 “<strong>cleaner-offset-checkpoint</strong>” 的文件，这个文件就是清理检查点文件，用来记录每个主题的每个分区中已清理的偏移量。</p>
+<p><img src="https://images.hnbian.cn/FpCzh_y3LYNX91MwQ1wkUYf1fM9h" alt="Log compaction offset 分段划分"></p>
+<p>如上图通过检查点日志文件（Log）分成两个部分：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>说明</th>
+<th>范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>clean<br>部分</td>
+<td>已经清理过，clean部分的消息偏移量是断续的</td>
+<td>[logStartOffset,firstDirtyOffset)</td>
+</tr>
+<tr>
+<td>dirty<br>部分</td>
+<td>还未清理的，在日志清理的同时，客户端也会读取日志，dirty部分的消息偏移量是逐一递增的，如果客户端总能赶上dirty部分，它就能读取到日志的所有消息，反之，就不可能读到全部的消息。</td>
+<td>[firstDirtyOffset,firstUncleanableOffset)</td>
+</tr>
+</tbody></table>
+<p>activeSegment：当前活跃的日志文件，为避免activeSegment成为热点文件，activeSegment不会参与Log Compaction的操作。</p>
+<p>同时Kafka支持通过参数<strong>log.cleaner.min.compaction.lag.ms</strong>（默认值为0）来配置消息在被清理前的最小保留时间，默认情况下firstUncleanableOffset等于activeSegment的baseOffset。</p>
+<p>Log Compaction是针对key的，所以在使用时应注意每个消息的key值不为null。每个broker会启动<strong>log.cleaner.thread</strong>（默认值为1）个日志清理线程负责执行清理任务，这些线程会选择“污浊率”最高的日志文件进行清理。日志的污浊率为：</p>
+<pre class=" language-java"><code class="language-java"><span class="token comment" spellcheck="true">// dirtyRatio 表示日志的污浊率</span>
+<span class="token comment" spellcheck="true">// cleanBytes 表示clean部分的日志占用大小</span>
+<span class="token comment" spellcheck="true">// dirtyBytes 表示dirty部分的日志占用大小</span>
+dirtyRatio <span class="token operator">=</span> dirtyBytes <span class="token operator">/</span> <span class="token punctuation">(</span>cleanBytes <span class="token operator">+</span> dirtyBytes<span class="token punctuation">)</span></code></pre>
+<p>为了防止日志不必要的频繁清理操作，Kafka还使用了参数 <strong>log.cleaner.min.cleanable.ratio</strong>（默认值为0.5）来限定可进行清理操作的最小污浊率。</p>
+<h4 id="3-6-3-Log-compaction-筛选key"><a href="#3-6-3-Log-compaction-筛选key" class="headerlink" title="3.6.3 Log compaction 筛选key"></a>3.6.3 Log compaction 筛选key</h4><p>Kafka中的每个日志清理线程会使用一个名为“SkimpyOffsetMap”的对象来构建 key与offset 的映射关系的哈希表。日志清理需要遍历两次日志文件，</p>
+<ul>
+<li>第一次遍历把每个key的哈希值和最后出现的offset都保存在SkimpyOffsetMap中，映射模型如下图所示。</li>
+<li>第二次遍历检查每个消息是否符合保留条件，如果符合就保留下来，否则就会被清理掉。</li>
+</ul>
+<p>假设一条消息的offset为O1，这条消息的key在SkimpyOffsetMap中所对应的offset为O2，如果O1&gt;=O2即为满足保留条件。</p>
+<p><img src="https://images.hnbian.cn/FurybANDys_SI2GECbt2jUyQueP8" alt="SkimpyOffsetMap中的映射关系"></p>
+<p>其中<a href="https://blog.51cto.com/helloleex/1770568" target="_blank" rel="noopener">使用线性探测法处理哈希冲突</a></p>
+<p>默认情况下SkimpyOffsetMap使用MD5来计算key的哈希值，占用空间大小为16B，根据这个哈希值来从SkimpyOffsetMap中找到对应的槽位，如果发生冲突则用线性探测法处理。为了防止哈希冲突过于频繁，我们也可以通过broker端参数<strong>log.cleaner.io.buffer.load.factor</strong>（默认值为0.9）来调整负载因子。偏移量占用空间大小为8B，故一个映射项占用大小为24B。</p>
+<p>每个日志清理线程的SkimpyOffsetMap的内存占用大小为log.cleaner.dedupe.buffer.size / log.cleaner.thread，默认值为 = 128MB/1 = 128MB。所以默认情况下SkimpyOffsetMap可以保存128MB * 0.9 /24B ≈ 5033164个key的记录。假设每条消息的大小为1KB，那么这个SkimpyOffsetMap可以用来映射4.8GB的日志文件，而如果有重复的key，那么这个数值还会增大，整体上来说SkimpyOffsetMap极大的节省了内存空间且非常高效。</p>
+<p>Kafka中提供了一个墓碑消息（tombstone）的概念，如果一条消息的key不为null，但是其value为null，那么此消息就是墓碑消息。日志清理线程发现墓碑消息时会先进行常规的清理，并保留墓碑消息一段时间。墓碑消息的保留条件是当前墓碑消息所在的日志分段的最近修改时间lastModifiedTime大于deleteHorizonMs，这个deleteHorizonMs的计算方式为clean部分中最后一个日志分段的最近修改时间减去保留阈值deleteRetionMs（通过broker端参数log.cleaner.delete.retention.ms配置，默认值为86400000，即24小时）的大小，即：</p>
+<pre class=" language-java"><code class="language-java">deleteHorizonMs <span class="token operator">=</span> clean部分中最后一个LogSegment的lastModifiedTime <span class="token operator">-</span> deleteRetionMs</code></pre>
+<p>所以墓碑消息的保留条件为所在LogSegment的：</p>
+<pre class=" language-java"><code class="language-java">
+lastModifiedTime <span class="token operator">></span> deleteHorizonMs
+也等于 
+lastModifiedTime <span class="token operator">></span> clean部分中最后一个LogSegment的lastModifiedTime <span class="token operator">-</span> deleteRetionMs
+也等于
+lastModifiedTime <span class="token operator">+</span> deleteRetionMs <span class="token operator">></span> clean部分中最后一个LogSegment的lastModifiedTime
+</code></pre>
+<p>Log Compaction执行过后的日志分段的大小会比原先的日志分段的要小，为了防止出现太多的小文件，Kafka在实际清理过程中并不对单个的日志分段进行单独清理，而是会将日志文件中offset从0至firstUncleanableOffset的所有日志分段进行分组，每个日志分段只属于一组，分组策略为：按照日志分段的顺序遍历，每组中日志分段的占用空间大小之和不超过segmentSize（可以通过broker端参数log.segments.bytes设置，默认值为1GB），且对应的索引文件占用大小之和不超过maxIndexSize（可以通过broker端参数log.index.interval.bytes设置，默认值为10MB）。同一个组的多个日志分段清理过后，只会生成一个新的日志分段。</p>
+<p><img src="https://images.hnbian.cn/Fh4NTgsJ0aMRu82OjShfaGwLUW_a" alt></p>
+<p>参考上图，假设所有的参数配置都为默认值，在Log Compaction之前checkpoint的初始值为0。</p>
+<ul>
+<li>执行第一次Log Compaction之后，每个非活跃的日志分段的大小都有所缩减，checkpoint的值也有所变化。</li>
+<li>执行第二次Log Compaction时会将组队成[0.4GB, 0.4GB]、[0.3GB, 0.7GB]、[0.3GB]、[1GB]这4个分组，并且从第二次Log Compaction开始还会涉及墓碑消息的清除。</li>
+<li>执行第三次Log Compaction过后的情形可参考上图尾部。</li>
+</ul>
+<p>Log Compaction <strong>过程中</strong> 会将对每个日志分组中需要保留的消息拷贝到一个以“.clean”为后缀的临时文件中，此临时文件以当前日志分组中第一个日志分段的文件名命名，例如：000000000000000.log.clean。<br>Log Compaction <strong>完成后</strong> 会将 “.clean” 的文件修改为以 “.swap” 后缀的文件，例如：000000000000000.log.swap，然后删除掉原本的日志文件，<br>最后才把文件的“.swap”后缀去掉，整个过程中的索引文件的变换也是如此，至此一个完整Log Compaction操作才算完成。</p>
+<h3 id="3-7-Consumer-API"><a href="#3-7-Consumer-API" class="headerlink" title="3.7 Consumer API"></a>3.7 Consumer API</h3><p>在1.0版本之前的kafka版本中，kafka Consumer封装了两种API供用户使用：<strong>High-level API</strong> 和 <strong>Low-level API</strong>。而在1.0 版本之后将两种 API 进行合并优化。</p>
+<h4 id="3-7-1-High-level-API"><a href="#3-7-1-High-level-API" class="headerlink" title="3.7.1 High-level API"></a>3.7.1 High-level API</h4><ul>
+<li>封装了对集群中一些列broker的访问，可以透明的消费一个topic。它自己维护了已消费消息的状态，即每次消费的都是下一条数据。</li>
+<li>还支持以组的方式消费topic，如果多个consumer在同一个consumer group内，那么kafka就相当于一个队列消息服务，而各个consumer均衡的消费响应partition的数据，若多个不同的consumer group同时消费一个topic数据，group之间也不会互相干扰。</li>
+<li>consumer读取partition的offset是存在zookeeper上的（Kafka 0.8.2 版本中引入了native offset storage，将offset管理从zookeeper移出）在消费数据时也有几种模式。详细说明见 Consumer 投递保证章节。</li>
+</ul>
+<ul>
+<li>offset 相关参数配置</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>参考值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>auto.commit.enable</td>
+<td>是否自动提交offset</td>
+<td>true</td>
+</tr>
+<tr>
+<td>auto.commit.interval.ms</td>
+<td>自从commit时间间隔</td>
+<td>60*1000</td>
+</tr>
+<tr>
+<td>offsets.storage</td>
+<td>offset存储位置</td>
+<td>zookeeper</td>
+</tr>
+<tr>
+<td>dual.commit.enabled</td>
+<td>当offsets.storage=kafka时需要加上此参数（true）</td>
+<td>true</td>
+</tr>
+<tr>
+<td>ConsumerConnector.commitOffsets();</td>
+<td>手工管理offset</td>
+<td></td>
+</tr>
+</tbody></table>
+<ul>
+<li>代码示例</li>
+</ul>
+<pre class=" language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.kafka<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>kafka-clients<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>0.9.0.1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span></code></pre>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>Consumer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>ConsumerRecord<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>ConsumerRecords<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>KafkaConsumer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>serialization<span class="token punctuation">.</span>StringDeserializer<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Arrays<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>HashMap<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Properties<span class="token punctuation">;</span>
+
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">KafkaComsumer</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">final</span> String KAFKA_BOOTSTRAP_SERVERS <span class="token operator">=</span> <span class="token string">"node1:9092,node2:9092,node3:9092"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test1"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">final</span> String KAFKA_CONSUMER_GROUPID <span class="token operator">=</span> <span class="token string">"groupb"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> KafkaConsumer<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span> consumer <span class="token operator">=</span> null<span class="token punctuation">;</span>
+    <span class="token keyword">private</span> ConsumerRecords<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span> msgList<span class="token punctuation">;</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        KafkaComsumer dataConsumer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">KafkaComsumer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        dataConsumer<span class="token punctuation">.</span><span class="token function">consumer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">}</span>
+    <span class="token keyword">public</span> <span class="token function">KafkaComsumer</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        Properties props <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"bootstrap.servers"</span><span class="token punctuation">,</span> KAFKA_BOOTSTRAP_SERVERS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"group.id"</span><span class="token punctuation">,</span> KAFKA_CONSUMER_GROUPID<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"enable.auto.commit"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"zookeeper.session.timeout.ms"</span><span class="token punctuation">,</span> <span class="token string">"50000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"key.deserializer"</span><span class="token punctuation">,</span> StringDeserializer<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"value.deserializer"</span><span class="token punctuation">,</span> StringDeserializer<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">.</span><span class="token function">getName</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"auto.offset.reset"</span><span class="token punctuation">,</span> <span class="token string">"earliest"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>consumer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">KafkaConsumer</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span><span class="token punctuation">(</span>props<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>consumer<span class="token punctuation">.</span><span class="token function">subscribe</span><span class="token punctuation">(</span>Arrays<span class="token punctuation">.</span><span class="token function">asList</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">consumer</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">int</span> messageNo <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+        Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> Integer<span class="token operator">></span> deviceMap <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">HashMap</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> Integer<span class="token operator">></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">try</span> <span class="token punctuation">{</span>
+            <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token punctuation">;</span> <span class="token punctuation">;</span> <span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                msgList <span class="token operator">=</span> consumer<span class="token punctuation">.</span><span class="token function">poll</span><span class="token punctuation">(</span><span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span>null <span class="token operator">!=</span> msgList <span class="token operator">&amp;&amp;</span> msgList<span class="token punctuation">.</span><span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                    <span class="token keyword">for</span> <span class="token punctuation">(</span>ConsumerRecord<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span> record <span class="token operator">:</span> msgList<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>record<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string">","</span> <span class="token operator">+</span> record<span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token string">","</span> <span class="token operator">+</span> record<span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">}</span>
+                <span class="token punctuation">}</span> 
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> 
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 id="3-7-2-Low-level-API"><a href="#3-7-2-Low-level-API" class="headerlink" title="3.7.2 Low-level API"></a>3.7.2 Low-level API</h4><ul>
+<li><p>consumer 消费 partition数据的offset在consumer自己的程序中维护。这样的好处是因为offset是我们自己维护的，如果某个数据消费出现了异常，可以对异常消费数据进特殊处理。这样可以做到 exactly once 对数据的准确性有保证。</p>
+</li>
+<li><p>一般不会将offset信息同步到zookeeper上。但是为了kafkamanager能够方便监控，也会手动的同步到zookeeper上。</p>
+</li>
+<li><p>使用Low-level API 的主要原因是，用户比Consumer Group更好的控制数据的消费。</p>
+<ul>
+<li>同一条消息读多次，方便replay</li>
+<li>只消费某个topic的部分Partition</li>
+<li>管理事务，从而确保每条消息只被处理一次（Exactly once）</li>
+</ul>
+</li>
+<li><p>与High-level API相比 Low-level API 要求用户做大量额外的工作</p>
+<ul>
+<li>在应用程序中跟踪处理offset，并决定下一条消息是哪条消息。</li>
+<li>获知每个Partition的Leader</li>
+<li>处理Leader的变化</li>
+<li>处理多Consumer的协作</li>
+</ul>
+</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> kafka<span class="token punctuation">.</span>api<span class="token punctuation">.</span>FetchRequestBuilder<span class="token punctuation">;</span>
+<span class="token keyword">import</span> kafka<span class="token punctuation">.</span>api<span class="token punctuation">.</span>FetchRequest<span class="token punctuation">;</span>
+<span class="token keyword">import</span> kafka<span class="token punctuation">.</span>javaapi<span class="token punctuation">.</span>FetchResponse<span class="token punctuation">;</span>
+<span class="token keyword">import</span> kafka<span class="token punctuation">.</span>javaapi<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>SimpleConsumer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> kafka<span class="token punctuation">.</span>javaapi<span class="token punctuation">.</span>message<span class="token punctuation">.</span>ByteBufferMessageSet<span class="token punctuation">;</span>
+<span class="token keyword">import</span> kafka<span class="token punctuation">.</span>message<span class="token punctuation">.</span>MessageAndOffset<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>nio<span class="token punctuation">.</span>ByteBuffer<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description 旧的Low-level api 
+ *              kafka 1.0 之后已经标示这些api为过期状态
+ * @Date 2020-02-15 14:16
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">LowLevelConsumerOld</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test4"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> bath <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">try</span><span class="token punctuation">{</span>
+            String clientId <span class="token operator">=</span> <span class="token string">"LowLevelConsumerOld"</span><span class="token punctuation">;</span>
+            <span class="token comment" spellcheck="true">//,hnode2,hnode3</span>
+            SimpleConsumer simpleConsumer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">SimpleConsumer</span><span class="token punctuation">(</span><span class="token string">"hnode3"</span><span class="token punctuation">,</span><span class="token number">9092</span><span class="token punctuation">,</span><span class="token number">1000</span><span class="token punctuation">,</span><span class="token number">64</span><span class="token operator">*</span><span class="token number">1000</span><span class="token punctuation">,</span>clientId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            FetchRequest req <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">FetchRequestBuilder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">clientId</span><span class="token punctuation">(</span>clientId<span class="token punctuation">)</span>
+                    <span class="token punctuation">.</span><span class="token function">addFetch</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">,</span>30L<span class="token punctuation">,</span><span class="token number">1000000</span><span class="token punctuation">)</span>
+                    <span class="token punctuation">.</span><span class="token function">addFetch</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span>0L<span class="token punctuation">,</span><span class="token number">1000000</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            FetchResponse fetchResponse <span class="token operator">=</span> simpleConsumer<span class="token punctuation">.</span><span class="token function">fetch</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            ByteBufferMessageSet messageSet0 <span class="token operator">=</span>  <span class="token punctuation">(</span>ByteBufferMessageSet<span class="token punctuation">)</span>fetchResponse<span class="token punctuation">.</span><span class="token function">messageSet</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            ByteBufferMessageSet messageSet1 <span class="token operator">=</span>  <span class="token punctuation">(</span>ByteBufferMessageSet<span class="token punctuation">)</span>fetchResponse<span class="token punctuation">.</span><span class="token function">messageSet</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>messageSet0<span class="token punctuation">.</span><span class="token function">sizeInBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token keyword">for</span><span class="token punctuation">(</span>MessageAndOffset messageAndOffset<span class="token operator">:</span> messageSet0<span class="token punctuation">)</span><span class="token punctuation">{</span>
+                ByteBuffer payload <span class="token operator">=</span>  messageAndOffset<span class="token punctuation">.</span><span class="token function">message</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">payload</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">long</span> offset <span class="token operator">=</span> messageAndOffset<span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> bytes <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">byte</span><span class="token punctuation">[</span>payload<span class="token punctuation">.</span><span class="token function">limit</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+                payload<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>bytes<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"offset="</span><span class="token operator">+</span>offset<span class="token operator">+</span><span class="token string">", payload="</span><span class="token operator">+</span><span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>bytes<span class="token punctuation">,</span><span class="token string">"UTF-8"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+
+        <span class="token punctuation">}</span><span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span><span class="token punctuation">{</span>
+            e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-7-3-最新API"><a href="#3-7-3-最新API" class="headerlink" title="3.7.3 最新API"></a>3.7.3 最新API</h4><p>在1.0 以及之后的版本中kafka将 High-level API 与Low-level API 进行了统一，以及下面一些变化：</p>
+<ol>
+<li>将kafka.consumer和kafka.javaapi 两个包合并到kafka.clients.conumer中</li>
+<li>支持 subscribe 动态rebalance 和 assign 手动分配partition</li>
+<li>支持将offset存储与kafka和Zookeeper之外的存储中</li>
+<li>ConsumerRebalanceListener</li>
+<li>控制消费位置：通过API 控制从某个位置开始消费</li>
+<li>控制消费流程：可以指定暂停某个partition的消费但是可以将继续消费其他partition </li>
+</ol>
+<ul>
+<li>subscribe 方式，相当于 High-level API 代码示例</li>
+</ul>
+<pre class=" language-java"><code class="language-java">
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>TopicPartition<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Arrays<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Collections<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>List<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Properties<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description 消费并提交指定分区的offset
+ * @Date 2020-02-15 21:05
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">ConsumerAPINewSubscribePartition</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_BOOTSTRAP_SERVERS <span class="token operator">=</span> <span class="token string">"hnode1:9092,hnode2:9092,hnode3:9092"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test1"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> batch <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        Properties props <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>BOOTSTRAP_SERVERS_CONFIG<span class="token punctuation">,</span> KAFKA_BOOTSTRAP_SERVERS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>GROUP_ID_CONFIG<span class="token punctuation">,</span> <span class="token string">"DemoConsumer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">//是否开启自动提交</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>ENABLE_AUTO_COMMIT_CONFIG<span class="token punctuation">,</span> <span class="token string">"false"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">//每次取出的数据最大数</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>MAX_POLL_RECORDS_CONFIG<span class="token punctuation">,</span> batch<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>AUTO_COMMIT_INTERVAL_MS_CONFIG<span class="token punctuation">,</span> <span class="token string">"1000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>SESSION_TIMEOUT_MS_CONFIG<span class="token punctuation">,</span> <span class="token string">"30000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>KEY_DESERIALIZER_CLASS_CONFIG<span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringDeserializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>VALUE_DESERIALIZER_CLASS_CONFIG<span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringDeserializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"auto.AotoCommitDemo.reset"</span><span class="token punctuation">,</span> <span class="token string">"latest"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        KafkaConsumer<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> consumer<span class="token operator">=</span><span class="token keyword">new</span> <span class="token class-name">KafkaConsumer</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span><span class="token punctuation">(</span>props<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        consumer<span class="token punctuation">.</span><span class="token function">assign</span><span class="token punctuation">(</span>Arrays<span class="token punctuation">.</span><span class="token function">asList</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">TopicPartition</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+        <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+            ConsumerRecords<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> records<span class="token operator">=</span>consumer<span class="token punctuation">.</span><span class="token function">poll</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment" spellcheck="true">//根据分区消费数据</span>
+            records<span class="token punctuation">.</span><span class="token function">partitions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span>topicPartition <span class="token operator">-</span><span class="token operator">></span> <span class="token punctuation">{</span>
+                List<span class="token operator">&lt;</span>ConsumerRecord<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">>></span> partitionRecords<span class="token operator">=</span> records<span class="token punctuation">.</span><span class="token function">records</span><span class="token punctuation">(</span>topicPartition<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                partitionRecords<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span>record<span class="token operator">-</span><span class="token operator">></span><span class="token punctuation">{</span>
+                    System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"partition: %s,offset: %s,key: %s,key: %s \n"</span><span class="token punctuation">,</span>
+                            record<span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">key</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                <span class="token comment" spellcheck="true">//从已有的最早的数据开始消费</span>
+                <span class="token comment" spellcheck="true">//consumer.beginningOffsets()</span>
+
+                <span class="token comment" spellcheck="true">//从最后的数据开始消费</span>
+                <span class="token comment" spellcheck="true">//consumer.endOffsets()</span>
+
+                <span class="token comment" spellcheck="true">//指定从哪条数据开始消费</span>
+                <span class="token comment" spellcheck="true">//consumer.seek();</span>
+
+              <span class="token keyword">long</span> lastOffset <span class="token operator">=</span> partitionRecords<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>partitionRecords<span class="token punctuation">.</span><span class="token function">size</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+              consumer<span class="token punctuation">.</span><span class="token function">commitSync</span><span class="token punctuation">(</span>Collections<span class="token punctuation">.</span><span class="token function">singletonMap</span><span class="token punctuation">(</span>topicPartition<span class="token punctuation">,</span><span class="token keyword">new</span> <span class="token class-name">OffsetAndMetadata</span><span class="token punctuation">(</span>lastOffset <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<ul>
+<li>assign 方式，相当于 Low-level API 代码示例</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>ConsumerConfig<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>ConsumerRecords<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>KafkaConsumer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>clients<span class="token punctuation">.</span>consumer<span class="token punctuation">.</span>OffsetAndMetadata<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>kafka<span class="token punctuation">.</span>common<span class="token punctuation">.</span>TopicPartition<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Arrays<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Properties<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>concurrent<span class="token punctuation">.</span>atomic<span class="token punctuation">.</span>AtomicLong<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * @Author haonan.bian
+ * @Description //TODO
+ * @Date 2020-02-15 20:26
+ **/</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">ConsumerAPINewAssign</span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_BOOTSTRAP_SERVERS <span class="token operator">=</span> <span class="token string">"hnode1:9092,hnode2:9092,hnode3:9092"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String KAFKA_TOPIC<span class="token operator">=</span> <span class="token string">"test1"</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> bath <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        Properties props <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>BOOTSTRAP_SERVERS_CONFIG<span class="token punctuation">,</span> KAFKA_BOOTSTRAP_SERVERS<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">//是否开启自动提交</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>ENABLE_AUTO_COMMIT_CONFIG<span class="token punctuation">,</span> <span class="token string">"false"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">//每次取出的数据最大数</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>MAX_POLL_RECORDS_CONFIG<span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>AUTO_COMMIT_INTERVAL_MS_CONFIG<span class="token punctuation">,</span> <span class="token string">"1000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>SESSION_TIMEOUT_MS_CONFIG<span class="token punctuation">,</span> <span class="token string">"30000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>KEY_DESERIALIZER_CLASS_CONFIG<span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringDeserializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span>ConsumerConfig<span class="token punctuation">.</span>VALUE_DESERIALIZER_CLASS_CONFIG<span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringDeserializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"auto.AotoCommitDemo.reset"</span><span class="token punctuation">,</span> <span class="token string">"latest"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        KafkaConsumer<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> consumer<span class="token operator">=</span><span class="token keyword">new</span> <span class="token class-name">KafkaConsumer</span><span class="token operator">&lt;</span>String<span class="token punctuation">,</span> String<span class="token operator">></span><span class="token punctuation">(</span>props<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        consumer<span class="token punctuation">.</span><span class="token function">assign</span><span class="token punctuation">(</span>Arrays<span class="token punctuation">.</span><span class="token function">asList</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">TopicPartition</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token keyword">new</span> <span class="token class-name">TopicPartition</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token keyword">new</span> <span class="token class-name">TopicPartition</span><span class="token punctuation">(</span>KAFKA_TOPIC<span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        AtomicLong atomicLong <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AtomicLong</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+
+            <span class="token comment" spellcheck="true">//超时时间过后如果没有返回数据进行下一次轮询，</span>
+            ConsumerRecords<span class="token operator">&lt;</span>String<span class="token punctuation">,</span>String<span class="token operator">></span> records<span class="token operator">=</span>consumer<span class="token punctuation">.</span><span class="token function">poll</span><span class="token punctuation">(</span><span class="token number">10000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>records<span class="token punctuation">.</span><span class="token function">count</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            records<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span>record<span class="token operator">-</span><span class="token operator">></span> System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"partition: %s,offset: %s,key: %s,key: %s \n"</span><span class="token punctuation">,</span>
+                    record<span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">key</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>record<span class="token punctuation">.</span><span class="token function">value</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+            <span class="token keyword">if</span><span class="token punctuation">(</span>atomicLong<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">%</span> <span class="token number">10</span> <span class="token operator">==</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+                <span class="token comment" spellcheck="true">//consumer.commitSync(); //同步提交，待提交成功后返回，否则会阻塞在这里</span>
+
+                <span class="token comment" spellcheck="true">//异步提交</span>
+                consumer<span class="token punctuation">.</span><span class="token function">commitAsync</span><span class="token punctuation">(</span><span class="token punctuation">(</span>Map<span class="token operator">&lt;</span> TopicPartition<span class="token punctuation">,</span>OffsetAndMetadata <span class="token operator">></span> offsets<span class="token punctuation">,</span>Exception ex<span class="token punctuation">)</span><span class="token operator">-</span><span class="token operator">></span><span class="token punctuation">{</span>
+                    offsets<span class="token punctuation">.</span><span class="token function">forEach</span><span class="token punctuation">(</span><span class="token punctuation">(</span>TopicPartition partition<span class="token punctuation">,</span>OffsetAndMetadata offset<span class="token punctuation">)</span><span class="token operator">-</span><span class="token operator">></span><span class="token punctuation">{</span>
+                        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"commit topic"</span><span class="token operator">+</span>partition<span class="token punctuation">.</span><span class="token function">topic</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token string">", partition "</span><span class="token operator">+</span>partition<span class="token punctuation">.</span><span class="token function">partition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">+</span><span class="token string">", offset "</span><span class="token operator">+</span>offset<span class="token punctuation">.</span><span class="token function">offset</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+                    <span class="token keyword">if</span><span class="token punctuation">(</span>null <span class="token operator">!=</span> ex <span class="token punctuation">)</span><span class="token punctuation">{</span>
+                        ex<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                    <span class="token punctuation">}</span>
+                <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+
+        <span class="token punctuation">}</span>
+
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<p>参考资料：<br><a href="https://blog.csdn.net/u013256816/article/details/80865540" target="_blank" rel="noopener">https://blog.csdn.net/u013256816/article/details/80865540</a><br><a href="https://blog.csdn.net/u013256816/article/details/80487758" target="_blank" rel="noopener">https://blog.csdn.net/u013256816/article/details/80487758</a><br><a href="https://www.infoq.cn/article/kafka-analysis-part-3" target="_blank" rel="noopener">https://www.infoq.cn/article/kafka-analysis-part-3</a><br><a href="https://www.cnblogs.com/yoke/p/11405397.html#autoid-0-5-0" target="_blank" rel="noopener">https://www.cnblogs.com/yoke/p/11405397.html#autoid-0-5-0</a></p>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/a028cfba.html">https://www.hnbian.cn/posts/a028cfba.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/kafka/">
+                                    <span class="chip bg-color">kafka</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/9a99cbec.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fq2QEF5m-tkicCZOlwg_M8NavOV3" class="responsive-img" alt="Kafka总结（二）常见组件下 Topic、Partition等介绍">
+                        
+                        <span class="card-title">Kafka总结（二）常见组件下 Topic、Partition等介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. CAP理论分布式系统中,一致性,可用性,分区容忍性大多数情况下只能同时满足两个，一般分区容忍性都要有保障，因此很多时候是在可用性可一致性之间做权衡。
+
+一致性(Consistency)
+
+通过某个节点的写操作结果对后面通过其他节点的读
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-02-10
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/kafka/" class="post-category">
+                                    kafka
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/kafka/">
+                        <span class="chip bg-color">kafka</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/6c75ec58.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FrJEXjUsTh5thOWEEhqtH6rtasu_" class="responsive-img" alt="Kafka总结（一）kafka部署与架构介绍">
+                        
+                        <span class="card-title">Kafka总结（一）kafka部署与架构介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Apache Kafka介绍Kafka 是最初由Linkedin公司开发，是一个分布式、支持分区（partition）、多副本的（replica），基于zookeeper协调的分布式消息系统。它的最大特性就是可以实时的处理大量数据，以
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-02-07
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/kafka/" class="post-category">
+                                    kafka
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/kafka/">
+                        <span class="chip bg-color">kafka</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,1555 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Spark RDD 的介绍, hnbian">
+    <meta name="description" content="1. 什么是RDD传统的MapReduce 虽然有自动容错，平衡负载和可扩展的优点，但是其最大的缺点是在迭代计算的时候，要进行大量的磁盘IO操作，而RDD正是解决这一缺点的抽象方法。RDD (Resilient Distributed Da">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Spark RDD 的介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FnzXTK6wEOCd_hvAcHZvi2Yx_-kU')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Spark RDD 的介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/sparkCore/">
+                                <span class="chip bg-color">sparkCore</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2018-01-07
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    16 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-什么是RDD"><a href="#1-什么是RDD" class="headerlink" title="1. 什么是RDD"></a>1. 什么是RDD</h2><p>传统的MapReduce 虽然有自动容错，平衡负载和可扩展的优点，但是其最大的缺点是在迭代计算的时候，要进行大量的磁盘IO操作，而RDD正是解决这一缺点的抽象方法。RDD (Resilient Distributed Datasets) 即弹性分布式数据集，RDD是不可变的，如果运行RDD的节点故障，Driver会重建RDD并指派到新的节点上，在计算过程中，数据一直都是静态的。在RDD算子计算过程中会尽可能的将数据存在内存当中，如果数据增长超过限制会将数据写到磁盘，绝大多数的RDD的处理会在内存中进行，这也是Spark能够高速计算的原因之一。RDD是强类型的。</p>
+<ul>
+<li>Resilient（弹性）：</li>
+</ul>
+<p>1.当计算过程中内存不足时可以刷写到磁盘等外存上，可与外部存储做灵活的数据交换；<br>2.RDD使用了一种“血统”的容错机制，在结构更新和丢失后可随时根据血统进行数据模型的重建</p>
+<ul>
+<li><p>Distributed（分布式）：<br>数据可以分布在多台机器上，并进行并行计算</p>
+</li>
+<li><p>Datasets（数据集）：<br>一组只读的、可分区的分布式数据集。集合内包含了多个分区。分区依照特定规则将具有相同属性的数据记录放在一起，每个分区相当于一个数据集片段。</p>
+</li>
+</ul>
+<h2 id="2-RDD-内部结构"><a href="#2-RDD-内部结构" class="headerlink" title="2. RDD 内部结构"></a>2. RDD 内部结构</h2><p><img src="https://images.hnbian.cn/FhKFQCTtxpsBQjP5forcprBBjZb5" alt="RDD的内部结构"></p>
+<p>RDD是一个只读的，有属性的数据集。它的属性用来描述当前数据集的状态，数据集由数据的分区（partition）组成，并由块（block）映射成真实数据。</p>
+<p>RDD的主要属性可分为3类：</p>
+<ol>
+<li>与其他RDD的关系（容错）（parents，dependencies）；</li>
+<li>数据（partitioner，checkpoint，storage level，iterator 等）；</li>
+<li>RDD自身属性（SparkContext，SparkConf），</li>
+</ol>
+<h2 id="3-RDD-的自身属性"><a href="#3-RDD-的自身属性" class="headerlink" title="3. RDD 的自身属性"></a>3. RDD 的自身属性</h2><h3 id="3-1-SparkContext"><a href="#3-1-SparkContext" class="headerlink" title="3.1 SparkContext"></a>3.1 SparkContext</h3><p>SparkContext是Spark job 的入口，由Driver 创建在Client端，包括集群链接、RDD ID 、累加器、广播变量等信息。</p>
+<h3 id="3-2-SparkConf"><a href="#3-2-SparkConf" class="headerlink" title="3.2 SparkConf"></a>3.2 SparkConf</h3><p>SparkConf是参数配置信息，包括：</p>
+<ul>
+<li>Spark api：控制大部分的应用程序参数</li>
+<li>环境变量：配置IP地址、端口等信息</li>
+<li>日志配置：通过log4g.properties 配置。</li>
+</ul>
+<h2 id="4-RDD-数据相关属性"><a href="#4-RDD-数据相关属性" class="headerlink" title="4.RDD 数据相关属性"></a>4.RDD 数据相关属性</h2><h3 id="4-1-分区（Partition）"><a href="#4-1-分区（Partition）" class="headerlink" title="4.1 分区（Partition）"></a>4.1 分区（Partition）</h3><p>RDD 内部的数据集在逻辑上和物理上被划分成多个小子集合，这样的每一个子集合我们将其称为一个分区（Partition），分区的个数会决定并行计算的粒度，而每一个分区数值的计算都是在一个单独的任务中进行的，因此并行任务的个数也是有RDD的分区个数决定的。但事实上RDD只是数据集的抽象，分区内部并不会存储具体的数据。Partition类内包含一个index成员，表示该分区在RDD内的编号，通过RDD编号+分区编号可以确定该分区对应的唯一块编号，再利用底层数据存储层提供的接口就能从存储介质（如：HDFS、Memory）中提取出分区对应的数据。<br>RDD的分区方式主要包含两种：Hash Partitioner 和 Range Partitioner，这两种分区都是针对 key-value类型的数据，如果不是 key-value 类型则分区函数为None。</p>
+<ul>
+<li>Hash Partitioner：以key作为分区条件的散列分布，分区数据不连续，极端情况也可能散列到少数几个分区上导致数据不均等；</li>
+<li>Range Partitioner：按照key的平均分布，分区数据连续，大小也相对均匀等。</li>
+</ul>
+<h3 id="4-2-首选位置（Preferred-Location）"><a href="#4-2-首选位置（Preferred-Location）" class="headerlink" title="4.2 首选位置（Preferred Location）"></a>4.2 首选位置（Preferred Location）</h3><p>Preferred Location 是一个列表，用于存储每个Partition的优先位置。对于每个HDFS文件来说，这个列表保存的是每个partition所在的位置，也就是该文件的划分点。</p>
+<h3 id="4-3-持久化"><a href="#4-3-持久化" class="headerlink" title="4.3 持久化"></a>4.3 持久化</h3><h4 id="4-3-1-存储级别（Storage-Level）"><a href="#4-3-1-存储级别（Storage-Level）" class="headerlink" title="4.3.1 存储级别（Storage Level）"></a>4.3.1 存储级别（Storage Level）</h4><p>Storage Level 是RDD持久化的存储级别，RDD持久化可以调用两个方法：cache 和 persist</p>
+<ul>
+<li>persist：可以自由设置存储级别，默认是持久化到内存。</li>
+<li>cache：将RDD持久化到内存，cache内部实际上是调用了persist方法，由于没有开放存储级别的参数，所以是直接持久化到内存。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>存储级别</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MEMORY_ONLY</td>
+<td>将RDD作为非序列化的Java对象存储在JVM中。如果RDD不适合存在内存中，一些分区将不会被缓存，而每次需要这些分区时都需要重新计算它们，这是系统默认的存储级别</td>
+</tr>
+<tr>
+<td>MEMORY_ONLY_SER</td>
+<td>跟MEMORY_ONLY类似但在持久化时，会将RDD作为序列化的Java对象存储（每个分区有一个byte数组）。这种方式比非序列化方式更节省空间，特别是用到快速序列化工具时，但是会更消费CPU资源——密集的</td>
+</tr>
+<tr>
+<td>MEMORY_AND_DISK</td>
+<td>将RDD作为非序列化的Java对象存储在JVM中。如果RDD不适合存在内存中，将这些不适合存在内存中的分区存储在磁盘中，每次需要时读出它们。</td>
+</tr>
+<tr>
+<td>MEMORY_AND_DISK_SER</td>
+<td>将RDD作为序列化的Java对象存储在JVM中。如果RDD不适合存在内存中，将这些不适合存在内存中的分区存储在磁盘中，每次需要时读出它们。</td>
+</tr>
+<tr>
+<td>DISK_ONLY</td>
+<td>仅将RDD分区保存在磁盘中</td>
+</tr>
+<tr>
+<td>DISK_ONLY_2<br>MEMORY_AND_DISK_2</td>
+<td>和上面的存储级别类似，区别在于复制每个分区到集群的两个节点上面，就是要保存两个副本。</td>
+</tr>
+<tr>
+<td>OFF_HEAP<br>(experimental)</td>
+<td>以序列化的格式将RDD存储到tachyon中。相对于MEMORY_ONLY_SER，OFF_HEAP减少了垃圾回收的花费，允许更小的执行者共享内存池。这使其在拥有大量内存的环境下或者多并发应用程序的环境中有更强的吸引力。</td>
+</tr>
+</tbody></table>
+<h4 id="4-3-2-存储级别选择"><a href="#4-3-2-存储级别选择" class="headerlink" title="4.3.2 存储级别选择"></a>4.3.2 存储级别选择</h4><p>上面表格是Storage Level 各级分布，那么如何选择一种最适合的持久化策略呢？<br>默认情况下，性能最高的当然是MEMORY_ONLY，但前提是你的内存必须足够大到可以绰绰有余的存放下整个RDD的所有数据。因为不进行序列化与反序列化的操作，就避免了这部分的性能开销；对这个RDD的后续算子操作，都是基于纯内存中的数据，不需要从磁盘文件中读取，性能也很高；而且不需要复制一份副本，并远程传送到其它节点上。但是这里必须要注意的是，在实际的生产环境中，恐怕能够直接用这种策略的场景还是有限的，如果RDD中数据比较多时（比如几十亿），直接用这种持久化级别，会导致JVM 的 OOM 内存溢出的异常。</p>
+<p>如果使用MEMORY_ONLY级别发生内存溢出，那么建议尝试使用MEMORY_ONLY_SER级别。该级别会将RDD数据序列化后再保存在内存中，此时每个partition仅仅是一个字节数组而已，大大减少了对象数量，并降低了内存占用。这种级别比MEMORY_ONLY多出来的性能开销主要就是序列化与反序列化的开销，但是后续算子可以基于内存进行操作，因此性能总体还是比较高的。但可能发生OOM内存溢出异常。</p>
+<p>如果纯内存级别都无法使用，那么建议使用MEMORY_AND_DISK_SER 策略，而不是MEMORY_AND_DISK策略， 因为既然到了这一步，就说明RDD的数据量很大，内存无法完全放下，序列化后的数据比较少，可以节省内存和磁盘的空间开销。同时该策略会优先尽量尝试将数据缓存在内存中，内存缓存不下才会写入磁盘。</p>
+<p>通常不建议使用DISK_ONLY 和后缀_2的级别，因为完全基于磁盘文件进行数据的读写，会导致性能急剧下降。后缀为_2的级别，必须将所有数据都复制一份副本发送到其他节点上，数据复制以及网络传输会导致较大的性能开销</p>
+<h4 id="4-3-2-删除持久化数据"><a href="#4-3-2-删除持久化数据" class="headerlink" title="4.3.2 删除持久化数据"></a>4.3.2 删除持久化数据</h4><p>Spark会自动监视每个节点的缓存使用情况，并以最近最少使用（LRU）方式丢弃旧的数据分区。如果您想手动删除RDD，而不是等待它脱离缓存，请使用该 RDD.unpersist() 方法。</p>
+<h3 id="4-4-CheckPoint"><a href="#4-4-CheckPoint" class="headerlink" title="4.4 CheckPoint"></a>4.4 CheckPoint</h3><p>CheckPoint 是Spark提供的一种缓存机制，当需要计算依赖链比较长又想避免重复计算之前的RDD时，可以对RDD做CheckPoint处理，检查RDD是否需要被物化或计算，并将结果持久化到磁盘或者HDFS内。CheckPoint会把当前RDD保存到一个目录，要出发action 操作时它才会执行。在CheckPoint 之前应该先做持久化（persist 或者 cache）操作， 否则要重新计算一遍。若某个RDD成功执行CheckPoint，它前面所有的依赖链会被销毁。</p>
+<p>CheckPoint与cache相比较：</p>
+<p>cache 缓存数据有executor管理，若executor消失，那么cache的数据将会被清除，RDD需要重新计算；</p>
+<p>CheckPoint将数据保存到磁盘或HDFS内，job可以从CheckPoint点还原之前计算的内容并执行下面的计算。</p>
+<p>CheckPoint与DISK_ONLY 存储级别的区别</p>
+<p>DISK_ONLY 在使用RDD第一次被计算得到时将RDD保存到磁盘上，等到作业结束时保存到磁盘上的RDD就会被清除。</p>
+<p>CheckPoint将RDD持久化到HDFS或本地文件夹如果不手动remove掉，数据会一直存在的。</p>
+<h3 id="4-5-Compute"><a href="#4-5-Compute" class="headerlink" title="4.5 Compute"></a>4.5 Compute</h3><p>Compute 函数实现方式就是向上递归，【获取父RDD分区并进行计算】，直到遇到检查点RDD获取缓存的RDD</p>
+<h3 id="4-6-Iterator"><a href="#4-6-Iterator" class="headerlink" title="4.6 Iterator"></a>4.6 Iterator</h3><p>Iterator  用来查找当前RDD Partition 与父RDD partition的血缘关系，并通过Storage Level 确定迭代位置，直到确定真实数据的位置。它的实现流程如下：<br>若标记了有缓存，则缓存，如果取不到则进行computeOrReadCheckPoint（计算或读检查点）。然后再存入缓存，以备后续使用。<br>若未标记有缓存，则直接进行computeOrReadCheckPoint 这个过程也有两个判断:</p>
+<ul>
+<li>如果有做过CheckPoint则可以读取到检查点数据返回</li>
+<li>如果没有则调用该RDD的实现类的compute函数计算</li>
+</ul>
+<h2 id="5-RDD-容错机制"><a href="#5-RDD-容错机制" class="headerlink" title="5. RDD 容错机制"></a>5. RDD 容错机制</h2><p>一个作业从开始到结束的计算过程中产生了很多个RDD，RDD之间是彼此相互依赖的，我们把这种父子依赖关系称之为“血统”。</p>
+<p>万一某个RDD的某些partition挂掉了,可以通过其他RDD并行计算迅速恢复出来。RDD支持粗粒度的变换，即只记录单个块（分区）上执行的单个操作，然后将创建某个RDD的变换序列（lineage）存储下来。</p>
+<p>变换序列是指每个RDD都包含了它是如何由其他RDD变换过来的以及如何重建某一块数据的信息。</p>
+<p>因此RDD的容错机制又称”血统”容错，要实现这种“血统”容错机制，最大的难题就是如何表达父RDD 与子RDD之间的依赖关系。</p>
+<p><img src="https://images.hnbian.cn/FvH8U0PSBwL6iK1fMXKuV6lKtstJ" alt="RDD 宽依赖与窄依赖"></p>
+<p>父RDD的每个分区最多只能被一个子RDD分区使用时，称为窄依赖（narrow dependency）</p>
+<p>若父RDD的每个分区被子RDD的多个分区使用时，称为宽依赖（wide dependency）</p>
+<p>简单来讲，窄依赖就是父子RDD分区间是一对一的关系，而宽依赖父子RDD分区间是一对多的关系。从失败恢复来看，窄依赖的失败恢复起来更高效，因为它只需要找个父RDD的一个对应分区即可，而且可以在不同节点上并行计算做恢复，而宽依赖涉及到的父RDD的多个分区，需要得到所有依赖的父RDD分区的shuffle结果，恢复起来相对复杂些。</p>
+<p><img src="https://images.hnbian.cn/FgrhJaBWyPF9-ftFpLJ7Juy43MFD" alt="Stage 的划分"></p>
+<p>根据RDD之前的宽窄依赖关系引申出Stage 的概念，Stage是由一组RDD组成的执行计划。如果RDD的衍生关系都是窄依赖，则可放在同一个Stage中运行，若RDD的依赖关系为宽依赖，则要划分到不同的Stage。这样Spark在执行作业时，会按照Stage的划分，生成一个最优、完整的执行计划。</p>
+<h3 id="5-1-依赖类层级"><a href="#5-1-依赖类层级" class="headerlink" title="5.1 依赖类层级"></a>5.1 依赖类层级</h3><p>Dependency 依赖的基类 (抽象类)<br>  |→ shuffleDependency 宽依赖<br>  |→ Narrowdependency 窄依赖<br>    |––→ RangeDependency：表示父级和子级RDD中分区范围之间的一对一依赖关系。<br>    |––→ OneToOneDependency：表示父RDD和子RDD的分区之间的一对一依赖关系<br>    |––→ PruneDependency：表示PartitionPruningRdd与其父类之间的依赖关系, 在这种情况下, 子RDD包含了父类的分区子集</p>
+<h2 id="6-RDD的创建方式"><a href="#6-RDD的创建方式" class="headerlink" title="6. RDD的创建方式"></a>6. RDD的创建方式</h2><p>RDD的创建方式有四种：</p>
+<ol>
+<li>使用程序中的集合创建RDD，RDD的数据源是程序中的集合，通过parallelize 或者makeRdd将集合转化为RDD</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala">scala<span class="token operator">></span> <span class="token keyword">val</span> num <span class="token operator">=</span> Array<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span>
+
+num<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">Int</span><span class="token punctuation">]</span> <span class="token operator">=</span> Array<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span>
+
+scala<span class="token operator">></span> <span class="token keyword">val</span> rdd1 <span class="token operator">=</span> sc<span class="token punctuation">.</span>parallelize<span class="token punctuation">(</span>num<span class="token punctuation">)</span>
+
+rdd1<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>rdd<span class="token punctuation">.</span>RDD<span class="token punctuation">[</span><span class="token builtin">Int</span><span class="token punctuation">]</span> <span class="token operator">=</span> ParallelCollectionRDD<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> at parallelize at <span class="token operator">&lt;</span>console<span class="token operator">></span><span class="token operator">:</span><span class="token number">26</span>
+
+scala<span class="token operator">></span> <span class="token keyword">val</span> rdd2 <span class="token operator">=</span> sc<span class="token punctuation">.</span>makeRDD<span class="token punctuation">(</span>num<span class="token punctuation">)</span>
+
+rdd2<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>rdd<span class="token punctuation">.</span>RDD<span class="token punctuation">[</span><span class="token builtin">Int</span><span class="token punctuation">]</span> <span class="token operator">=</span> ParallelCollectionRDD<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> at makeRDD at <span class="token operator">&lt;</span>console<span class="token operator">></span><span class="token operator">:</span><span class="token number">26</span></code></pre>
+<ol start="2">
+<li>使用本地文件或者HDFS创建RDD，RDD的数据源是本地文件系统或者HDFS数据，使用textFile方法创建RDD。<pre class=" language-scala"><code class="language-scala">scala<span class="token operator">></span> <span class="token keyword">val</span> rdd3 <span class="token operator">=</span> sc<span class="token punctuation">.</span>textFile<span class="token punctuation">(</span><span class="token string">"hdfs:///test/word.txt"</span><span class="token punctuation">)</span>
+</code></pre>
+</li>
+</ol>
+<p>rdd3: org.apache.spark.rdd.RDD[String] = hdfs:///test/word.txt MapPartitionsRDD[3] at textFile at <console>:24</console></p>
+<p>scala&gt; val rdd4 = sc.textFile(“file:///root/derby.log”) //使用本地文件创建</p>
+<p>rdd4: org.apache.spark.rdd.RDD[String] = file:///root/derby.log MapPartitionsRDD[9] at textFile at <console>:24</console></p>
+<pre><code>
+3. 使用数据流创建RDD，使用Spark Streaming的相关类，接收实时的输入数据流创建RDD（数据来源可以是kafka、flume等）
+```scala
+val ssc = new StreamingContext(conf, Seconds(1))
+
+val lines = ssc.socketTextStream(“localhost”, 9999)
+
+val words = lines.flatMap(_.split(“ ”))</code></pre><ol start="4">
+<li>使用其他方式创建 RDD，从其他数据库上创建 RDD，例如 Hbase、MySQL 等。</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">val</span> sqlContext <span class="token operator">=</span> <span class="token keyword">new</span> SQLContext<span class="token punctuation">(</span>sc<span class="token punctuation">)</span>
+
+<span class="token keyword">val</span> url <span class="token operator">=</span> <span class="token string">"jdbc:mysql://ip:port/xxxx"</span>
+
+<span class="token keyword">val</span> prop <span class="token operator">=</span> <span class="token keyword">new</span> Properties<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">val</span> df <span class="token operator">=</span> sqlContext<span class="token punctuation">.</span>read<span class="token punctuation">.</span>jdbc<span class="token punctuation">(</span>url<span class="token punctuation">,</span> “play_time”<span class="token punctuation">,</span> prop<span class="token punctuation">)</span></code></pre>
+<h2 id="7-RDD的分区机制"><a href="#7-RDD的分区机制" class="headerlink" title="7. RDD的分区机制"></a>7. RDD的分区机制</h2><p>RDD的分区机制有两个关键点：</p>
+<p>一个是关键参数，即Spark的默认并发数 Spark.default.parallelism；</p>
+<p>另外一个是关键原则，RDD分区尽可能使得分区的个数等于集群核心（core）数量.</p>
+<p>当配置文件 spark-default.conf 中显式配置了spark.default.parallelism，那么 spark.default.parallelism=配置的值，否则按照下面规则进行取值：</p>
+<ol>
+<li>本地模式（不启动executor，由SparkSubmit 进程生成指定数量的线程数来并发）</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala">spark<span class="token operator">-</span>shell spark<span class="token punctuation">.</span>default<span class="token punctuation">.</span>parallelism <span class="token operator">=</span> <span class="token number">1</span>
+
+spark<span class="token operator">-</span>shell <span class="token operator">--</span>master local<span class="token punctuation">[</span>N<span class="token punctuation">]</span> spark<span class="token punctuation">.</span>default<span class="token punctuation">.</span>parallelism <span class="token operator">=</span> N （使用N个核 core）
+
+spark<span class="token operator">-</span>shell <span class="token operator">--</span>master local spark<span class="token punctuation">.</span>default<span class="token punctuation">.</span>parallelism <span class="token operator">=</span> <span class="token number">1</span></code></pre>
+<p>2.伪集群模式（x为本机上启动的executor数；y为每个executor使用的core 数；z为每个executor使用的内存）</p>
+<pre class=" language-scala"><code class="language-scala">spark<span class="token operator">-</span>shell <span class="token operator">--</span>master local<span class="token operator">-</span>cluster<span class="token punctuation">[</span>x<span class="token punctuation">,</span>y<span class="token punctuation">,</span>z<span class="token punctuation">]</span> spark<span class="token punctuation">.</span>default<span class="token punctuation">.</span>parallelism <span class="token operator">=</span> x <span class="token operator">*</span> y</code></pre>
+<p>3.Yarn、standalone 等模式</p>
+<pre class=" language-scala"><code class="language-scala">spark<span class="token punctuation">.</span>default<span class="token punctuation">.</span>parallelism <span class="token operator">=</span> max （所有 executor 使用的core 总数 <span class="token operator">*</span> <span class="token number">2</span>）</code></pre>
+<h3 id="7-1-RDD-分区数量推算"><a href="#7-1-RDD-分区数量推算" class="headerlink" title="7.1 RDD 分区数量推算"></a>7.1 RDD 分区数量推算</h3><p>spark.context 会生成两个参数，由spark.default.parallelism 推导出这两个参数的值：</p>
+<p>sc.defaultParallelism = spark.default.parallelism</p>
+<p>sc.defaultMinpartitions = min(spark.default.parallelism,2)</p>
+<p>当sc.defaultParallelism 和 sc.defaultMinPartitions 确认后， 就可以推算RDD的分区数了。</p>
+<p>parallelize 方式生成RDD<br>val rdd = sc.parallelize(1 to 10)</p>
+<p>如果使用parallelize方法没有指定分区数，RDD的分区数 = sc.defaultParallelism</p>
+<p>textFile方法生成RDD<br>val rdd = sc.textFile(“path/file”)</p>
+<p>这种机制分为两种情况：</p>
+<p>1.从本地文件生成的RDD，如果没有指定分区数，则默认分区数规则为</p>
+<p>rdd 的分区数 = max(本地文件分片数，sc.defaultMinPartitions)</p>
+<p>2.从HDFS 生成的RDD，如果没有指定分区数，则默认分区数规则为：</p>
+<p>RDD的分区数 = max(HDFS文件的块数，sc.defauleMinPartitions)</p>
+<h2 id="8-RDD的常规操作（算子）"><a href="#8-RDD的常规操作（算子）" class="headerlink" title="8. RDD的常规操作（算子）"></a>8. RDD的常规操作（算子）</h2><h3 id="8-1-RDD算子的分类"><a href="#8-1-RDD算子的分类" class="headerlink" title="8.1 RDD算子的分类"></a>8.1 RDD算子的分类</h3><p>从大方向来说，RDD算子分为 转换（Transformation） 和动作（Action）两类：</p>
+<p>Transformation算子并不会触发提交作业，Transformation算子具有lazy的特性，它的操作是延迟计算的，也就是说从RDD转换生成另一个RDD的操作并不是马上执行的，需要等到有Action操作的时候才会真正的触发运算。</p>
+<p>Action算子会触发SparkContext提交Job作业，它会根据DAG图真正执行计算，并将数据输出Spark系统。</p>
+<p>从小的方向来说，RDD算子还可以分为以下三类：</p>
+<ol>
+<li>处理value数据的Transformation算子的转换算子针对处理数据是value类型的数据</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>算子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入分区与输出分区一对一型</td>
+<td>map、flatMap、mapPartitions、glom</td>
+</tr>
+<tr>
+<td>输入分区与输出分区多对一型</td>
+<td>cartesian</td>
+</tr>
+<tr>
+<td>输入分区与输出分区多对多型</td>
+<td>grouBy</td>
+</tr>
+<tr>
+<td>输出分区为输入分区子集型</td>
+<td>filter、distinct、subtract、sample、takeSample</td>
+</tr>
+<tr>
+<td>持久化</td>
+<td>cache、persist</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>Key-Value数据类型的Transformation算子，这是针对数据项是Key-Value类型的数据对</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>算子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入分区与输出分区一对一</td>
+<td>mapValues</td>
+</tr>
+<tr>
+<td>单个RDD聚集</td>
+<td>combineByKey、reduceByKey、partitionBy</td>
+</tr>
+<tr>
+<td>两个RDD聚集</td>
+<td>Cogroup</td>
+</tr>
+<tr>
+<td>连接</td>
+<td>join、leftOutJoin、rightOutJoin</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li>Action算子，这类算子会触发SparkContext提交Job作业。</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>算子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无输出</td>
+<td>foreach</td>
+</tr>
+<tr>
+<td>保存文件</td>
+<td>saveAsTextFile、saveAsObjectFile</td>
+</tr>
+<tr>
+<td>Scala集合和数据类型</td>
+<td>collect、collectAsMap、reduceByKeyLocally、lookup、count、top、reduce、fold、aggregate</td>
+</tr>
+</tbody></table>
+<h3 id="8-2-RDD算子的计算流程（WordCount）"><a href="#8-2-RDD算子的计算流程（WordCount）" class="headerlink" title="8.2 RDD算子的计算流程（WordCount）"></a>8.2 RDD算子的计算流程（WordCount）</h3><p>以wordcount为例说明多个算子的计算流程</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span><span class="token punctuation">{</span>SparkConf<span class="token punctuation">,</span> SparkContext<span class="token punctuation">}</span>
+
+<span class="token keyword">object</span> WordCount  <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> filePath <span class="token operator">=</span> <span class="token string">"D:\\Documents\\WordCount.txt"</span>
+    <span class="token comment" spellcheck="true">//Life is a journey not the destination but the scenery along the should be and the mood at the view</span>
+    <span class="token keyword">val</span> conf <span class="token operator">=</span> <span class="token keyword">new</span> SparkConf<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setAppName<span class="token punctuation">(</span><span class="token string">"WordCount Application"</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">//设置master local[4] 指定本地模式开启模拟worker线程数</span>
+    conf<span class="token punctuation">.</span>setMaster<span class="token punctuation">(</span><span class="token string">"local[4]"</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">//创建sparkContext文件</span>
+    <span class="token keyword">val</span> sc <span class="token operator">=</span> <span class="token keyword">new</span> SparkContext<span class="token punctuation">(</span>conf<span class="token punctuation">)</span>
+    <span class="token keyword">val</span> rdd1 <span class="token operator">=</span> sc<span class="token punctuation">.</span>textFile<span class="token punctuation">(</span>filePath<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>flatMap<span class="token punctuation">(</span>words<span class="token keyword">=></span><span class="token punctuation">{</span>words<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">" "</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>map<span class="token punctuation">(</span>words<span class="token keyword">=></span><span class="token punctuation">(</span>words<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>reduceByKey<span class="token punctuation">(</span><span class="token punctuation">(</span>a<span class="token punctuation">,</span>b<span class="token punctuation">)</span><span class="token keyword">=></span> a <span class="token operator">+</span> b<span class="token punctuation">)</span>
+
+    rdd1<span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>words<span class="token keyword">=></span><span class="token punctuation">{</span>
+      println<span class="token punctuation">(</span>words<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+<span class="token punctuation">}</span></code></pre>
+<p><img src="https://images.hnbian.cn/FlgkMZPNcXeljE5jnd5nFUO6oBnb" alt="wordcount 算子计算过程说明"></p>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/14696fcc.html">https://www.hnbian.cn/posts/14696fcc.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/sparkCore/">
+                                    <span class="chip bg-color">sparkCore</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/ae21dddf.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fiahkys1NGBnSNjLlfi0tOwSWZLV" class="responsive-img" alt="Spark 常用配置参数">
+                        
+                        <span class="card-title">Spark 常用配置参数</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            Spark 中大部分配置参数都有默认值，以下是常用配置：
+1. Application Properties
+
+
+属性
+默认值
+描述
+
+
+
+spark.app.name
+(none)
+应用程序的名称，会在日志和webUI显示
+
+
+spark
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2018-02-07
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/4d8b2f53.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FptfpM58tHuHRAk9m6sYqu37mDHO" class="responsive-img" alt="hive mapjoin 内存溢出异常">
+                        
+                        <span class="card-title">hive mapjoin 内存溢出异常</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1.异常在hive中两张表进行join操作时有时会出现如下错误：
+Total MapReduce jobs = 4
+
+2014-10-22 05:45:06     Starting to launch local task to proc
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2017-09-05
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hive/" class="post-category">
+                                    hive
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hive/">
+                        <span class="chip bg-color">hive</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

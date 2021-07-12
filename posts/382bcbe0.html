@@ -1,0 +1,1654 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Flink系列 3. Flink On Yarn 两种部署模式与提交任务, hnbian">
+    <meta name="description" content="1. 介绍Flink 支持多种部署方式 如 Local、Standalone、Yarn、K8S 等，但是现在企业中大多数的大数据平台都以 Yarn 作为资源管理器，所以 Flink On Yarn 模式也在企业中用的非常多，下面就介绍一下F">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Flink系列 3. Flink On Yarn 两种部署模式与提交任务 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FvlPa4z9Arlp4GUHEf4C-N__0tlC')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Flink系列 3. Flink On Yarn 两种部署模式与提交任务</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/flink/" class="post-category">
+                                flink
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-05-01
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    21 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-介绍"><a href="#1-介绍" class="headerlink" title="1. 介绍"></a>1. 介绍</h2><p>Flink 支持多种部署方式 如 Local、Standalone、Yarn、K8S 等，但是现在企业中大多数的大数据平台都以 Yarn 作为资源管理器，所以 Flink On Yarn 模式也在企业中用的非常多，下面就介绍一下Flink On Yarn 的使用。</p>
+<h2 id="2-Flink-on-yarn任务提交流程图"><a href="#2-Flink-on-yarn任务提交流程图" class="headerlink" title="2. Flink on yarn任务提交流程图"></a>2. Flink on yarn任务提交流程图</h2><p><img src="https://images.hnbian.cn/FpsBU7os7QrGwAqE-8PGJgpxFwOg" alt="Flink On Yarn 任务执行流程图"></p>
+<h2 id="3-作业提交方式"><a href="#3-作业提交方式" class="headerlink" title="3. 作业提交方式"></a>3. 作业提交方式</h2><p>Flink 作业在yarn上运行有两种提交方式: </p>
+<ol>
+<li>Session 模式</li>
+<li>Per-Job  模式</li>
+</ol>
+<h3 id="3-1-session-模式"><a href="#3-1-session-模式" class="headerlink" title="3.1 session 模式"></a>3.1 session 模式</h3><p>这种方式需要先启动集群，然后再提交作业, 接着会向yarn申请一块空间, 初始化一个session服务常驻在这块空间, 后续提交的任务都运行在这个session上, 如果session资源使用到达上限则接下来的作业无法提交，只能等待到正在运行的某个作业执行完成,释放了部分资源, 接下来的作业才能正常提交，在session模式下多个 Flink jobmanager 会共享Dispatcher 和 YARN ResourceManager。</p>
+<p><img src="https://images.hnbian.cn/FqBLlD_XFUXyFMANKaqnf-HxoGG9" alt="yarn-session 提交方式"></p>
+<h3 id="3-2-Per-Job-模式"><a href="#3-2-Per-Job-模式" class="headerlink" title="3.2 Per-Job  模式"></a>3.2 Per-Job  模式</h3><p>Per-Job 模式下，每次提交任务都会创建一个新的的 Flink Yarn-session，不同的 Job之间是资源隔离的，不会互相影响，同样Dispatcher和YarnResourceManager也是该任务独享的，任务完成后释放资源。除非是集群资源用尽，否则不会影响新任务的提交。在线上环境一般采用 Per-Job 模式。</p>
+<p><img src="https://images.hnbian.cn/FhT5ymkX_2VY3ZVE5eqp65aHKU3V" alt="Per-Job  模式"></p>
+<h2 id="4-提交任务的准备工作"><a href="#4-提交任务的准备工作" class="headerlink" title="4. 提交任务的准备工作"></a>4. 提交任务的准备工作</h2><p>这里Hadoop 的环境是之前装好的，如果 Hadoop 环境没有装好可以先把所需环境装好。并启动好环境。</p>
+<h3 id="4-1-配置-hadoop-classpath"><a href="#4-1-配置-hadoop-classpath" class="headerlink" title="4.1 配置 hadoop classpath"></a>4.1 配置 hadoop classpath</h3><pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>root@node2 ~<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># vim /etc/profile</span>
+
+<span class="token comment" spellcheck="true">#在末尾加上 ps HADOOP_HOME 需要提前配置好</span>
+<span class="token function">export</span> HADOOP_CLASSPATH<span class="token operator">=</span><span class="token variable"><span class="token variable">`</span>$<span class="token punctuation">{</span>HADOOP_HOME<span class="token punctuation">}</span><span class="token variable">`</span></span>/bin hadoop classpath
+
+<span class="token punctuation">[</span>root@node2 ~<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># source /etc/profile</span>
+
+<span class="token comment" spellcheck="true"># 打印 hadoop classpath </span>
+<span class="token punctuation">[</span>root@node2 ~<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># echo $HADOOP_CLASSPATH</span>
+<span class="token comment" spellcheck="true"># 如果出现类似下面内容说明配置成功</span>
+/usr/hdp/3.1.0.0-78/hadoop/conf:/usr/hdp/3.1.0.0-78/hadoop/lib/*:/usr/hdp/3.1.0.0-78/hadoop/.//*:/usr/hdp/3.1.0.0-78/hadoop-hdfs/./:/usr/hdp/3.1.0.0-78/hadoop-hdfs/lib/*:/usr/hdp/3.1.0.0-78/hadoop-hdfs/.//*:/usr/hdp/3.1.0.0-78/hadoop-mapreduce/lib/*:/usr/hdp/3.1.0.0-78/hadoop-<span class="token punctuation">..</span><span class="token punctuation">..</span><span class="token punctuation">..</span></code></pre>
+<h3 id="4-2-上传-Flink-安装包到服务器上"><a href="#4-2-上传-Flink-安装包到服务器上" class="headerlink" title="4.2 上传 Flink 安装包到服务器上"></a>4.2 上传 Flink 安装包到服务器上</h3><p>因为 flink 集群会在 yarn 中创建，这里我们只需要将安装包上传到一台服务器上即可。</p>
+<pre class=" language-bash"><code class="language-bash"><span class="token comment" spellcheck="true"># 上传文件并解压（因为之前已经在服务器上安装好 flink 了所以这里就只是演示）</span>
+<span class="token function">scp</span> flink-1.10.2-bin-scala_2.11.tgz  root@node2:/opt
+<span class="token punctuation">[</span>root@node2 ~<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># tar -zxvf flink-1.10.2-bin-scala_2.11.tgz</span></code></pre>
+<h2 id="5-使用-yarn-session-模式提交任务"><a href="#5-使用-yarn-session-模式提交任务" class="headerlink" title="5.使用 yarn-session 模式提交任务"></a>5.使用 yarn-session 模式提交任务</h2><h3 id="5-1-yarn-session-命令参数说明"><a href="#5-1-yarn-session-命令参数说明" class="headerlink" title="5.1 yarn-session 命令参数说明"></a>5.1 yarn-session 命令参数说明</h3><pre class=" language-bash"><code class="language-bash"><span class="token comment" spellcheck="true"># 解压之后进入 binmulu , 使用 -h 查看相关查看参数</span>
+<span class="token punctuation">[</span>root@node2 bin<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># ./yarn-session.sh -h</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-at,–applicationType <arg></arg></td>
+<td>为YARN上的应用程序设置自定义应用程序类型</td>
+</tr>
+<tr>
+<td>-D &lt;property=value&gt;</td>
+<td>设置属性值，动态属性</td>
+</tr>
+<tr>
+<td>-d,–detached</td>
+<td>后台运行</td>
+</tr>
+<tr>
+<td>-h,–help</td>
+<td>显示帮助</td>
+</tr>
+<tr>
+<td>-id,–applicationId <arg></arg></td>
+<td>指定yarn的任务ID；</td>
+</tr>
+<tr>
+<td>-j,–jar <arg></arg></td>
+<td>指定 Flink 任务依赖的 jar 包</td>
+</tr>
+<tr>
+<td>-jm,–jobManagerMemory <arg></arg></td>
+<td>分配 JobManager 可用内存 (default: MB)</td>
+</tr>
+<tr>
+<td>-m,–jobmanager <arg></arg></td>
+<td>要连接的 Master JobManager 的地址。这个参数的优先级会高于配置文件中指定的JobManager地址。</td>
+</tr>
+<tr>
+<td>-nl,–nodeLabel <arg></arg></td>
+<td>为YARN应用程序指定YARN节点标签;</td>
+</tr>
+<tr>
+<td>-nm,–name <arg></arg></td>
+<td>YARN上为一个自定义的应用设置一个名字，在 yarnUI 上的名字</td>
+</tr>
+<tr>
+<td>-q,–query</td>
+<td>显示yarn中可用的资源 (内存, cpu核数)</td>
+</tr>
+<tr>
+<td>-qu,–queue <arg></arg></td>
+<td>指定队列</td>
+</tr>
+<tr>
+<td>-s,–slots <arg></arg></td>
+<td>指定每一个taskmanager分配多少个slots(处理进程)。<br>建议设置为每个机器的CPU核数。一般情况下，vcore的数量等于处理的slot（-s）的数量</td>
+</tr>
+<tr>
+<td>-t,–ship <arg></arg></td>
+<td>Ship files in the specified directory (t for transfer)</td>
+</tr>
+<tr>
+<td>-tm,–taskManagerMemory <arg></arg></td>
+<td>TaskManager 可用内存 (default: MB)</td>
+</tr>
+<tr>
+<td>-yd,–yarndetached</td>
+<td>If present, runs the job in detached mode (deprecated; use non-YARN specific option instead)</td>
+</tr>
+<tr>
+<td>-z,–zookeeperNamespace <arg></arg></td>
+<td>命名空间，用于为高可用性模式创建Zookeeper子路径</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-启动-yarn-session"><a href="#5-2-启动-yarn-session" class="headerlink" title="5.2 启动 yarn-session"></a>5.2 启动 yarn-session</h3><pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>root@node2 bin<span class="token punctuation">]</span>$ ./yarn-session.sh  -jm 1024m -tm 1024m -d <span class="token comment" spellcheck="true"># 如果想后台运行请添加 -d 命令</span>
+Setting HADOOP_CONF_DIR<span class="token operator">=</span>/etc/hadoop/conf because no HADOOP_CONF_DIR was set.
+SLF4J: Class path contains multiple SLF4J bindings.
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/opt/flink-1.10.2/lib/slf4j-log4j12-1.7.15.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/usr/hdp/3.1.0.0-78/hadoop/lib/slf4j-log4j12-1.7.25.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: See http://www.slf4j.org/codes.html<span class="token comment" spellcheck="true">#multiple_bindings for an explanation.</span>
+SLF4J: Actual binding is of <span class="token function">type</span> <span class="token punctuation">[</span>org.slf4j.impl.Log4jLoggerFactory<span class="token punctuation">]</span>
+2020-12-25 09:48:04,782 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: jobmanager.rpc.address, localhost
+2020-12-25 09:48:04,788 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: jobmanager.rpc.port, 6123
+2020-12-25 09:48:04,788 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: jobmanager.heap.size, 1024m
+2020-12-25 09:48:04,789 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: taskmanager.memory.process.size, 1728m
+2020-12-25 09:48:04,789 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: taskmanager.numberOfTaskSlots, 1
+2020-12-25 09:48:04,789 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: parallelism.default, 1
+2020-12-25 09:48:04,790 INFO  org.apache.flink.configuration.GlobalConfiguration            - Loading configuration property: jobmanager.execution.failover-strategy, region
+2020-12-25 09:48:05,221 WARN  org.apache.flink.runtime.util.HadoopUtils                     - Could not <span class="token function">find</span> Hadoop configuration via any of the supported methods <span class="token punctuation">(</span>Flink configuration, environment variables<span class="token punctuation">)</span>.
+2020-12-25 09:48:05,919 WARN  org.apache.hadoop.util.NativeCodeLoader                       - Unable to load native-hadoop library <span class="token keyword">for</span> your platform<span class="token punctuation">..</span>. using builtin-java classes where applicable
+2020-12-25 09:48:06,169 INFO  org.apache.flink.runtime.security.modules.HadoopModule        - Hadoop user <span class="token keyword">set</span> to hdfs <span class="token punctuation">(</span>auth:SIMPLE<span class="token punctuation">)</span>
+2020-12-25 09:48:06,270 INFO  org.apache.flink.runtime.security.modules.JaasModule          - Jaas <span class="token function">file</span> will be created as /tmp/jaas-4713104554052783620.conf.
+2020-12-25 09:48:06,302 WARN  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - The configuration directory <span class="token punctuation">(</span><span class="token string">'/opt/flink-1.10.2/conf'</span><span class="token punctuation">)</span> already contains a LOG4J config file.If you want to use logback, <span class="token keyword">then</span> please delete or <span class="token function">rename</span> the log configuration file.
+2020-12-25 09:48:06,938 INFO  org.apache.hadoop.yarn.client.RMProxy                         - Connecting to ResourceManager at node1/192.168.0.39:8050
+2020-12-25 09:48:07,698 INFO  org.apache.hadoop.yarn.client.AHSProxy                        - Connecting to Application History server at node2/192.168.0.38:10200
+2020-12-25 09:48:07,818 INFO  org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils  - The derived from fraction jvm overhead memory <span class="token punctuation">(</span>172.800mb <span class="token punctuation">(</span>181193935 bytes<span class="token punctuation">))</span> is <span class="token function">less</span> than its min value 192.000mb <span class="token punctuation">(</span>201326592 bytes<span class="token punctuation">)</span>, min value will be used instead
+2020-12-25 09:48:08,236 INFO  org.apache.hadoop.conf.Configuration                          - found resource resource-types.xml at file:/etc/hadoop/3.1.0.0-78/0/resource-types.xml
+2020-12-25 09:48:08,304 WARN  org.apache.flink.yarn.YarnClusterDescriptor                   - Neither the HADOOP_CONF_DIR nor the YARN_CONF_DIR environment variable is set. The Flink YARN Client needs one of these to be <span class="token keyword">set</span> to properly load the Hadoop configuration <span class="token keyword">for</span> accessing YARN.
+2020-12-25 09:48:08,387 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Cluster specification: ClusterSpecification<span class="token punctuation">{</span>masterMemoryMB<span class="token operator">=</span>1024, taskManagerMemoryMB<span class="token operator">=</span>1728, slotsPerTaskManager<span class="token operator">=</span>1<span class="token punctuation">}</span>
+2020-12-25 09:48:10,050 WARN  org.apache.hadoop.hdfs.shortcircuit.DomainSocketFactory       - The short-circuit local reads feature cannot be used because libhadoop cannot be loaded.
+2020-12-25 09:48:16,189 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Submitting application master <span class="token string">'application_1608705158439_0045'</span> <span class="token comment" spellcheck="true"># yarn 上的 ApplicationID</span>
+2020-12-25 09:48:17,420 INFO  org.apache.hadoop.yarn.client.api.impl.YarnClientImpl         - Submitted application application_1608705158439_0045
+2020-12-25 09:48:17,420 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Waiting <span class="token keyword">for</span> the cluster to be allocated
+2020-12-25 09:48:17,422 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Deploying cluster, current state ACCEPTED
+2020-12-25 09:48:28,235 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - YARN application has been deployed successfully.
+2020-12-25 09:48:28,267 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Found Web Interface node3:37719 of application <span class="token string">'application_1608705158439_0045'</span><span class="token keyword">.</span>
+JobManager Web Interface: <span class="token string">'http://node3:37719'</span> <span class="token comment" spellcheck="true"># 通过这个地址可以访问 flibk webUI页面</span></code></pre>
+<ul>
+<li>查看 yarn 上的 Application</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FkoZXpgs271hYWj9WaIDIYqe2aQ_" alt="yarn-session"></p>
+<ul>
+<li>查看 Flink webUI  <a href="http://node3:37719" target="_blank" rel="noopener">http://node3:37719</a> </li>
+</ul>
+<p><img src="https://images.hnbian.cn/Fghpw0HNxBMXQKmf27R-sGL7QZbK" alt="Flink webUI"></p>
+<h3 id="5-3-提交测试任务"><a href="#5-3-提交测试任务" class="headerlink" title="5.3 提交测试任务"></a>5.3 提交测试任务</h3><ul>
+<li>在 yarn 中启动的 Flink 集群的 ApplicationID 会被保存到 /tmp/.yarn-properties-hdfs 文件中，当向 yarn 中的 flink 集群提交任务时，Flink 程序会先查找该文件内的 ApplicationID.</li>
+</ul>
+<pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>hdfs@node2 bin<span class="token punctuation">]</span>$ <span class="token function">cat</span> /tmp/.yarn-properties-hdfs
+<span class="token comment" spellcheck="true">#Generated YARN properties file</span>
+<span class="token comment" spellcheck="true">#Fri Dec 25 09:48:19 CST 2020</span>
+dynamicPropertiesString<span class="token operator">=</span>
+applicationID<span class="token operator">=</span>application_1608705158439_0045</code></pre>
+<ul>
+<li>提交任务</li>
+</ul>
+<pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>hdfs@node2 flink-1.10.2<span class="token punctuation">]</span>$ bin/flink run ./examples/batch/WordCount.jar <span class="token comment" spellcheck="true"># 提交 flink 自带的测试任务</span>
+Setting HADOOP_CONF_DIR<span class="token operator">=</span>/etc/hadoop/conf because no HADOOP_CONF_DIR was set.
+SLF4J: Class path contains multiple SLF4J bindings.
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/opt/flink-1.10.2/lib/slf4j-log4j12-1.7.15.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/usr/hdp/3.1.0.0-78/hadoop/lib/slf4j-log4j12-1.7.25.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: See http://www.slf4j.org/codes.html<span class="token comment" spellcheck="true">#multiple_bindings for an explanation.</span>
+SLF4J: Actual binding is of <span class="token function">type</span> <span class="token punctuation">[</span>org.slf4j.impl.Log4jLoggerFactory<span class="token punctuation">]</span>
+2020-12-25 10:24:38,016 INFO  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - Found Yarn properties <span class="token function">file</span> under /tmp/.yarn-properties-hdfs.
+2020-12-25 10:24:38,016 INFO  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - Found Yarn properties <span class="token function">file</span> under /tmp/.yarn-properties-hdfs.
+2020-12-25 10:24:38,582 WARN  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - The configuration directory <span class="token punctuation">(</span><span class="token string">'/opt/flink-1.10.2/conf'</span><span class="token punctuation">)</span> already contains a LOG4J config file.If you want to use logback, <span class="token keyword">then</span> please delete or <span class="token function">rename</span> the log configuration file.
+2020-12-25 10:24:38,582 WARN  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - The configuration directory <span class="token punctuation">(</span><span class="token string">'/opt/flink-1.10.2/conf'</span><span class="token punctuation">)</span> already contains a LOG4J config file.If you want to use logback, <span class="token keyword">then</span> please delete or <span class="token function">rename</span> the log configuration file.
+Executing WordCount example with default input data set.
+Use --input to specify <span class="token function">file</span> input.
+Printing result to stdout. Use --output to specify output path.
+2020-12-25 10:24:40,254 INFO  org.apache.hadoop.yarn.client.RMProxy                         - Connecting to ResourceManager at node1/192.168.0.39:8050
+2020-12-25 10:24:41,203 INFO  org.apache.hadoop.yarn.client.AHSProxy                        - Connecting to Application History server at node2/192.168.0.38:10200
+2020-12-25 10:24:41,231 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - No path <span class="token keyword">for</span> the flink jar passed. Using the location of class org.apache.flink.yarn.YarnClusterDescriptor to <span class="token function">locate</span> the jar
+2020-12-25 10:24:41,240 WARN  org.apache.flink.yarn.YarnClusterDescriptor                   - Neither the HADOOP_CONF_DIR nor the YARN_CONF_DIR environment variable is set.The Flink YARN Client needs one of these to be <span class="token keyword">set</span> to properly load the Hadoop configuration <span class="token keyword">for</span> accessing YARN.
+2020-12-25 10:24:41,573 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Found Web Interface node2:44910 of application <span class="token string">'application_1608705158439_0048'</span><span class="token keyword">.</span>
+Job has been submitted with JobID c79faee9ef1dbdb1400641c1f65fc825
+Program execution finished
+Job with JobID c79faee9ef1dbdb1400641c1f65fc825 has finished.
+Job Runtime: 26236 ms
+Accumulator Results:
+- abe323736302b8ad21edede0d34582be <span class="token punctuation">(</span>java.util.ArrayList<span class="token punctuation">)</span> <span class="token punctuation">[</span>170 elements<span class="token punctuation">]</span>
+
+<span class="token comment" spellcheck="true"># 执行结果</span>
+<span class="token punctuation">(</span>a,5<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>action,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>after,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>against,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>all,2<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>and,12<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>arms,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>arrows,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>awry,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>ay,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bare,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>be,4<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bear,3<span class="token punctuation">)</span>
+<span class="token punctuation">..</span>.</code></pre>
+<ul>
+<li>查看 Flink webUI 中的任务情况</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FisyxUz1XvX9YPflTVmZ0nYyfD2O" alt="提交任务之后马上进Flink webUI 能看到 Wordcount 任务正在运行"></p>
+<p><img src="https://images.hnbian.cn/FsVdDr-EvUFnt1KVkDu_bEeXwTq_" alt="查看任务运行流程"></p>
+<h3 id="5-4-关闭-yarn-上的-flink-集群"><a href="#5-4-关闭-yarn-上的-flink-集群" class="headerlink" title="5.4 关闭 yarn 上的 flink 集群"></a>5.4 关闭 yarn 上的 flink 集群</h3><pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>hdfs@node2 flink-1.10.2<span class="token punctuation">]</span>$ yarn application -kill application_1608705158439_0048
+20/12/25 10:33:52 INFO client.RMProxy: Connecting to ResourceManager at node1/192.168.0.39:8050
+20/12/25 10:33:53 INFO client.AHSProxy: Connecting to Application History server at node2/192.168.0.38:10200
+Killing application application_1608705158439_0045
+20/12/25 10:33:53 INFO impl.YarnClientImpl: Killed application application_1608705158439_0045</code></pre>
+<h2 id="6-使用-Per-Job-模式-提交任务"><a href="#6-使用-Per-Job-模式-提交任务" class="headerlink" title="6.使用 Per-Job  模式 提交任务"></a>6.使用 Per-Job  模式 提交任务</h2><p>对于Per-Job模式，提交作业就相对比较简单，不需要提前在yarn 中启动一个 Flink 集群，而是直接提交作业，即可完成Flink作业。</p>
+<p>使用 Flink run -m yarn-cluster 命令（创建 Flink 集群并提交任务）</p>
+<h3 id="6-1-参数说明"><a href="#6-1-参数说明" class="headerlink" title="6.1 参数说明"></a>6.1 参数说明</h3><pre class=" language-bash"><code class="language-bash"><span class="token comment" spellcheck="true"># 查看参数与相关说明</span>
+<span class="token punctuation">[</span>root@node2 bin<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># ./flink run -help</span></code></pre>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-c,–class <classname></classname></td>
+<td>动态指定 jar包的入口类</td>
+</tr>
+<tr>
+<td>-C,–classpath <url></url></td>
+<td>Adds a URL to each user code classloader  on all nodes in the cluster. The paths must specify a protocol (e.g. file://) and be accessible on all nodes (e.g. by means of a NFS share). You can use this option multiple times for specifying more than one URL. The protocol must be supported by the {@link java.net.URLClassLoader}.</td>
+</tr>
+<tr>
+<td>-d,–detached</td>
+<td>后台运行</td>
+</tr>
+<tr>
+<td>-n,–allowNonRestoredState</td>
+<td>允许跳过无法还原的保存点状态。如果在触发保存点时从程序中删除了一部分运算符，则需要允许此操作。</td>
+</tr>
+<tr>
+<td>-p,–parallelism <parallelism></parallelism></td>
+<td>动态指定程序的并行度，优先级高于配置文件中的默认值</td>
+</tr>
+<tr>
+<td>-py,–python <pythonfile></pythonfile></td>
+<td>带有程序入口点的Python脚本。该相关资源可以用’–pyFiles`选项进行配置。</td>
+</tr>
+<tr>
+<td>-pyarch,–pyArchives <arg></arg></td>
+<td>Add python archive files for job. The archive files will be extracted to the working directory of python UDF worker. Currently only zip-format is supported. For each archive file, a target directory be specified. If the target directory name is specified, the archive file will be extracted to a name can directory with the specified name. Otherwise, the archive file will be extracted to a directory with the same name of the archive file. The files uploaded via this option are accessible via relative path. ‘#’ could be used as the separator of the archive file path and the target directory name. Comma (‘,’) could be used as the separator to specify multiple archive files. This option can be used to upload the virtual environment, the data files used in Python UDF (e.g.: –pyArchives file:///tmp/py37.zip,file:///tmp/data. zip#data –pyExecutable py37.zip/py37/bin/python). The data files could be accessed in Python UDF, e.g.: f = open(‘data/data.txt’, ‘r’).</td>
+</tr>
+<tr>
+<td>-pyexec,–pyExecutable <arg></arg></td>
+<td>Specify the path of the python interpreter used to execute the python UDF worker (e.g.: –pyExecutable /usr/local/bin/python3). The python UDF worker depends on Python 3.5+, Apache Beam (version == 2.15.0), Pip (version &gt;= 7.1.0) and SetupTools (version &gt;= 37.0.0). Please ensure that the specified environment meets the above requirements.</td>
+</tr>
+<tr>
+<td>-pyfs,–pyFiles <pythonfiles></pythonfiles></td>
+<td>Attach custom python files for job. These files will be added to the PYTHONPATH of both the local client and the remote python UDF worker. The standard python resource file suffixes such as .py/.egg/.zip or directory are all supported. Comma (‘,’) could be used as the separator to specify multiple files (e.g.: –pyFiles file:///tmp/myresource.zip,hdfs:///$na menode_address/myresource2.zip).</td>
+</tr>
+<tr>
+<td>-pym,–pyModule <pythonmodule></pythonmodule></td>
+<td>Python模块与程序的入口点。 此选项必须与–pyFiles 结合使用。</td>
+</tr>
+<tr>
+<td>-pyreq,–pyRequirements <arg></arg></td>
+<td>Specify a requirements.txt file which defines the third-party dependencies. These dependencies will be installed and added to the PYTHONPATH of the python UDF worker. A directory which contains the installation packages of these dependencies could be specified optionally. Use ‘#’ as the separator if the optional parameter exists (e.g.: –pyRequirements file:///tmp/requirements.txt#file:///t mp/cached_dir).</td>
+</tr>
+<tr>
+<td>-s,–fromSavepoint <savepointpath></savepointpath></td>
+<td>job 存储保存点的位置  (如： hdfs:///flink/savepoint-1537).</td>
+</tr>
+<tr>
+<td>-sae,–shutdownOnAttachedExit</td>
+<td>如果作业以附加模式提交，请在CLI突然终止时（例如，响应用户中断，例如键入Ctrl + C），尽最大努力关闭集群。</td>
+</tr>
+</tbody></table>
+<ul>
+<li>Yarn-cluster 模式中的可选参数</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-m,–jobmanager <arg></arg></td>
+<td>动态指定 JobManager 主节点地址</td>
+</tr>
+<tr>
+<td>-yid,–yarnapplicationId <arg></arg></td>
+<td>指定yarn的任务ID；</td>
+</tr>
+<tr>
+<td>-z,–zookeeperNamespace <arg></arg></td>
+<td>命名空间，用于为高可用性模式创建Zookeeper子路径;</td>
+</tr>
+</tbody></table>
+<ul>
+<li>默认模式可选参数</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-m,–jobmanager <arg></arg></td>
+<td>要连接的 Master JobManager 的地址。这个参数的优先级会高于配置文件中指定的JobManager地址。</td>
+</tr>
+<tr>
+<td>-z,–zookeeperNamespace <arg></arg></td>
+<td>命名空间，用于为高可用性模式创建Zookeeper子路径</td>
+</tr>
+</tbody></table>
+<h3 id="6-2-提交任务"><a href="#6-2-提交任务" class="headerlink" title="6.2 提交任务"></a>6.2 提交任务</h3><pre class=" language-bash"><code class="language-bash"><span class="token punctuation">[</span>hdfs@node2 flink-1.10.2<span class="token punctuation">]</span>$ ./bin/flink run -m yarn-cluster ./examples/batch/WordCount.jar
+Setting HADOOP_CONF_DIR<span class="token operator">=</span>/etc/hadoop/conf because no HADOOP_CONF_DIR was set.
+SLF4J: Class path contains multiple SLF4J bindings.
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/opt/flink-1.10.2/lib/slf4j-log4j12-1.7.15.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: Found binding <span class="token keyword">in</span> <span class="token punctuation">[</span>jar:file:/usr/hdp/3.1.0.0-78/hadoop/lib/slf4j-log4j12-1.7.25.jar<span class="token operator">!</span>/org/slf4j/impl/StaticLoggerBinder.class<span class="token punctuation">]</span>
+SLF4J: See http://www.slf4j.org/codes.html<span class="token comment" spellcheck="true">#multiple_bindings for an explanation.</span>
+SLF4J: Actual binding is of <span class="token function">type</span> <span class="token punctuation">[</span>org.slf4j.impl.Log4jLoggerFactory<span class="token punctuation">]</span>
+2020-12-25 10:49:01,986 INFO  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - Found Yarn properties <span class="token function">file</span> under /tmp/.yarn-properties-hdfs.
+2020-12-25 10:49:01,986 INFO  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - Found Yarn properties <span class="token function">file</span> under /tmp/.yarn-properties-hdfs.
+2020-12-25 10:49:02,457 WARN  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - The configuration directory <span class="token punctuation">(</span><span class="token string">'/opt/flink-1.10.2/conf'</span><span class="token punctuation">)</span> already contains a LOG4J config file.If you want to use logback, <span class="token keyword">then</span> please delete or <span class="token function">rename</span> the log configuration file.
+2020-12-25 10:49:02,457 WARN  org.apache.flink.yarn.cli.FlinkYarnSessionCli                 - The configuration directory <span class="token punctuation">(</span><span class="token string">'/opt/flink-1.10.2/conf'</span><span class="token punctuation">)</span> already contains a LOG4J config file.If you want to use logback, <span class="token keyword">then</span> please delete or <span class="token function">rename</span> the log configuration file.
+Executing WordCount example with default input data set.
+Use --input to specify <span class="token function">file</span> input.
+Printing result to stdout. Use --output to specify output path.
+2020-12-25 10:49:03,717 INFO  org.apache.hadoop.yarn.client.RMProxy                         - Connecting to ResourceManager at node1/192.168.0.39:8050
+2020-12-25 10:49:04,377 INFO  org.apache.hadoop.yarn.client.AHSProxy                        - Connecting to Application History server at node2/192.168.0.38:10200
+2020-12-25 10:49:04,423 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - No path <span class="token keyword">for</span> the flink jar passed. Using the location of class org.apache.flink.yarn.YarnClusterDescriptor to <span class="token function">locate</span> the jar
+2020-12-25 10:49:04,809 INFO  org.apache.hadoop.conf.Configuration                          - found resource resource-types.xml at file:/etc/hadoop/3.1.0.0-78/0/resource-types.xml
+2020-12-25 10:49:04,891 WARN  org.apache.flink.yarn.YarnClusterDescriptor                   - Neither the HADOOP_CONF_DIR nor the YARN_CONF_DIR environment variable is set. The Flink YARN Client needs one of these to be <span class="token keyword">set</span> to properly load the Hadoop configuration <span class="token keyword">for</span> accessing YARN.
+2020-12-25 10:49:05,071 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Cluster specification: ClusterSpecification<span class="token punctuation">{</span>masterMemoryMB<span class="token operator">=</span>1024, taskManagerMemoryMB<span class="token operator">=</span>1728, slotsPerTaskManager<span class="token operator">=</span>1<span class="token punctuation">}</span>
+2020-12-25 10:49:07,172 WARN  org.apache.hadoop.hdfs.shortcircuit.DomainSocketFactory       - The short-circuit local reads feature cannot be used because libhadoop cannot be loaded.
+2020-12-25 10:49:12,476 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Submitting application master application_1608705158439_0049
+2020-12-25 10:49:12,774 INFO  org.apache.hadoop.yarn.client.api.impl.YarnClientImpl         - Submitted application application_1608705158439_0049
+2020-12-25 10:49:12,775 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Waiting <span class="token keyword">for</span> the cluster to be allocated
+2020-12-25 10:49:12,777 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Deploying cluster, current state ACCEPTED
+2020-12-25 10:49:19,073 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - YARN application has been deployed successfully.
+2020-12-25 10:49:19,074 INFO  org.apache.flink.yarn.YarnClusterDescriptor                   - Found Web Interface node3:35416 of application <span class="token string">'application_1608705158439_0049'</span><span class="token keyword">.</span>
+Job has been submitted with JobID 505a14cbbf0cca7cad029ed90fe048eb
+Program execution finished
+Job with JobID 505a14cbbf0cca7cad029ed90fe048eb has finished.
+Job Runtime: 10932 ms
+Accumulator Results:
+- 7fbe82214da97e7cbb5a60d0890bdbdb <span class="token punctuation">(</span>java.util.ArrayList<span class="token punctuation">)</span> <span class="token punctuation">[</span>170 elements<span class="token punctuation">]</span>
+
+
+<span class="token punctuation">(</span>a,5<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>action,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>after,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>against,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>all,2<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>and,12<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>arms,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>arrows,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>awry,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>ay,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bare,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>be,4<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bear,3<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bodkin,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>bourn,1<span class="token punctuation">)</span>
+<span class="token punctuation">(</span>but,1<span class="token punctuation">)</span></code></pre>
+<ul>
+<li>查看 yarn 中的 application </li>
+</ul>
+<p><img src="https://images.hnbian.cn/FpSHsKL4SB9N3XFbeTF-ATeP634m" alt="任务还在等待状态"></p>
+<p><img src="https://images.hnbian.cn/FmofaPh0_yEM3nFLLJTboNb2aZrb" alt="任务执行完成"></p>
+<h3 id="6-3-其他提交命令"><a href="#6-3-其他提交命令" class="headerlink" title="6.3 其他提交命令"></a>6.3 其他提交命令</h3><ul>
+<li>连接指定 host 和 port 的 JobManager（已知一个 Flink 集群，并把任务提交到该集群）：</li>
+</ul>
+<p>bin/flink run -m node1:9999 ./examples/bath/WordCount.jar</p>
+<ul>
+<li>启动一个新的 yarn-session 并提交任务</li>
+</ul>
+<p>bin/flink run -m yarn-cluster -yn 2 ./examples/bath/WordCount.jar</p>
+<ul>
+<li>注意：bin/flink 可以使用 yarn-session.sh 中的命令，需要添加一个 y 前缀</li>
+</ul>
+<p>例如：bin/flink run -m yarn-cluster -yjm 1024 -ytm 1024 ./examples/bath/WordCount.jar</p>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/382bcbe0.html">https://www.hnbian.cn/posts/382bcbe0.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/ad82a2c1.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FvVRbRIIdLGQxrQfcHcHGeyeTPOf" class="responsive-img" alt="GreenPlum 6.7 集群部署">
+                        
+                        <span class="card-title">GreenPlum 6.7 集群部署</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. 环境说明
+
+
+节点
+系统版本
+安装服务
+GreenPlum 版本
+
+
+
+node1
+CentOS 7.7
+Master
+6.7.1
+
+
+node2
+CentOS 7.7
+Segment
+6.7.1
+
+
+node3
+CentOS 7.7
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-05-01
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/greenplum/" class="post-category">
+                                    greenplum
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/greenplum/">
+                        <span class="chip bg-color">greenplum</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/56a1d2a4.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fr_E06S6zB220ttJtjscq5SeCgfO" class="responsive-img" alt="Flink系列 2. standalone 模式部署与任务提交">
+                        
+                        <span class="card-title">Flink系列 2. standalone 模式部署与任务提交</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Flink部署下载安装文件 https://flink.apache.org/downloads.html#apache-flink-1100
+这里部署standalone模式，只需要进入bin目录执行 start-cluster.s
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-04-29
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

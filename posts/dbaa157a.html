@@ -1,0 +1,1867 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Flink系列 8. 介绍Flink中的窗口类型与相关操作, hnbian">
+    <meta name="description" content="1. window 的概念
+
+一般真实的流都是无界的，怎样处理无界的数据？
+可以把无界的流进行切分，得到有限的数据集进行处理，也就是得到有界流。
+window 就是将无界流切割成有界流的一种方式，它会将流分发到有限大小的桶（bucket）中">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Flink系列 8. 介绍Flink中的窗口类型与相关操作 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FjTXirn_eeyScWgIXjeEjaf1m6HD')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Flink系列 8. 介绍Flink中的窗口类型与相关操作</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/flink/" class="post-category">
+                                flink
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-07-20
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    3.4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    16 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-window-的概念"><a href="#1-window-的概念" class="headerlink" title="1. window 的概念"></a>1. window 的概念</h2><p><img src="https://images.hnbian.cn/Foi3rVpcCWJFbb5X7L4kPeMCnrmN" alt="有界流与无界流模型"></p>
+<ul>
+<li>一般真实的流都是无界的，怎样处理无界的数据？</li>
+<li>可以把无界的流进行切分，得到有限的数据集进行处理，也就是得到有界流。</li>
+<li>window 就是将无界流切割成有界流的一种方式，它会将流分发到有限大小的桶（bucket）中进行分析。</li>
+</ul>
+<h2 id="2-window-类型介绍与测试准备"><a href="#2-window-类型介绍与测试准备" class="headerlink" title="2. window 类型介绍与测试准备"></a>2. window 类型介绍与测试准备</h2><p>Flink 中的窗口操作需要在 KeyBy 之后才能使用，可以使用 <strong>.window(WindowAssigner)</strong> 来定义窗口，然后数据就会被分发到正确的 window 当中，被接下来的算子处理，同时，flink 也提供了更方便的 <strong>.timeWindow</strong> 和 <strong>.countWindow</strong> 方法，用于定义时间窗口和计数窗口。</p>
+<p>窗口分配器 WindowAssigner 是所有窗口类型的父类，他负责将每条数据发送到正确的 Window 当中，.window()方法接收的参数就是一个 WindowAssigner。</p>
+<h3 id="2-1-窗口分类"><a href="#2-1-窗口分类" class="headerlink" title="2.1 窗口分类"></a>2.1 窗口分类</h3><p>Flink 中的窗口大致可以分为：滚动时间窗口、滑动时间窗口、滚动计数窗口、滑动计数窗口、会话窗口与全局窗口。</p>
+<p><img src="https://images.hnbian.cn/Fr4TgcalDvZRf2d8A-t7k5JKh0Zz" alt="Flink 中window 相关类继承图"></p>
+<ul>
+<li>WindowAssigner<ul>
+<li>SlidingEventTimeWindows：滑动事件时间窗口</li>
+<li>SlidingProcessingTimeWindows：滑动处理时间窗口</li>
+<li>SlidingTimeWindows：滑动时间窗口（事件时间）</li>
+<li>TumblingEventTimeWindows：滚动事件时间窗口</li>
+<li>TumblingProcessingTimeWindows：滚动处理时间窗口</li>
+<li>TumblingTimeWindows：滚动时间窗口（事件时间）</li>
+<li>GlobalWindows：全局窗口</li>
+</ul>
+</li>
+<li>MergingWindowAssigner<ul>
+<li>ProcessingTimeSessionWindows：处理时间会话窗口</li>
+<li>EventTimeSessionWindows：事件时间会话窗口</li>
+<li>DynamicEventTimeSessionWindows：动态事件时间会话窗口</li>
+<li>DynamicProcessingTimeSessionWindows：动态处理时间会话窗口</li>
+</ul>
+</li>
+<li>BaseAlignedWindowAssigner </li>
+</ul>
+<p>2.2 窗口API说明</p>
+<pre class=" language-scala"><code class="language-scala">stream
+       <span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span>               <span class="token keyword">&lt;-</span>  必须：非 WindowAll 窗口都需要进行 KeyBy 分组之后才能开窗
+       <span class="token punctuation">.</span>window<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span>              <span class="token keyword">&lt;-</span>  必须<span class="token operator">:</span> 设置窗口类型，可使用 <span class="token punctuation">.</span>timeWindow<span class="token operator">/</span><span class="token punctuation">.</span>countWindow 替换
+      <span class="token punctuation">[</span><span class="token punctuation">.</span>trigger<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">]</span>            <span class="token keyword">&lt;-</span>  可选：设置触发器，不设置则使用默认触发器
+      <span class="token punctuation">[</span><span class="token punctuation">.</span>evictor<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">]</span>            <span class="token keyword">&lt;-</span>  可选：设置移除器，不设置则不使用
+      <span class="token punctuation">[</span><span class="token punctuation">.</span>allowedLateness<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">]</span>    <span class="token keyword">&lt;-</span>  可选：设置数据再 WaterMark 之后多久之后的数据还允许到达
+      <span class="token punctuation">[</span><span class="token punctuation">.</span>sideOutputLateData<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token keyword">&lt;-</span>  可选：设置侧输出流
+       <span class="token punctuation">.</span>reduce<span class="token operator">/</span>aggregate<span class="token operator">/</span>fold<span class="token operator">/</span>apply<span class="token punctuation">(</span><span class="token punctuation">)</span>      <span class="token keyword">&lt;-</span>  可选：设置函数
+      <span class="token punctuation">[</span><span class="token punctuation">.</span>getSideOutput<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">]</span>      <span class="token keyword">&lt;-</span>  可选： 获得侧输出流的数据</code></pre>
+<h3 id="2-2-窗口测试准备代码"><a href="#2-2-窗口测试准备代码" class="headerlink" title="2.2 窗口测试准备代码"></a>2.2 窗口测试准备代码</h3><p>首先准备测试时所需的代码</p>
+<ol>
+<li>样例类</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">case</span> <span class="token keyword">class</span> Obj1<span class="token punctuation">(</span>id<span class="token operator">:</span><span class="token builtin">String</span><span class="token punctuation">,</span>name<span class="token operator">:</span><span class="token builtin">String</span><span class="token punctuation">,</span>time<span class="token operator">:</span><span class="token builtin">Long</span><span class="token punctuation">)</span></code></pre>
+<ol start="2">
+<li>ReduceFunction</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>ReduceFunction
+
+<span class="token keyword">class</span> MinDataReduceFunction <span class="token keyword">extends</span> ReduceFunction<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token keyword">override</span> <span class="token keyword">def</span> reduce<span class="token punctuation">(</span>r1<span class="token operator">:</span> Obj1<span class="token punctuation">,</span> r2<span class="token operator">:</span> Obj1<span class="token punctuation">)</span><span class="token operator">:</span>Obj1 <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>time <span class="token operator">></span> r2<span class="token punctuation">.</span>time<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      r1
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      r2
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="3-滚动时间窗口"><a href="#3-滚动时间窗口" class="headerlink" title="3. 滚动时间窗口"></a>3. 滚动时间窗口</h2><h3 id="3-1-说明"><a href="#3-1-说明" class="headerlink" title="3.1 说明"></a>3.1 说明</h3><ul>
+<li>Tumbling Time Window</li>
+<li>将数据依据固定的窗口长度对数据进行切分</li>
+<li>时间对齐，窗口长度固定，没有重叠</li>
+<li>每条数据只会被划分到一个窗口中</li>
+</ul>
+<h3 id="3-2-图示"><a href="#3-2-图示" class="headerlink" title="3.2 图示"></a>3.2 图示</h3><p><img src="https://images.hnbian.cn/FrhEsC3Gvt-QURdRBY1DU3oWHrCQ" alt="滚动时间窗口示意图"></p>
+<h3 id="3-3-实现方式"><a href="#3-3-实现方式" class="headerlink" title="3.3 实现方式"></a>3.3 实现方式</h3><ul>
+<li>.timeWindow()：基于 Process Time</li>
+<li>TumblingProcessingTimeWindows：基于 Process Time</li>
+<li>TumblingEventTimeWindows：基于 Event Time</li>
+<li>TumblingTimeWindows：基于 Event Time，标记为Deprecated 推荐使用TumblingEventTimeWindows</li>
+</ul>
+<h4 id="3-3-1-timeWindow-方式"><a href="#3-3-1-timeWindow-方式" class="headerlink" title="3.3.1 .timeWindow() 方式"></a>3.3.1 .timeWindow() 方式</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">object</span> TumblingTimeWindow <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Record<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Record<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toInt<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">// 取出 10 秒钟之内,每个 classId 年纪最小的用户</span>
+
+     <span class="token comment" spellcheck="true">/* 准备发送的数据
+      1,xiaoming,12
+      2,xiaodong,11
+      1,xioahong,13
+      1,xiaogang,14
+      1,xiaogang,15
+      2,xiaohuang,15
+      */</span>
+
+    stream2<span class="token punctuation">.</span>map<span class="token punctuation">(</span>record<span class="token keyword">=></span><span class="token punctuation">{</span>
+      <span class="token punctuation">(</span>record<span class="token punctuation">.</span>classId<span class="token punctuation">,</span>record<span class="token punctuation">.</span>age<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>timeWindow<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true">//  窗口时间 默认使用的是 processing time</span>
+      <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token punctuation">(</span>r1<span class="token punctuation">,</span>r2<span class="token punctuation">)</span><span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>_1<span class="token punctuation">,</span>r1<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>min<span class="token punctuation">(</span>r2<span class="token punctuation">.</span>_2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"minAge"</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">/**
+      * minAge:6> (1,12)
+      * minAge:3> (2,11)
+      */</span>
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 id="3-3-2-TumblingProcessingTimeWindows"><a href="#3-3-2-TumblingProcessingTimeWindows" class="headerlink" title="3.3.2 TumblingProcessingTimeWindows"></a>3.3.2 TumblingProcessingTimeWindows</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>ReduceFunction
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>StreamExecutionEnvironment
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>TumblingProcessingTimeWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">object</span> TumblingProcessingTimeWindow <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+
+  <span class="token keyword">val</span> environment<span class="token operator">:</span>StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Record<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Record<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toInt<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">// 设置一个窗口时间是 10 秒的窗口</span>
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span>window<span class="token punctuation">(</span>TumblingProcessingTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> minAgeFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment" spellcheck="true">// 计算窗口内年纪最小的记录</span>
+<span class="token keyword">class</span> minAgeFunction <span class="token keyword">extends</span> ReduceFunction<span class="token punctuation">[</span>Record<span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token keyword">override</span> <span class="token keyword">def</span> reduce<span class="token punctuation">(</span>r1<span class="token operator">:</span> Record<span class="token punctuation">,</span> r2<span class="token operator">:</span> Record<span class="token punctuation">)</span><span class="token operator">:</span>Record <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>age <span class="token operator">&lt;</span> r2<span class="token punctuation">.</span>age<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      r1
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      r2
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-3-3-TumblingEventTimeWindows"><a href="#3-3-3-TumblingEventTimeWindows" class="headerlink" title="3.3.3 TumblingEventTimeWindows"></a>3.3.3 TumblingEventTimeWindows</h4><p>当使用 TumblingEventTimeWindows 窗口时一定要先设置 EventTime 否则会报类似如下的异常：</p>
+<pre class=" language-scala"><code class="language-scala">Caused by<span class="token operator">:</span> java<span class="token punctuation">.</span>lang<span class="token punctuation">.</span>RuntimeException<span class="token operator">:</span> Record has <span class="token builtin">Long</span><span class="token punctuation">.</span>MIN_VALUE timestamp <span class="token punctuation">(</span><span class="token operator">=</span> no timestamp marker<span class="token punctuation">)</span><span class="token punctuation">.</span> Is the time characteristic set to <span class="token string">'ProcessingTime'</span><span class="token punctuation">,</span> or did you forget to call <span class="token string">'DataStream.assignTimestampsAndWatermarks(...)'</span><span class="token operator">?</span></code></pre>
+<ul>
+<li>测试代码</li>
+</ul>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>ReduceFunction
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>TimeCharacteristic
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span><span class="token punctuation">{</span>AscendingTimestampExtractor<span class="token punctuation">,</span> BoundedOutOfOrdernessTimestampExtractor<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span><span class="token punctuation">{</span>TumblingEventTimeWindows<span class="token punctuation">,</span> TumblingProcessingTimeWindows<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">object</span> TumblingEventTimeWindow <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+
+  <span class="token keyword">val</span> environment<span class="token operator">:</span>StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  environment<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+  stream1<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"stream1"</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">//println(arr)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>TumblingEventTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> minAgeFunction2<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TumblingEventTimeWindow"</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+<span class="token keyword">case</span> <span class="token keyword">class</span> Obj1<span class="token punctuation">(</span>id<span class="token operator">:</span><span class="token builtin">String</span><span class="token punctuation">,</span>name<span class="token operator">:</span><span class="token builtin">String</span><span class="token punctuation">,</span>time<span class="token operator">:</span><span class="token builtin">Long</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true">// 计算窗口内时间最小的记录</span>
+<span class="token keyword">class</span> minAgeFunction2 <span class="token keyword">extends</span> ReduceFunction<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token keyword">override</span> <span class="token keyword">def</span> reduce<span class="token punctuation">(</span>r1<span class="token operator">:</span> Obj1<span class="token punctuation">,</span> r2<span class="token operator">:</span> Obj1<span class="token punctuation">)</span><span class="token operator">:</span>Obj1 <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>time <span class="token operator">></span> r2<span class="token punctuation">.</span>time<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      r1
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      r2
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-3-4-TumblingTimeWindows"><a href="#3-3-4-TumblingTimeWindows" class="headerlink" title="3.3.4 TumblingTimeWindows"></a>3.3.4 TumblingTimeWindows</h4><p>TumblingTimeWindows使用的也是 EventTime 时间语义，当使用它时同样需要设置  EventTime 否则会报异常</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>TimeCharacteristic
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span>AscendingTimestampExtractor
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>TumblingTimeWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token comment" spellcheck="true">/**
+  * @Author haonan.bian
+  * @Description //TODO
+  * @Date 2021/1/3 14:11 
+  **/</span>
+<span class="token keyword">object</span> TestTumblingTimeWindow <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token keyword">val</span> environment<span class="token operator">:</span>StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  environment<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+  stream1<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"stream1"</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>TumblingTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestTumblingTimeWindow"</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="4-滑动时间窗口"><a href="#4-滑动时间窗口" class="headerlink" title="4. 滑动时间窗口"></a>4. 滑动时间窗口</h2><h3 id="4-1-说明"><a href="#4-1-说明" class="headerlink" title="4.1 说明"></a>4.1 说明</h3><ul>
+<li>Sliding Time window</li>
+<li>滑动窗口是固定窗口的更广义的一种形式，滑动窗口由固定的窗口长度和滑动间隔组成。</li>
+<li>窗口长度固定，窗口间可以有重叠的部分</li>
+</ul>
+<h3 id="4-2-图示"><a href="#4-2-图示" class="headerlink" title="4.2 图示"></a>4.2 图示</h3><p><img src="https://images.hnbian.cn/FpPeQjy3di674ZqsaYTqrHU4hzor" alt="滑动时间窗口示意图"></p>
+<h3 id="4-3-实现方式"><a href="#4-3-实现方式" class="headerlink" title="4.3 实现方式"></a>4.3 实现方式</h3><ul>
+<li>.timeWindow()：基于 ProcessTime 的滑动窗口</li>
+<li>SlidingProcessingTimeWindows：基于 ProcessTime 的滑动窗口</li>
+<li>SlidingEventTimeWindows：基于 EventTime 的滑动窗口</li>
+<li>SlidingTimeWindows：基于 EventTime 的滑动窗口，标记为Deprecated 推荐使用SlidingEventTimeWindows</li>
+</ul>
+<h4 id="4-3-1-timeWindow-方式"><a href="#4-3-1-timeWindow-方式" class="headerlink" title="4.3.1 .timeWindow() 方式"></a>4.3.1 .timeWindow() 方式</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">object</span> SlidingTimeWindow <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+
+    <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Record<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Record<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toInt<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">//  窗口时间 10 秒,每次滑动 5 秒 默认使用的是 processing time</span>
+    stream2<span class="token punctuation">.</span>map<span class="token punctuation">(</span>record<span class="token keyword">=></span><span class="token punctuation">{</span>
+      <span class="token punctuation">(</span>record<span class="token punctuation">.</span>classId<span class="token punctuation">,</span>record<span class="token punctuation">.</span>age<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>timeWindow<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">,</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token punctuation">(</span>r1<span class="token punctuation">,</span>r2<span class="token punctuation">)</span><span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>_1<span class="token punctuation">,</span>r1<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>min<span class="token punctuation">(</span>r2<span class="token punctuation">.</span>_2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"minAge"</span><span class="token punctuation">)</span>
+
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="4-3-2-SlidingProcessingTimeWindows"><a href="#4-3-2-SlidingProcessingTimeWindows" class="headerlink" title="4.3.2 SlidingProcessingTimeWindows"></a>4.3.2 SlidingProcessingTimeWindows</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>SlidingProcessingTimeWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">object</span> TestSlidingProcessingTimeWindow <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> environment<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> stream<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span> <span class="token number">9999</span><span class="token punctuation">)</span>
+
+  stream<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data<span class="token keyword">=></span><span class="token punctuation">{</span>
+    <span class="token keyword">val</span> dataArray<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Obj1<span class="token punctuation">(</span>dataArray<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>dataArray<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>dataArray<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>SlidingProcessingTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">,</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestSlidingProcessingTimeWindow"</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="4-3-3-SlidingEventTimeWindows"><a href="#4-3-3-SlidingEventTimeWindows" class="headerlink" title="4.3.3 SlidingEventTimeWindows"></a>4.3.3 SlidingEventTimeWindows</h4><p>当使用 SlidingEventTimeWindows 窗口时一定要先设置 EventTime 否则会抛出异常</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>TimeCharacteristic
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span>AscendingTimestampExtractor
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>SlidingEventTimeWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token keyword">object</span> TestSlidingEventTimeWindow <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+
+  <span class="token keyword">val</span> environment<span class="token operator">:</span>StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  environment<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+  stream1<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"stream1"</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">//println(arr)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>SlidingEventTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestSlidingEventTimeWindow"</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 id="4-3-4-SlidingTimeWindows"><a href="#4-3-4-SlidingTimeWindows" class="headerlink" title="4.3.4 SlidingTimeWindows"></a>4.3.4 SlidingTimeWindows</h4><p>使用 EventTime 时间语义，使用前要设置 EventTime 相关内容，否则抛出异常</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>createTypeInformation
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span>AscendingTimestampExtractor
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span><span class="token punctuation">{</span>DataStream<span class="token punctuation">,</span> StreamExecutionEnvironment<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>SlidingTimeWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+<span class="token comment" spellcheck="true">/**
+  * @Author haonan.bian
+  * @Description //TODO
+  * @Date 2021/1/3 17:55 
+  **/</span>
+<span class="token keyword">object</span> TestSlidingTimeWindow <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token keyword">val</span> environment<span class="token operator">:</span>StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  environment<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">//println(arr)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>SlidingTimeWindows<span class="token punctuation">.</span>of<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">,</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestSlidingEventTimeWindow"</span><span class="token punctuation">)</span>
+
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="5-会话窗口"><a href="#5-会话窗口" class="headerlink" title="5. 会话窗口"></a>5. 会话窗口</h2><h3 id="5-1-介绍"><a href="#5-1-介绍" class="headerlink" title="5.1 介绍"></a>5.1 介绍</h3><ul>
+<li>Session window</li>
+<li>由一系列事件组合一个指定时间长度的 timeout 间隙组成，也就是说一定时间没有收到新的数据就会生成一个新的窗口</li>
+<li>特点：无时间对其</li>
+</ul>
+<h3 id="5-2-图示"><a href="#5-2-图示" class="headerlink" title="5.2 图示"></a>5.2 图示</h3><p><img src="https://images.hnbian.cn/Fj5BK59qm3xEVg-lg0__roTXtacw" alt="会话窗口示意图"></p>
+<h3 id="5-3-实现方式"><a href="#5-3-实现方式" class="headerlink" title="5.3 实现方式"></a>5.3 实现方式</h3><ul>
+<li>ProcessingTimeSessionWindows：处理时间会话窗口</li>
+<li>EventTimeSessionWindows：事件时间会话窗口</li>
+<li>DynamicEventTimeSessionWindows：动态事件时间会话窗口</li>
+<li>DynamicProcessingTimeSessionWindows：动态处理时间会话窗口</li>
+</ul>
+<h4 id="5-3-1-ProcessingTimeSessionWindows"><a href="#5-3-1-ProcessingTimeSessionWindows" class="headerlink" title="5.3.1 ProcessingTimeSessionWindows"></a>5.3.1 ProcessingTimeSessionWindows</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>ProcessingTimeSessionWindows
+
+<span class="token keyword">object</span> TestSessionProcessingTimeSessionWindow <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    stream1<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>window<span class="token punctuation">(</span>ProcessingTimeSessionWindows<span class="token punctuation">.</span>withGap<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"ProcessingTimeSessionWindows"</span><span class="token punctuation">)</span>
+
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="5-3-2-EventTimeSessionWindows"><a href="#5-3-2-EventTimeSessionWindows" class="headerlink" title="5.3.2 EventTimeSessionWindows"></a>5.3.2 EventTimeSessionWindows</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>createTypeInformation
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>TimeCharacteristic
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span>AscendingTimestampExtractor
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span><span class="token punctuation">{</span>DataStream<span class="token punctuation">,</span> StreamExecutionEnvironment<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span><span class="token punctuation">{</span>EventTimeSessionWindows<span class="token punctuation">,</span> ProcessingTimeSessionWindows<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>time<span class="token punctuation">.</span>Time
+
+
+<span class="token keyword">object</span> TestSessionEventTimeSessionWindows <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  env<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>EventTimeSessionWindows<span class="token punctuation">.</span>withGap<span class="token punctuation">(</span>Time<span class="token punctuation">.</span>seconds<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"EventTimeSessionWindows"</span><span class="token punctuation">)</span>
+
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token punctuation">}</span></code></pre>
+<h4 id="5-3-3-DynamicProcessingTimeSessionWindows"><a href="#5-3-3-DynamicProcessingTimeSessionWindows" class="headerlink" title="5.3.3 DynamicProcessingTimeSessionWindows"></a>5.3.3 DynamicProcessingTimeSessionWindows</h4><p>根据条件动态设置 session window 的间隙</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span><span class="token punctuation">{</span>DynamicProcessingTimeSessionWindows<span class="token punctuation">,</span> EventTimeSessionWindows<span class="token punctuation">,</span> SessionWindowTimeGapExtractor<span class="token punctuation">}</span>
+
+<span class="token keyword">object</span> TestSessionDynamicProcessingTimeSessionWindows <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token keyword">val</span> env<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  <span class="token keyword">val</span> stream1 <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> sessionGap <span class="token operator">=</span> <span class="token keyword">new</span> SessionWindowTimeGapExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 动态返回时间间隔,单位毫秒</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extract<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 设置 当 ID 大于等于 2 时 session gap 时间为 3 秒 ，其余为 5 秒</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>element<span class="token punctuation">.</span>id <span class="token operator">>=</span> <span class="token string">"2"</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+        <span class="token number">3000L</span>
+      <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+        <span class="token number">5000L</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>
+      DynamicProcessingTimeSessionWindows<span class="token punctuation">.</span>withDynamicGap<span class="token punctuation">(</span>sessionGap<span class="token punctuation">)</span>
+    <span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"EventTimeSessionWindows"</span><span class="token punctuation">)</span>
+
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="5-3-4-DynamicEventTimeSessionWindows"><a href="#5-3-4-DynamicEventTimeSessionWindows" class="headerlink" title="5.3.4 DynamicEventTimeSessionWindows"></a>5.3.4 DynamicEventTimeSessionWindows</h4><p>当使用 SlidingEventTimeWindows 窗口时一定要先设置 EventTime 否则会抛出异常</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span><span class="token punctuation">{</span>MinDataReduceFunction<span class="token punctuation">,</span> Obj1<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>TimeCharacteristic
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>timestamps<span class="token punctuation">.</span>AscendingTimestampExtractor
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span><span class="token punctuation">{</span>DynamicEventTimeSessionWindows<span class="token punctuation">,</span> SessionWindowTimeGapExtractor<span class="token punctuation">}</span>
+
+<span class="token keyword">object</span> TestSessionDynamicEventTimeSessionWindows <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token keyword">val</span> env<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  env<span class="token punctuation">.</span>setStreamTimeCharacteristic<span class="token punctuation">(</span>TimeCharacteristic<span class="token punctuation">.</span>EventTime<span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream1 <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+    Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>assignTimestampsAndWatermarks<span class="token punctuation">(</span><span class="token keyword">new</span> AscendingTimestampExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token punctuation">{</span>
+     <span class="token keyword">def</span> extractAscendingTimestamp<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token punctuation">{</span>
+      element<span class="token punctuation">.</span>time <span class="token operator">*</span> <span class="token number">1000</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> sessionGap <span class="token operator">=</span> <span class="token keyword">new</span> SessionWindowTimeGapExtractor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 动态返回时间间隔,单位毫秒</span>
+    <span class="token keyword">override</span> <span class="token keyword">def</span> extract<span class="token punctuation">(</span>element<span class="token operator">:</span> Obj1<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 设置 当 ID 大于等于 2 时 session gap 时间为 3 秒 ，其余为 5 秒</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>element<span class="token punctuation">.</span>id <span class="token operator">>=</span> <span class="token string">"2"</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+        <span class="token number">3000L</span>
+      <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+        <span class="token number">5000L</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+  stream2<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>window<span class="token punctuation">(</span>
+      DynamicEventTimeSessionWindows<span class="token punctuation">.</span>withDynamicGap<span class="token punctuation">(</span>sessionGap<span class="token punctuation">)</span>
+    <span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">new</span> MinDataReduceFunction<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"EventTimeSessionWindows"</span><span class="token punctuation">)</span>
+
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="6-滚动计数窗口"><a href="#6-滚动计数窗口" class="headerlink" title="6. 滚动计数窗口"></a>6. 滚动计数窗口</h2><h3 id="6-1-说明"><a href="#6-1-说明" class="headerlink" title="6.1 说明"></a>6.1 说明</h3><ul>
+<li>Tumbling count window</li>
+<li>将数据依据固定的长度对数据进行切分</li>
+<li>时间对齐，窗口长度固定，没有重叠</li>
+<li>每条数据只会被划分到一个窗口中</li>
+</ul>
+<h3 id="6-2-图示"><a href="#6-2-图示" class="headerlink" title="6.2 图示"></a>6.2 图示</h3><p><img src="https://images.hnbian.cn/FrRLizJBnT9QXcaVyWyX4x6w9Qmx" alt="滚动计数窗口示意图"></p>
+<h3 id="6-3-实现方式"><a href="#6-3-实现方式" class="headerlink" title="6.3 实现方式"></a>6.3 实现方式</h3><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token keyword">object</span> TumblingCountWIndow <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Record<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Record<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toInt<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">// 取出 2 条记录之内,每个 classId 年纪最小的用户</span>
+    stream2<span class="token punctuation">.</span>map<span class="token punctuation">(</span>record<span class="token keyword">=></span><span class="token punctuation">{</span>
+      <span class="token punctuation">(</span>record<span class="token punctuation">.</span>classId<span class="token punctuation">,</span>record<span class="token punctuation">.</span>age<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>countWindow<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true">//  窗口数量 默认使用的是 processing time</span>
+      <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token punctuation">(</span>r1<span class="token punctuation">,</span>r2<span class="token punctuation">)</span><span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>_1<span class="token punctuation">,</span>r1<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>min<span class="token punctuation">(</span>r2<span class="token punctuation">.</span>_2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"minAge"</span><span class="token punctuation">)</span>
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+<span class="token punctuation">}</span></code></pre>
+<h2 id="7-滑动计数窗口"><a href="#7-滑动计数窗口" class="headerlink" title="7. 滑动计数窗口"></a>7. 滑动计数窗口</h2><h3 id="7-1-说明"><a href="#7-1-说明" class="headerlink" title="7.1 说明"></a>7.1 说明</h3><ul>
+<li>Sliding count window</li>
+<li>滑动窗口是固定窗口的更广义的一种形式，滑动窗口由固定的窗口长度和滑动间隔组成。</li>
+<li>窗口长度固定，窗口间有重叠的部分</li>
+</ul>
+<h3 id="7-2-图示"><a href="#7-2-图示" class="headerlink" title="7.2 图示"></a>7.2 图示</h3><p><img src="https://images.hnbian.cn/Fgibac1_Vj7bCmfSo3PFYNLaaZDT" alt="滑动计数窗口示意图"></p>
+<h3 id="7-3-实现方式"><a href="#7-3-实现方式" class="headerlink" title="7.3 实现方式"></a>7.3 实现方式</h3><pre class=" language-scala"><code class="language-scala">
+<span class="token keyword">object</span> SlidingCountWindow <span class="token punctuation">{</span>
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+
+    <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">val</span> stream2<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Record<span class="token punctuation">]</span> <span class="token operator">=</span> stream1<span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Record<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toInt<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">// 取出 2 条记录之内,每个 classId 年纪最小的用户</span>
+    stream2<span class="token punctuation">.</span>map<span class="token punctuation">(</span>record<span class="token keyword">=></span><span class="token punctuation">{</span>
+      <span class="token punctuation">(</span>record<span class="token punctuation">.</span>classId<span class="token punctuation">,</span>record<span class="token punctuation">.</span>age<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>countWindow<span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true">//  窗口数量是 4 滑动为 2 ， 默认使用的是 processing time</span>
+      <span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token punctuation">(</span>r1<span class="token punctuation">,</span>r2<span class="token punctuation">)</span><span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>r1<span class="token punctuation">.</span>_1<span class="token punctuation">,</span>r1<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>min<span class="token punctuation">(</span>r2<span class="token punctuation">.</span>_2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"minAge"</span><span class="token punctuation">)</span>
+
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="8-全局窗口"><a href="#8-全局窗口" class="headerlink" title="8. 全局窗口"></a>8. 全局窗口</h2><h3 id="8-1-说明"><a href="#8-1-说明" class="headerlink" title="8.1 说明"></a>8.1 说明</h3><ul>
+<li>global window</li>
+<li>全局窗口会将所有 key 相同的元素分配到同一个窗口中，其通常配合触发器 (trigger) 进行使用。</li>
+<li>如果没有相应触发器，则计算将不会被执行。</li>
+</ul>
+<h3 id="8-2-图示"><a href="#8-2-图示" class="headerlink" title="8.2 图示"></a>8.2 图示</h3><p><img src="https://images.hnbian.cn/FjXjIarSKe1xJwyPrGwvh3gYeLEd" alt="全局窗口示意图"></p>
+<h3 id="8-3-实现方式"><a href="#8-3-实现方式" class="headerlink" title="8.3 实现方式"></a>8.3 实现方式</h3><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>assigners<span class="token punctuation">.</span>GlobalWindows
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>windowing<span class="token punctuation">.</span>triggers<span class="token punctuation">.</span>CountTrigger
+
+<span class="token keyword">object</span> GlobanWindow <span class="token punctuation">{</span>
+
+  <span class="token keyword">def</span> main<span class="token punctuation">(</span>args<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 创建执行环境</span>
+    <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+    <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+    stream1<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">// 当整个单词累计出现的次数每达到3次或者 3 次的倍数时，则触发计算，计算整个窗口内该单词出现的总数</span>
+    stream1
+      <span class="token punctuation">.</span>flatMap<span class="token punctuation">(</span>str<span class="token keyword">=></span><span class="token punctuation">{</span>str<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">" "</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>map<span class="token punctuation">(</span>str<span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>str<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>windowAll<span class="token punctuation">(</span>GlobalWindows<span class="token punctuation">.</span>create<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>trigger<span class="token punctuation">(</span>CountTrigger<span class="token punctuation">.</span>of<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true">// 设置触发条件</span>
+      <span class="token punctuation">.</span>sum<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+      <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+    env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/dbaa157a.html">https://www.hnbian.cn/posts/dbaa157a.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/a459ab50.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fqi9MoH_nopCI4v8n6eELRCs2NNa" class="responsive-img" alt="Flink系列 9. 介绍 Flink 窗口触发器、移除器和延迟数据等">
+                        
+                        <span class="card-title">Flink系列 9. 介绍 Flink 窗口触发器、移除器和延迟数据等</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. 触发器1.1 触发器介绍
+当数据到达某种情况，符合了某种条件去关闭窗口，这种到达条件就是触发。
+设置到达某种条件并触发窗口执行就是触发器。
+触发器的作用就是控制什么时候进行数据的聚合计算
+flink 中的窗口计算依赖于触发器。
+每种窗
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-07-25
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/dfb2174e.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fj6hnE4utCdFc6-lj99MsEbTXZ2L" class="responsive-img" alt="Flink系列 7. 介绍Flink中的时间语义与WaterMark">
+                        
+                        <span class="card-title">Flink系列 7. 介绍Flink中的时间语义与WaterMark</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. 时间语义和 water mark1.1 时间语义介绍
+EventTime (事件时间) : 数据产生时的时间，一般都包含在数据内，由用户指定数据中的时间戳。
+
+Ingestion Time (摄取时间) :  数据进入 Flink 的
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-07-11
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,1867 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Flink系列 6. 数据传输策略与任务链, hnbian">
+    <meta name="description" content="1. 数据分发策略数据的分区策略决定了数据会分发到下游算子的那个分区，在 Flink 中有八种不同的分区策略，也称为分区器。
+
+1.1 ChannelSelectorChannelSelector 是一个接口，它的核心功能是为输入的数据选择">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Flink系列 6. 数据传输策略与任务链 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fj__Qz4nhH4B_T8C2UXlUn8nNUVA')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Flink系列 6. 数据传输策略与任务链</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/flink/" class="post-category">
+                                flink
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-06-15
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    3.1k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    15 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-数据分发策略"><a href="#1-数据分发策略" class="headerlink" title="1. 数据分发策略"></a>1. 数据分发策略</h2><p>数据的分区策略决定了数据会分发到下游算子的那个分区，在 Flink 中有八种不同的分区策略，也称为分区器。</p>
+<p><img src="https://images.hnbian.cn/FgMgQCTcV_g-0OWucipswMz4C3tN" alt="Flink 中分区器继承图"></p>
+<h3 id="1-1-ChannelSelector"><a href="#1-1-ChannelSelector" class="headerlink" title="1.1 ChannelSelector"></a>1.1 ChannelSelector</h3><p>ChannelSelector 是一个接口，它的核心功能是为输入的数据选择一个逻辑的channel。</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>io<span class="token punctuation">.</span>network<span class="token punctuation">.</span>api<span class="token punctuation">.</span>writer<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// ChannelSelector用于确定数据被写入哪个通道</span>
+public interface ChannelSelector<span class="token operator">&lt;</span>T <span class="token keyword">extends</span> IOReadableWritable<span class="token operator">></span> <span class="token punctuation">{</span>
+
+   <span class="token operator">/</span>
+    <span class="token operator">*</span> 根据输出通道的数量初始化通道选择器
+    <span class="token operator">*</span> <span class="token annotation punctuation">@param</span> numberOfChannels 输出通道总数      
+    <span class="token operator">*</span><span class="token operator">/</span>
+   void setup<span class="token punctuation">(</span>int numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+   <span class="token operator">/</span>
+    <span class="token operator">*</span> 根据当前记录以及Channel总数，决定应将记录写入下游哪个Channel。
+    <span class="token operator">*</span> flink 中实现的分区策略的区别主要在这个方法的实现上
+    <span class="token operator">*</span><span class="token operator">/</span>
+   int selectChannel<span class="token punctuation">(</span>T record<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+   <span class="token operator">/</span>
+    <span class="token operator">*</span> 是否广播模式，决定是否将记录写入到下游的所有channel
+    <span class="token operator">*</span><span class="token operator">/</span>
+   boolean isBroadcast<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="1-2-StreamPartitioner"><a href="#1-2-StreamPartitioner" class="headerlink" title="1.2 StreamPartitioner"></a>1.2 StreamPartitioner</h3><p>StreamPartitioner 是一个抽象类，它实现了 ChannelSelector 接口，它也是所有分区器的基类。</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>io<span class="token punctuation">.</span>network<span class="token punctuation">.</span>api<span class="token punctuation">.</span>writer<span class="token punctuation">.</span>ChannelSelector<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Serializable<span class="token punctuation">;</span>
+public <span class="token keyword">abstract</span> <span class="token keyword">class</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> implements
+      ChannelSelector<span class="token operator">&lt;</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>>></span><span class="token punctuation">,</span> Serializable <span class="token punctuation">{</span>
+   <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+   <span class="token keyword">protected</span> int numberOfChannels<span class="token punctuation">;</span>
+
+   <span class="token comment" spellcheck="true">// 重写setup方法，初始化Chennal 数量</span>
+   <span class="token annotation punctuation">@Override</span>
+   public void setup<span class="token punctuation">(</span>int numberOfChannels<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>numberOfChannels <span class="token operator">=</span> numberOfChannels<span class="token punctuation">;</span>
+   <span class="token punctuation">}</span>
+
+   <span class="token comment" spellcheck="true">// 重写广播方法，默认不广播</span>
+   <span class="token annotation punctuation">@Override</span>
+   public boolean isBroadcast<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">return</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
+   <span class="token punctuation">}</span>
+
+   <span class="token comment" spellcheck="true">// 抽象的构造方法</span>
+   public <span class="token keyword">abstract</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="2-分区器介绍"><a href="#2-分区器介绍" class="headerlink" title="2.分区器介绍"></a>2.分区器介绍</h2><h3 id="2-1-GlobalPartitioner"><a href="#2-1-GlobalPartitioner" class="headerlink" title="2.1 GlobalPartitioner"></a>2.1 GlobalPartitioner</h3><p>将所有的数据都发送到下游 0 号分区中。</p>
+<h4 id="2-1-1-源码解析"><a href="#2-1-1-源码解析" class="headerlink" title="2.1.1 源码解析"></a>2.1.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 分区器将所有元素发送到下游算子中分区为 0 的分区中
+ *
+ * @param &lt;T> Type of the elements in the Stream being partitioned
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> GlobalPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+   <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+   <span class="token annotation punctuation">@Override</span>
+   public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+     <span class="token comment" spellcheck="true">// 无论数据怎样，都返回 0 号分区</span>
+     <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+   <span class="token punctuation">}</span>
+
+   <span class="token annotation punctuation">@Override</span>
+   public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+   <span class="token punctuation">}</span>
+
+   <span class="token annotation punctuation">@Override</span>
+   public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">return</span> <span class="token string">"GLOBAL"</span><span class="token punctuation">;</span>
+   <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-1-2-图示说明"><a href="#2-1-2-图示说明" class="headerlink" title="2.1.2 图示说明"></a>2.1.2 图示说明</h4><p><img src="https://images.hnbian.cn/FvV1ZMbMo5i4qtWjmW1UwdrOu-eA" alt="GlobalPartitioner 分区示意图"></p>
+<h4 id="2-1-3-API-使用"><a href="#2-1-3-API-使用" class="headerlink" title="2.1.3 API 使用"></a>2.1.3 API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">object</span> TestGlobalPartitioner <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 直接打印数据</span>
+  stream<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">/**
+    * 打印结果
+    * 10> 1
+    * 2> 5
+    * 1> 4
+    * 11> 2
+    * 12> 3
+    */</span>
+  <span class="token comment" spellcheck="true">// 使用 GLobal Partitioner 之后打印数据</span>
+  stream<span class="token punctuation">.</span>global<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"global"</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">/**
+    * global:1> 1
+    * global:1> 2
+    * global:1> 3
+    * global:1> 4
+    * global:1> 5
+    */</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="2-2-ShufflePartitioner"><a href="#2-2-ShufflePartitioner" class="headerlink" title="2.2 ShufflePartitioner"></a>2.2 ShufflePartitioner</h3><h4 id="2-2-1-源码解析"><a href="#2-2-1-源码解析" class="headerlink" title="2.2.1 源码解析"></a>2.2.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Random<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 将数据随机分发到一个分区
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> ShufflePartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">private</span> Random random <span class="token operator">=</span> <span class="token keyword">new</span> Random<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 随机选择一个分区</span>
+    <span class="token keyword">return</span> random<span class="token punctuation">.</span>nextInt<span class="token punctuation">(</span>numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">new</span> ShufflePartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"SHUFFLE"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-2-2-图示说明"><a href="#2-2-2-图示说明" class="headerlink" title="2.2.2 图示说明"></a>2.2.2 图示说明</h4><p><img src="https://images.hnbian.cn/FvPOEg09BaoTaEmpwaNHgAFVZMDE" alt="ShufflePartitioner 分区示意图,数据随机发送到下游某个分区"></p>
+<h4 id="2-2-3-API-使用"><a href="#2-2-3-API-使用" class="headerlink" title="2.2.3  API 使用"></a>2.2.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token keyword">object</span> TestShufflePartitioner <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 这里只是为了能够将并行度设置为 2</span>
+  <span class="token keyword">val</span> stream2 <span class="token operator">=</span> stream<span class="token punctuation">.</span>map<span class="token punctuation">(</span>v<span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>v<span class="token operator">%</span><span class="token number">2</span><span class="token punctuation">,</span>v<span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span>map<span class="token punctuation">(</span>v<span class="token keyword">=></span><span class="token punctuation">(</span>v<span class="token punctuation">.</span>_1<span class="token punctuation">,</span>v<span class="token punctuation">.</span>_2<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+  println<span class="token punctuation">(</span>stream2<span class="token punctuation">.</span>parallelism<span class="token punctuation">)</span> <span class="token comment" spellcheck="true">// 查看并行度</span>
+
+  stream2<span class="token punctuation">.</span>shuffle<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"shuffle"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">/**
+    * shuffle:3> (0,4)
+    * shuffle:2> (1,1)
+    * shuffle:1> (0,2)
+    * shuffle:3> (1,3)
+    * shuffle:1> (1,5)
+    */</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-3-RebalancePartitioner"><a href="#2-3-RebalancePartitioner" class="headerlink" title="2.3 RebalancePartitioner"></a>2.3 RebalancePartitioner</h3><h4 id="2-3-1-源码解析"><a href="#2-3-1-源码解析" class="headerlink" title="2.3.1 源码解析"></a>2.3.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>concurrent<span class="token punctuation">.</span>ThreadLocalRandom<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 轮询 所有的分区，将数据均匀的发送出去
+ * @param &lt;T> Type of the elements in the Stream being rebalanced
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> RebalancePartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">private</span> int nextChannelToSendTo<span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public void setup<span class="token punctuation">(</span>int numberOfChannels<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">super</span><span class="token punctuation">.</span>setup<span class="token punctuation">(</span>numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">//初始化channel的id，返回[0,numberOfChannels) 区间中的任意一个分区号码</span>
+        nextChannelToSendTo <span class="token operator">=</span> ThreadLocalRandom<span class="token punctuation">.</span>current<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>nextInt<span class="token punctuation">(</span>numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">//循环依次发送到下游的分区</span>
+    <span class="token comment" spellcheck="true">//比如：nextChannelToSendTo初始值为0，numberOfChannels(下游算子的实例个数，并行度)值为2</span>
+        <span class="token comment" spellcheck="true">//则第一次发送到ID = 1的task，第二次发送到ID = 0的task，第三次发送到ID = 1的task上...依次类推</span>
+        nextChannelToSendTo <span class="token operator">=</span> <span class="token punctuation">(</span>nextChannelToSendTo <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">%</span> numberOfChannels<span class="token punctuation">;</span>
+        <span class="token keyword">return</span> nextChannelToSendTo<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"REBALANCE"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-3-2-图示说明"><a href="#2-3-2-图示说明" class="headerlink" title="2.3.2 图示说明"></a>2.3.2 图示说明</h4><p><img src="https://images.hnbian.cn/Fjp7rrWiqcWhSlvBiw8zT-BBlifV" alt="RebalancePartitioner 分区器示意图"></p>
+<h4 id="2-3-3-API-使用"><a href="#2-3-3-API-使用" class="headerlink" title="2.3.3  API 使用"></a>2.3.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token keyword">object</span> RebalancePartitioner <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">,</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 直接打印数据</span>
+
+  stream<span class="token punctuation">.</span>rebalance<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">/**
+    * 2> 1
+    * 2> 3
+    * 2> 5
+    * 
+    * 1> 2
+    * 1> 4
+    * 1> 6
+    */</span>
+
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="2-4-RescalePartitioner"><a href="#2-4-RescalePartitioner" class="headerlink" title="2.4 RescalePartitioner"></a>2.4 RescalePartitioner</h3><h4 id="2-4-1-源码解析"><a href="#2-4-1-源码解析" class="headerlink" title="2.4.1 源码解析"></a>2.4.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>jobgraph<span class="token punctuation">.</span>DistributionPattern<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> RescalePartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">private</span> int nextChannelToSendTo <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">++</span>nextChannelToSendTo <span class="token operator">>=</span> numberOfChannels<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            nextChannelToSendTo <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token keyword">return</span> nextChannelToSendTo<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"RESCALE"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-4-2-图示说明"><a href="#2-4-2-图示说明" class="headerlink" title="2.4.2 图示说明"></a>2.4.2 图示说明</h4><p><img src="https://images.hnbian.cn/FjRlBK-Id7z9oD7CacIikTKXkF4B" alt="上游算子2个分区，下游算子4个分区"></p>
+<p><img src="https://images.hnbian.cn/FgIIbCbuCC9diD-H_tY1-TVLVvIk" alt="上游算子4个分区，下游算子2个分区"></p>
+<h4 id="2-4-3-API-使用"><a href="#2-4-3-API-使用" class="headerlink" title="2.4.3  API 使用"></a>2.4.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">// </span></code></pre>
+<h3 id="2-5-BroadcastPartitioner"><a href="#2-5-BroadcastPartitioner" class="headerlink" title="2.5 BroadcastPartitioner"></a>2.5 BroadcastPartitioner</h3><p> 广播变量</p>
+<ol>
+<li>广播变量创建后，它可以运行在集群中的任何function上，而不需要多次传递给集群节点。</li>
+<li>不修改广播变量，这样才能确保每个节点获取到的值都是一致的。</li>
+<li>可以理解为是一个公共的共享变量，我们可以把一个dataset 数据集广播出去，然后不同的task在节点上都能够获取到，这个数据在每个节点上只会存在一份。</li>
+<li>如果不使用broadcast，则在每个节点中的每个task中都需要拷贝一份dataset数据集，比较浪费内存(也就是一个节点中可能会存在多份dataset数据)。</li>
+</ol>
+<h4 id="2-5-1-源码解析"><a href="#2-5-1-源码解析" class="headerlink" title="2.5.1 源码解析"></a>2.5.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 选择所有分区发送数据
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> BroadcastPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 广播模式可以直接在记录写入器中为所有输出通道处理，因此不需要通过此方法选择通道。
+     */</span>
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">throw</span> <span class="token keyword">new</span> UnsupportedOperationException<span class="token punctuation">(</span><span class="token string">"Broadcast partitioner does not support select channels."</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+  <span class="token comment" spellcheck="true">// 广播数据</span>
+    <span class="token annotation punctuation">@Override</span>
+    public boolean isBroadcast<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"BROADCAST"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-5-2-图示说明"><a href="#2-5-2-图示说明" class="headerlink" title="2.5.2 图示说明"></a>2.5.2 图示说明</h4><p><img src="https://images.hnbian.cn/Fj0Osk7OvpijjpaKH_GuF2vngAC0" alt="BroadcastPartitioner 分区示意图"></p>
+<h4 id="2-5-3-API-使用"><a href="#2-5-3-API-使用" class="headerlink" title="2.5.3  API 使用"></a>2.5.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token keyword">object</span> TestBroadcastPartitioner <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> bro <span class="token operator">=</span> stream<span class="token punctuation">.</span>broadcast
+
+  bro<span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"broadcast"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">/**
+    * broadcast:1> 1
+    * broadcast:1> 2
+    * broadcast:1> 3
+    * broadcast:1> 4
+    * broadcast:1> 5
+    *
+    * broadcast:2> 1
+    * broadcast:2> 2
+    * broadcast:2> 3
+    * broadcast:2> 4
+    * broadcast:2> 5
+    */</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="2-6-ForwardPartitioner"><a href="#2-6-ForwardPartitioner" class="headerlink" title="2.6 ForwardPartitioner"></a>2.6 ForwardPartitioner</h3><p>发送到下游对应的第一个task，保证上下游算子并行度一致，即上有算子与下游算子是1 对 1的关系，在上下游的算子没有指定分区器的情况下，如果上下游的算子并行度一致，则使用ForwardPartitioner，否则使用RebalancePartitioner，对于ForwardPartitioner，必须保证上下游算子并行度一致，否则会抛出异常。</p>
+<h4 id="2-6-1-源码解析"><a href="#2-6-1-源码解析" class="headerlink" title="2.6.1 源码解析"></a>2.6.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> ForwardPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token number">0</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"FORWARD"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-6-2-图示说明"><a href="#2-6-2-图示说明" class="headerlink" title="2.6.2 图示说明"></a>2.6.2 图示说明</h4><p><img src="https://images.hnbian.cn/Fq1gxioNNmZb8zYHgMkyqRKHjMDp" alt="ForwardPartitioner 分区示意图"></p>
+<h4 id="2-6-3-API-使用"><a href="#2-6-3-API-使用" class="headerlink" title="2.6.3  API 使用"></a>2.6.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token keyword">object</span> TestForwardPartitioner <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 直接打印数据</span>
+
+  stream<span class="token punctuation">.</span>map<span class="token punctuation">(</span>v<span class="token keyword">=></span><span class="token punctuation">{</span>v<span class="token operator">+</span><span class="token number">1</span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">/**
+    * 2> 2
+    * 1> 3
+    * 2> 4
+    * 1> 5
+    * 2> 6
+    */</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+</code></pre>
+<h3 id="2-7-KeyGroupStreamPartitioner"><a href="#2-7-KeyGroupStreamPartitioner" class="headerlink" title="2.7 KeyGroupStreamPartitioner"></a>2.7 KeyGroupStreamPartitioner</h3><p>根据key的分组索引选择发送到相对应的分区</p>
+<h4 id="2-7-1-源码解析"><a href="#2-7-1-源码解析" class="headerlink" title="2.7.1 源码解析"></a>2.7.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>java<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>KeySelector<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>KeyGroupRangeAssignment<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Preconditions<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 通过 key 分区将数据发送到下游算子的分区中
+ * @param &lt;T> Type of the elements in the Stream being partitioned
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> KeyGroupStreamPartitioner<span class="token operator">&lt;</span>T<span class="token punctuation">,</span> K<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> implements ConfigurableStreamPartitioner <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">private</span> <span class="token keyword">final</span> KeySelector<span class="token operator">&lt;</span>T<span class="token punctuation">,</span> K<span class="token operator">></span> keySelector<span class="token punctuation">;</span>
+
+    <span class="token keyword">private</span> int maxParallelism<span class="token punctuation">;</span>
+
+    public KeyGroupStreamPartitioner<span class="token punctuation">(</span>KeySelector<span class="token operator">&lt;</span>T<span class="token punctuation">,</span> K<span class="token operator">></span> keySelector<span class="token punctuation">,</span> int maxParallelism<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        Preconditions<span class="token punctuation">.</span>checkArgument<span class="token punctuation">(</span>maxParallelism <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token string">"Number of key-groups must be > 0!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>keySelector <span class="token operator">=</span> Preconditions<span class="token punctuation">.</span>checkNotNull<span class="token punctuation">(</span>keySelector<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>maxParallelism <span class="token operator">=</span> maxParallelism<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    public int getMaxParallelism<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> maxParallelism<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        K key<span class="token punctuation">;</span>
+        <span class="token keyword">try</span> <span class="token punctuation">{</span>
+            key <span class="token operator">=</span> keySelector<span class="token punctuation">.</span>getKey<span class="token punctuation">(</span>record<span class="token punctuation">.</span>getInstance<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>getValue<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>Exception e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> RuntimeException<span class="token punctuation">(</span><span class="token string">"Could not extract key from "</span> <span class="token operator">+</span> record<span class="token punctuation">.</span>getInstance<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>getValue<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token comment" spellcheck="true">// 调用KeyGroupRangeAssignment类的assignKeyToParallelOperator方法,返回应该发送的分区号码</span>
+        <span class="token keyword">return</span> KeyGroupRangeAssignment<span class="token punctuation">.</span>assignKeyToParallelOperator<span class="token punctuation">(</span>key<span class="token punctuation">,</span> maxParallelism<span class="token punctuation">,</span> numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"HASH"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public void configure<span class="token punctuation">(</span>int maxParallelism<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        KeyGroupRangeAssignment<span class="token punctuation">.</span>checkParallelismPreconditions<span class="token punctuation">(</span>maxParallelism<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>maxParallelism <span class="token operator">=</span> maxParallelism<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">/**
+     * 将指定的key 分配给指定的 operator index
+     *
+     * @param key  key 值
+     * @param maxParallelism 最大并行度
+     * @param parallelism 当前算子并行度
+     * @return the index of the parallel operator to which the given key should be routed.
+     */</span>
+    public static int assignKeyToParallelOperator<span class="token punctuation">(</span>Object key<span class="token punctuation">,</span> int maxParallelism<span class="token punctuation">,</span> int parallelism<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        Preconditions<span class="token punctuation">.</span>checkNotNull<span class="token punctuation">(</span>key<span class="token punctuation">,</span> <span class="token string">"Assigned key must not be null!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">// 调用 computeOperatorIndexForKeyGroup 方法</span>
+        <span class="token keyword">return</span> computeOperatorIndexForKeyGroup<span class="token punctuation">(</span>maxParallelism<span class="token punctuation">,</span> parallelism<span class="token punctuation">,</span> assignToKeyGroup<span class="token punctuation">(</span>key<span class="token punctuation">,</span> maxParallelism<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span></code></pre>
+<pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">/**
+    * 在给定的并行度和最大并行度下计算键组所属的运算符的索引。
+  * 重要说明：maxParallelism必须为&lt;= Short.MAX_VALUE，以避免此方法中的舍入问题。 
+  * 如果我们想超越此界限，则此方法必须对长值执行算术运算。
+  *
+  * @param maxParallelism 最大并行度
+    *                       0 &lt; parallelism &lt;= maxParallelism &lt;= Short.MAX_VALUE must hold.
+  * @param parallelism    当前作业并行度. Must be &lt;= maxParallelism.
+  * @param keyGroupId     Key 分区 ID. 0 &lt;= keyGroupID &lt; maxParallelism.
+  * @return 返回分区号 在
+   */</span>
+    public static int computeOperatorIndexForKeyGroup<span class="token punctuation">(</span>int maxParallelism<span class="token punctuation">,</span> int parallelism<span class="token punctuation">,</span> int keyGroupId<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 计算数据发送到哪个分区</span>
+    <span class="token keyword">return</span> keyGroupId <span class="token operator">*</span> parallelism <span class="token operator">/</span> maxParallelism<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span></code></pre>
+<h4 id="2-7-2-图示说明"><a href="#2-7-2-图示说明" class="headerlink" title="2.7.2 图示说明"></a>2.7.2 图示说明</h4><p><img src="https://images.hnbian.cn/FhPhEZC8cnXfdJclkdUectTXGCn_" alt="KeyGroupStreamPartitioner 分区示意图"></p>
+<h4 id="2-7-3-API-使用"><a href="#2-7-3-API-使用" class="headerlink" title="2.7.3  API 使用"></a>2.7.3  API 使用</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+
+<span class="token comment" spellcheck="true">/**
+  * @Author haonan.bian
+  * @Description //TODO
+  * @Date 2020/12/31 16:23 
+  **/</span>
+<span class="token keyword">object</span> TestKeyGroupStreamPartitioner <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">,</span><span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> stream2 <span class="token operator">=</span> stream<span class="token punctuation">.</span>map<span class="token punctuation">(</span>v<span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span>v<span class="token operator">%</span><span class="token number">2</span><span class="token punctuation">,</span>v<span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+  stream2<span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span><span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"key"</span><span class="token punctuation">)</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="2-8-CustomPartitionerWrapper"><a href="#2-8-CustomPartitionerWrapper" class="headerlink" title="2.8 CustomPartitionerWrapper"></a>2.8 CustomPartitionerWrapper</h3><p>通过<code>Partitioner</code>实例的<code>partition</code>方法，可以实现自定义的将记录输出到下游指定分区中。</p>
+<h4 id="2-8-1-源码解析"><a href="#2-8-1-源码解析" class="headerlink" title="2.8.1 源码解析"></a>2.8.1 源码解析</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>partitioner<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Internal<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>Partitioner<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>java<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>KeySelector<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>plugable<span class="token punctuation">.</span>SerializationDelegate<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>streamrecord<span class="token punctuation">.</span>StreamRecord<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 自定义分区方式
+ * @param &lt;K>
+ *            Type of the key
+ * @param &lt;T>
+ *            Type of the data
+ */</span>
+<span class="token annotation punctuation">@Internal</span>
+public <span class="token keyword">class</span> CustomPartitionerWrapper<span class="token operator">&lt;</span>K<span class="token punctuation">,</span> T<span class="token operator">></span> <span class="token keyword">extends</span> StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> <span class="token punctuation">{</span>
+    <span class="token keyword">private</span> static <span class="token keyword">final</span> long serialVersionUID <span class="token operator">=</span> <span class="token number">1L</span><span class="token punctuation">;</span>
+
+    Partitioner<span class="token operator">&lt;</span>K<span class="token operator">></span> partitioner<span class="token punctuation">;</span>
+    KeySelector<span class="token operator">&lt;</span>T<span class="token punctuation">,</span> K<span class="token operator">></span> keySelector<span class="token punctuation">;</span>
+
+    public CustomPartitionerWrapper<span class="token punctuation">(</span>Partitioner<span class="token operator">&lt;</span>K<span class="token operator">></span> partitioner<span class="token punctuation">,</span> KeySelector<span class="token operator">&lt;</span>T<span class="token punctuation">,</span> K<span class="token operator">></span> keySelector<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>partitioner <span class="token operator">=</span> partitioner<span class="token punctuation">;</span>
+        <span class="token keyword">this</span><span class="token punctuation">.</span>keySelector <span class="token operator">=</span> keySelector<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public int selectChannel<span class="token punctuation">(</span>SerializationDelegate<span class="token operator">&lt;</span>StreamRecord<span class="token operator">&lt;</span>T<span class="token operator">>></span> record<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        K key<span class="token punctuation">;</span>
+        <span class="token keyword">try</span> <span class="token punctuation">{</span>
+            key <span class="token operator">=</span> keySelector<span class="token punctuation">.</span>getKey<span class="token punctuation">(</span>record<span class="token punctuation">.</span>getInstance<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>getValue<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>Exception e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">throw</span> <span class="token keyword">new</span> RuntimeException<span class="token punctuation">(</span><span class="token string">"Could not extract key from "</span> <span class="token operator">+</span> record<span class="token punctuation">.</span>getInstance<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> e<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token comment" spellcheck="true">//实现Partitioner接口，重写partition方法</span>
+        <span class="token keyword">return</span> partitioner<span class="token punctuation">.</span>partition<span class="token punctuation">(</span>key<span class="token punctuation">,</span> numberOfChannels<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public StreamPartitioner<span class="token operator">&lt;</span>T<span class="token operator">></span> copy<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    public <span class="token builtin">String</span> toString<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token string">"CUSTOM"</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="2-8-2-测试-API"><a href="#2-8-2-测试-API" class="headerlink" title="2.8.2 测试 API"></a>2.8.2 测试 API</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>Partitioner
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>_
+<span class="token comment" spellcheck="true">/**
+  * @Author haonan.bian
+  * @Description //TODO
+  * @Date 2020/12/31 16:36 
+  **/</span>
+<span class="token keyword">object</span> CustomPartitioner <span class="token keyword">extends</span> Partitioner<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token keyword">override</span> <span class="token keyword">def</span> partition<span class="token punctuation">(</span>key<span class="token operator">:</span> <span class="token builtin">String</span><span class="token punctuation">,</span> numPartitions<span class="token operator">:</span> <span class="token builtin">Int</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Int</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 根据 key值的 奇偶 返回到不同的分区</span>
+    key<span class="token punctuation">.</span>toInt <span class="token operator">%</span> <span class="token number">2</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">object</span> TestCustomPartitioner <span class="token keyword">extends</span> App<span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+  <span class="token comment" spellcheck="true">// 从自定义的集合中读取数据</span>
+
+  <span class="token keyword">val</span> stream <span class="token operator">=</span> env<span class="token punctuation">.</span>fromCollection<span class="token punctuation">(</span>List<span class="token punctuation">(</span><span class="token string">"1"</span><span class="token punctuation">,</span><span class="token string">"2"</span><span class="token punctuation">,</span><span class="token string">"3"</span><span class="token punctuation">,</span><span class="token string">"4"</span><span class="token punctuation">,</span><span class="token string">"5"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> partitioner <span class="token operator">=</span>  CustomPartitioner
+
+  <span class="token keyword">val</span> stream2 <span class="token operator">=</span> stream<span class="token punctuation">.</span>map<span class="token punctuation">(</span>value<span class="token keyword">=></span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">(</span>value<span class="token punctuation">.</span>toInt<span class="token operator">%</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toString<span class="token punctuation">,</span>value<span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+  stream2<span class="token punctuation">.</span>partitionCustom<span class="token punctuation">(</span>partitioner<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">/**
+    * 1> (0,2)
+    * 1> (0,4)
+    * 2> (1,1)
+    * 2> (1,5)
+    * 2> (1,3)
+    */</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="3-任务链（Operator-Chains）"><a href="#3-任务链（Operator-Chains）" class="headerlink" title="3. 任务链（Operator Chains）"></a>3. 任务链（Operator Chains）</h2><ul>
+<li>flink 采用了一种称为任务链的优化技术，可以在特定条件下减少本地通信的开销。为了满足任务链的要求，必须将两个及以上的算子设为相同的并行度，并通过本地转发（local forward）的方式进行连接。</li>
+<li>将算子合并为任务链有两个必须条件 ： 1. 算子的并行度相同 2. 合并任务链的算子都是 one-to-one 算子</li>
+<li>算子合并为任务链之后，原来的算子成为里面的 subtask</li>
+</ul>
+<p><img src="https://images.hnbian.cn/Fk7OPm-zJnUzlqWH1MxNEvkOl_aI" alt="任务链合并图示"></p>
+<h3 id="3-1-禁止-任务链合并"><a href="#3-1-禁止-任务链合并" class="headerlink" title="3.1 禁止 任务链合并"></a>3.1 禁止 任务链合并</h3><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">// 禁止全局任务链合并</span>
+env<span class="token punctuation">.</span>disableOperatorChaining<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true">// 禁止某个算的的任务链合并</span>
+filter<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>disableChaining<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true">// 断开前面的任务链并开始一个新的任务链</span>
+filter<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>startNewChain<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/4f974f4c.html">https://www.hnbian.cn/posts/4f974f4c.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/86c4e46e.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FguAnyFnTIgHddTHxTHs8_HIPFuX" class="responsive-img" alt="GreenPlum 6.0 版本升级内容与新功能介绍">
+                        
+                        <span class="card-title">GreenPlum 6.0 版本升级内容与新功能介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. postgresql 升级gpdb 5版本是将 postgresql 从 8.2 升级到 8.3 ，gpdb 6 有 6 个 postgresql 大版本升级：
+
+v8.4 - 2314 commits
+v9.0 - 1859 com
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-07-03
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/greenplum/" class="post-category">
+                                    greenplum
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/greenplum/">
+                        <span class="chip bg-color">greenplum</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/ca73496c.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fp2GBoQenAeRAH7oDHnJy0AhtApb" class="responsive-img" alt="Flink系列 5. 介绍Flink API：Source、Channel、Sink">
+                        
+                        <span class="card-title">Flink系列 5. 介绍Flink API：Source、Channel、Sink</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. 程序与数据流
+所有的 Flink 程序都是由三部分组成：Source、Transformation和 Sink。
+Source 负责读取数据源
+Transformation 负责利用各种算子加工数据
+Sink 负责将数据输出
+
+
+在程
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-06-10
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

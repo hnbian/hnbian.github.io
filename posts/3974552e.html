@@ -1,0 +1,2122 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Spark  任务调度解析, hnbian">
+    <meta name="description" content="1. Spark任务调度流程图
+
+
+
+2 DAGScheduler2.1 DAGScheduler 介绍
+DAG：Directed Acyclic Graph ，有向无环图
+
+高级调度器，面向阶段调度。（map阶段、reduce阶段）（st">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Spark  任务调度解析 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fiahkys1NGBnSNjLlfi0tOwSWZLV')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Spark  任务调度解析</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2019-08-26
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6.4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    29 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-Spark任务调度流程图"><a href="#1-Spark任务调度流程图" class="headerlink" title="1. Spark任务调度流程图"></a>1. Spark任务调度流程图</h2><img src="https://images.hnbian.cn/FhDiG0eMzzm0FXBI-1a-9N0nYVLh" alt=" " style="zoom:67%;">
+
+
+
+<h2 id="2-DAGScheduler"><a href="#2-DAGScheduler" class="headerlink" title="2 DAGScheduler"></a>2 DAGScheduler</h2><h3 id="2-1-DAGScheduler-介绍"><a href="#2-1-DAGScheduler-介绍" class="headerlink" title="2.1 DAGScheduler 介绍"></a>2.1 DAGScheduler 介绍</h3><ul>
+<li><p>DAG：Directed Acyclic Graph ，有向无环图</p>
+</li>
+<li><p>高级调度器，面向阶段调度。（map阶段、reduce阶段）（stage-0、stage-1）。</p>
+</li>
+</ul>
+<h3 id="2-2-主要职能"><a href="#2-2-主要职能" class="headerlink" title="2.2 主要职能"></a>2.2 主要职能</h3><ol>
+<li><strong>接收 Job ,拆分 Job , 传递到下层调度器</strong></li>
+</ol>
+<ul>
+<li><p>DAGScheduler 是接收 Job 的主入口，在SparkContext中会调用  <code>submitJob(rdd…)</code> 或 <code>runJob(rdd…)</code> 这两个方法提交任务。</p>
+</li>
+<li><p>DAGScheduler 将 RDD 以 shuffle 为边界创建 Stage</p>
+<ul>
+<li>窄依赖操作通过管道在每个阶段划分到一个taskSet中（如：map、filter都属于窄依赖操作）</li>
+<li>宽依赖的操作需要多个阶段，对于每个stage最后只有宽依赖会依赖其他阶段。</li>
+<li>宽依赖或者窄依赖的操作实际发生在各种RDD的compute函数中。</li>
+</ul>
+</li>
+<li><p>DAGScheduler 为 Job 计算 Stage 的 DAG ，跟踪哪个 RDD 的 Stage 的输出需要被进行物化，寻找最小调度进行作业。</p>
+</li>
+<li><p>DAGScheduler 生成stage并提交，接着判断这个 Stage 是否有父 Stage 未完成，如果有提交并等待父 Stage，以此类推结果是DAGScheduler里增加了一些Waiting Stage和一个Running Stage。</p>
+<ul>
+<li>Running Stage提交后，分析 Stage 里 Task 的类型，生成一个task描述(taskSet)。</li>
+</ul>
+</li>
+<li><p>TaskSet 包含了独立的 Task，可以基于集群上已经存在的数据独立运行（如：上一个Stage的map output），但是如果这些数据不可用会导致task运行失败。</p>
+</li>
+<li><p>DAGScheduler 调用 TaskScheduler.submitTask(taskSet,…)  方法，以任务集（taskSet）方式提交Stage给 TaskScheduler，以实现在集群上运行的机制。</p>
+</li>
+<li><p>DAG调度器还会根据当前缓存状态确定每个任务的首选位置。并将这些位置信息传递给TaskScheduler。</p>
+</li>
+<li><p>TaskScheduler 会依据资源量和出发分配条件，为这个 TaskSet 分配资源并触发执行</p>
+</li>
+<li><p>DAGScheduler 提交job后，异步返回 jobWaiter 对象，能够返回job运行状态，能够cancel job，执行成功后会处理并返回结果。</p>
+</li>
+</ul>
+<ol start="2">
+<li><strong>用于跟踪作业追踪器上的任务结果事件</strong></li>
+</ol>
+<ul>
+<li>如果 Task 执行成功，在对应的 Stage 里减去这个Task，接下来做一些计数工作</li>
+</ul>
+<ol>
+<li><p>如果 Task 是 <code>ResultTask</code> ：累加器 + 1，在 Job 中为该 Task 设置为true，JobFinish 总数+1。</p>
+<ol>
+<li>加完之后如果Finish数目与Partition数目相等，说明这个 Stage 完成了，标记 Stage 为完成，从 Running Stage 里减去这个 Stage，做一些stage清理工作。</li>
+</ol>
+</li>
+</ol>
+<ol start="2">
+<li>如果 Task 是 <code>ShuffleMapTask</code>：累加器 + 1，在Stage里加上一个OutPutLocation，里面是一个 MapStatus 类。<ol>
+<li>同时检查该 Stage 是否完成，向 MapOutputTracker 注册该 Stage 里的 Shuffle 和 Location 信息</li>
+<li>然后检查 Stage 的 OutPutLocation 是否存在空，</li>
+<li>如果存在空说明一些 Task 失败了，整个Stage重新提交。</li>
+<li>如果不存在空，继续从waiting stage中提交下一个需要执行的stage。</li>
+<li>（MapStatus是ShuffleMap Task执行完成的返回，包含Location和BlockSize信息）。</li>
+</ol>
+</li>
+</ol>
+<ul>
+<li>如果 Task 失败重复提交，在对应 Stage 里增加这个Task。</li>
+</ul>
+<ol>
+<li>如果task是获取失败，马上标记对应的 Stage 完成，从 Running Stages 里减去，不允许retry并且终止整个stage。</li>
+<li>如果不是获取失败则重新提交整个Stage，另外把这个Fetch相关的Location和Map任务信息从Stage里剔除，从mapOutputTracker注销掉，</li>
+<li>最后如果这次fetch的blockManager对象部位空做一次ExecutorLost处理，下次shuffle会换在另一个executor上去执行。</li>
+</ol>
+<ul>
+<li><p>其他 Task 状态会由 TaskScheduler 处理，如Execution、TaskResultLost、commitDenied等。</p>
+</li>
+<li><p>其他与job相关的还包括：Cancel Job、Cancel Stage、ReSubmit Failed Stage 等。</p>
+</li>
+</ul>
+<h3 id="2-3-其他职能"><a href="#2-3-其他职能" class="headerlink" title="2.3 其他职能"></a>2.3 其他职能</h3><ul>
+<li>缓存跟踪 Cache tracking</li>
+</ul>
+<p>DAG调度器分析被缓存的RDD, 以避免重复计算， 也会记住map阶段产生了output的shuffle 避免重复map过程。</p>
+<ul>
+<li>首选位置 Prefered location</li>
+</ul>
+<p>DAG调度器基于底层RDD, 缓存的配置或者shuffle的数据参数得到首位置选择， 并计算task运行地点。</p>
+<ul>
+<li>CleanUp</li>
+</ul>
+<p>Job 完成后数据结构被清除， 防止内存泄漏，为了故障修复，同以stage可能被执行多次，称之为”attemp”</p>
+<p>如果task调度器报告错误是因为上一个stage的map output 丢失， DAG调度器就会提交丢失的Stage，这是通过compeletion with fetchFailed 或者 ExecutorLost event 对象检测的，DAG调度器会等待一段时间，看是否其他节点或者task也出现故障， 然后一起提交lost Stage 的task集合。</p>
+<h3 id="2-4-DAG-图"><a href="#2-4-DAG-图" class="headerlink" title="2.4 DAG 图"></a>2.4 DAG 图</h3><pre class=" language-scala"><code class="language-scala"><span class="token keyword">val</span> rdd1 <span class="token operator">=</span> sc<span class="token punctuation">.</span>makeRDD<span class="token punctuation">(</span><span class="token number">1</span> to <span class="token number">10</span><span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd2 <span class="token operator">=</span> rdd1<span class="token punctuation">.</span>filter<span class="token punctuation">(</span>_ <span class="token operator">&lt;</span> <span class="token number">6</span><span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd3 <span class="token operator">=</span> rdd1<span class="token punctuation">.</span>filter<span class="token punctuation">(</span>_ <span class="token operator">>=</span> <span class="token number">6</span><span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd4 <span class="token operator">=</span> rdd2<span class="token punctuation">.</span>union<span class="token punctuation">(</span>rdd3<span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd5 <span class="token operator">=</span> rdd4<span class="token punctuation">.</span>map<span class="token punctuation">(</span>e<span class="token keyword">=></span><span class="token punctuation">(</span>e<span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd6 <span class="token operator">=</span> rdd5<span class="token punctuation">.</span>reduceByKey<span class="token punctuation">(</span>_ <span class="token operator">+</span> _<span class="token punctuation">)</span>
+<span class="token keyword">val</span> rdd7 <span class="token operator">=</span> rdd6<span class="token punctuation">.</span>filter<span class="token punctuation">(</span>e<span class="token keyword">=></span><span class="token punctuation">(</span>e _1<span class="token punctuation">)</span> <span class="token operator">%</span><span class="token number">2</span> <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">.</span>repartition<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">.</span>reduceByKey<span class="token punctuation">(</span>_ <span class="token operator">+</span> _<span class="token punctuation">)</span><span class="token punctuation">.</span>collect</code></pre>
+<img src="https://images.hnbian.cn/Fu7IQwUIo1KCZ0nTUQUjYCk2Ye3s" style="zoom:50%;">
+
+
+
+
+
+<h2 id="3-TaskScheduler"><a href="#3-TaskScheduler" class="headerlink" title="3. TaskScheduler"></a>3. TaskScheduler</h2><ul>
+<li><p>任务调度器（Trait）</p>
+</li>
+<li><p>底层任务调度接口，有专门的实现（TaskSchedulerImpl）。</p>
+</li>
+<li><p>每个调度器任务需要一个单独的SparkContext对象。</p>
+</li>
+<li><p>该调度器会从DAG调度器中得到提交的TaskSet，并负责将Task发送给cluster运行它们。如果运行出错会重试，返回事件对象给DAG调度器。</p>
+</li>
+<li><p>维护task和executor对应关系，executor和物理资源的对应关系。在排队的task和正在运行的task。</p>
+</li>
+<li><p>内部维护一个队列根据FIFO（先入先出）或者Fair（公平调度）策略，调度任务。</p>
+</li>
+</ul>
+<h3 id="3-1-TaskScheduler中的抽象方法"><a href="#3-1-TaskScheduler中的抽象方法" class="headerlink" title="3.1 TaskScheduler中的抽象方法"></a>3.1 TaskScheduler中的抽象方法</h3><p>TaskScheduler本身是一个Trait，spark里只TaskSchedulerImpl实现了TaskScheduler ，理论上任务调度器可以定制，下面是TaskScheduler的所有抽象方法</p>
+<pre class=" language-java"><code class="language-java">
+<span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>executor<span class="token punctuation">.</span>ExecutorMetrics
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>SchedulingMode<span class="token punctuation">.</span>SchedulingMode
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>storage<span class="token punctuation">.</span>BlockManagerId
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>util<span class="token punctuation">.</span>AccumulatorV2
+
+<span class="token comment" spellcheck="true">/**  
+  * Low-level task scheduler interface, currently implemented exclusively by
+  * [[org.apache.spark.scheduler.TaskSchedulerImpl]].
+  * This interface allows plugging in different task schedulers. Each TaskScheduler schedules tasks
+  * for a single SparkContext. These schedulers get sets of tasks submitted to them from the
+  * DAGScheduler for each stage, and are responsible for sending the tasks to the cluster, running
+  * them, retrying if there are failures, and mitigating stragglers. They return events to the
+  * DAGScheduler.
+  */</span>
+<span class="token keyword">private</span><span class="token punctuation">[</span>spark<span class="token punctuation">]</span> trait <span class="token class-name">TaskScheduler</span> <span class="token punctuation">{</span>
+
+  <span class="token keyword">private</span> val appId <span class="token operator">=</span> <span class="token string">"spark-application-"</span> <span class="token operator">+</span> System<span class="token punctuation">.</span>currentTimeMillis
+  def rootPool<span class="token operator">:</span> Pool
+  def schedulingMode<span class="token operator">:</span> SchedulingMode
+  def <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">/**  
+   *  系统成功初始化后调用(通常在spark context中)
+   *  yarn 通过它来选择首选位置 分配资源等
+   *  等待slave注册等
+   */</span>
+  def <span class="token function">postStartHook</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token punctuation">}</span>
+
+  <span class="token comment" spellcheck="true">// 断开集群连接</span>
+  def <span class="token function">stop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">// 提交一个tesk 队列运行</span>
+  def <span class="token function">submitTasks</span><span class="token punctuation">(</span>taskSet<span class="token operator">:</span> TaskSet<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">// 杀死stage中的所有task，并且使该stage以及所有依赖该stage的stage失败</span>
+  <span class="token comment" spellcheck="true">// 如果后台调度器不支持杀掉task则抛出异常UnsupportedOperationException</span>
+  def <span class="token function">cancelTasks</span><span class="token punctuation">(</span>stageId<span class="token operator">:</span> Int<span class="token punctuation">,</span> interruptThread<span class="token operator">:</span> Boolean<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">/**  
+   * Kills a task attempt.
+   * Throw UnsupportedOperationException if the backend doesn't support kill a task.
+   * @return Whether the task was successfully killed.
+   */</span>
+  def <span class="token function">killTaskAttempt</span><span class="token punctuation">(</span>taskId<span class="token operator">:</span> Long<span class="token punctuation">,</span> interruptThread<span class="token operator">:</span> Boolean<span class="token punctuation">,</span> reason<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Boolean
+
+  <span class="token comment" spellcheck="true">// Kill all the running task attempts in a stage.</span>
+  <span class="token comment" spellcheck="true">// Throw UnsupportedOperationException if the backend doesn't support kill tasks.</span>
+  def <span class="token function">killAllTaskAttempts</span><span class="token punctuation">(</span>stageId<span class="token operator">:</span> Int<span class="token punctuation">,</span> interruptThread<span class="token operator">:</span> Boolean<span class="token punctuation">,</span> reason<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">// 将DAG调度器设置为upcalls , 保证在submitTasks 之前调用</span>
+  def <span class="token function">setDAGScheduler</span><span class="token punctuation">(</span>dagScheduler<span class="token operator">:</span> DAGScheduler<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">// 获取集群中使用的默认的并行度级别,应用到job</span>
+  def <span class="token function">defaultParallelism</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Int
+
+  <span class="token comment" spellcheck="true">/**  
+   *   更新正在执行任务状态,让master知道BlockManager is alive ,
+   *   如果驱动程序知道该BlockManager 返回true,  否则返回false, 表示该BlockManager应该重新注册
+   *   @param execId
+   *   @param accumUpdates
+   *   @param blockManagerId
+   *   @param executorUpdates
+   *   @return
+   */</span>
+  def <span class="token function">executorHeartbeatReceived</span><span class="token punctuation">(</span>
+      execId<span class="token operator">:</span> String<span class="token punctuation">,</span>
+      accumUpdates<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token punctuation">(</span>Long<span class="token punctuation">,</span> Seq<span class="token punctuation">[</span>AccumulatorV2<span class="token punctuation">[</span>_<span class="token punctuation">,</span> _<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      blockManagerId<span class="token operator">:</span> BlockManagerId<span class="token punctuation">,</span>
+      executorUpdates<span class="token operator">:</span> ExecutorMetrics<span class="token punctuation">)</span><span class="token operator">:</span> Boolean
+
+  <span class="token comment" spellcheck="true">/**  
+   * 获取与job相关联的应用id
+   * @return An application ID
+   */</span>
+  def <span class="token function">applicationId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> String <span class="token operator">=</span> appId
+
+  <span class="token comment" spellcheck="true">/**  
+   *  进程丢失执行器
+   */</span>
+  def <span class="token function">executorLost</span><span class="token punctuation">(</span>executorId<span class="token operator">:</span> String<span class="token punctuation">,</span> reason<span class="token operator">:</span> ExecutorLossReason<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">/**  
+   *  进程 removed worker
+   */</span>
+  def <span class="token function">workerRemoved</span><span class="token punctuation">(</span>workerId<span class="token operator">:</span> String<span class="token punctuation">,</span> host<span class="token operator">:</span> String<span class="token punctuation">,</span> message<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Unit
+  <span class="token comment" spellcheck="true">/**  
+   *  获取与job相关的应用的attempt id
+   * 
+   *  @return An application's Attempt ID
+   */</span>
+  def <span class="token function">applicationAttemptId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Option<span class="token punctuation">[</span>String<span class="token punctuation">]</span>
+
+<span class="token punctuation">}</span>
+</code></pre>
+<h3 id="3-2-TaskSchedulerImpl源码"><a href="#3-2-TaskSchedulerImpl源码" class="headerlink" title="3.2 TaskSchedulerImpl源码"></a>3.2 TaskSchedulerImpl源码</h3><ul>
+<li><p>任务调度器的具体实现</p>
+</li>
+<li><p>通过 SchedulerBackend 执行多种类型群集的计划任务。也可通过将isLocal设置为true 来使用LocalSchedulerBackend 来使用本地设置。</p>
+</li>
+<li><p>它处理常见逻辑，例如确定跨作业的调度顺序，唤醒以启动推测任务等。客户端应首先调用initialize()和start()方法，然后通过submitTasks()方法提交任务集。</p>
+</li>
+<li><p>TaskSchduler 一直维护这 Taskid 和 executorId</p>
+</li>
+</ul>
+<h4 id="3-2-1-submitTasks"><a href="#3-2-1-submitTasks" class="headerlink" title="3.2.1 submitTasks"></a>3.2.1 submitTasks</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">/**  
+ *  接收DAGScheduler发送过来的taskSet
+ *  @param taskSet
+ */</span>
+<span class="token keyword">override</span> <span class="token keyword">def</span> submitTasks<span class="token punctuation">(</span>taskSet<span class="token operator">:</span> TaskSet<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">val</span> tasks <span class="token operator">=</span> taskSet<span class="token punctuation">.</span>tasks
+  logInfo<span class="token punctuation">(</span><span class="token string">"Adding task set "</span> <span class="token operator">+</span> taskSet<span class="token punctuation">.</span>id <span class="token operator">+</span> <span class="token string">" with "</span> <span class="token operator">+</span> tasks<span class="token punctuation">.</span>length <span class="token operator">+</span> <span class="token string">" tasks"</span><span class="token punctuation">)</span>
+  <span class="token keyword">this</span><span class="token punctuation">.</span>synchronized <span class="token punctuation">{</span>
+   <span class="token comment" spellcheck="true">// 为task创建一个taskSetManager,添加到队列里。TaskSetManager 跟踪每个task的执行状况，维护了task的许多具体信息</span>
+    <span class="token keyword">val</span> manager <span class="token operator">=</span> createTaskSetManager<span class="token punctuation">(</span>taskSet<span class="token punctuation">,</span> maxTaskFailures<span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">//获取taskSet所属的stageid</span>
+    <span class="token keyword">val</span> stage <span class="token operator">=</span> taskSet<span class="token punctuation">.</span>stageId
+    <span class="token keyword">val</span> stageTaskSets <span class="token operator">=</span>
+      taskSetsByStageIdAndAttempt<span class="token punctuation">.</span>getOrElseUpdate<span class="token punctuation">(</span>stage<span class="token punctuation">,</span> <span class="token keyword">new</span> HashMap<span class="token punctuation">[</span><span class="token builtin">Int</span><span class="token punctuation">,</span> TaskSetManager<span class="token punctuation">]</span><span class="token punctuation">)</span>
+    stageTaskSets<span class="token punctuation">(</span>taskSet<span class="token punctuation">.</span>stageAttemptId<span class="token punctuation">)</span> <span class="token operator">=</span> manager
+    <span class="token keyword">val</span> conflictingTaskSet <span class="token operator">=</span> stageTaskSets<span class="token punctuation">.</span>exists <span class="token punctuation">{</span> <span class="token keyword">case</span> <span class="token punctuation">(</span>_<span class="token punctuation">,</span> ts<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+      ts<span class="token punctuation">.</span>taskSet <span class="token operator">!=</span> taskSet <span class="token operator">&amp;</span>amp<span class="token punctuation">;</span><span class="token operator">&amp;</span>amp<span class="token punctuation">;</span> <span class="token operator">!</span>ts<span class="token punctuation">.</span>isZombie
+    <span class="token punctuation">}</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>conflictingTaskSet<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">throw</span> <span class="token keyword">new</span> IllegalStateException<span class="token punctuation">(</span>s<span class="token string">"more than one active taskSet for stage $stage:"</span> <span class="token operator">+</span>
+        s<span class="token string">" ${stageTaskSets.toSeq.map{_._2.taskSet.id}.mkString("</span><span class="token punctuation">,</span><span class="token string">")}"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+    <span class="token comment" spellcheck="true">//将taskSetManager加入队列 有两个实现=》先入先出、公平调度</span>
+    schedulableBuilder<span class="token punctuation">.</span>addTaskSetManager<span class="token punctuation">(</span>manager<span class="token punctuation">,</span> manager<span class="token punctuation">.</span>taskSet<span class="token punctuation">.</span>properties<span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>isLocal <span class="token operator">&amp;</span>amp<span class="token punctuation">;</span><span class="token operator">&amp;</span>amp<span class="token punctuation">;</span> <span class="token operator">!</span>hasReceivedTask<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      starvationTimer<span class="token punctuation">.</span>scheduleAtFixedRate<span class="token punctuation">(</span><span class="token keyword">new</span> TimerTask<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">override</span> <span class="token keyword">def</span> run<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hasLaunchedTask<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            logWarning<span class="token punctuation">(</span><span class="token string">"Initial job has not accepted any resources; "</span> <span class="token operator">+</span>
+              <span class="token string">"check your cluster UI to ensure that workers are registered "</span> <span class="token operator">+</span>
+              <span class="token string">"and have sufficient resources"</span><span class="token punctuation">)</span>
+          <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+            <span class="token keyword">this</span><span class="token punctuation">.</span>cancel<span class="token punctuation">(</span><span class="token punctuation">)</span>
+          <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span><span class="token punctuation">,</span> STARVATION_TIMEOUT_MS<span class="token punctuation">,</span> STARVATION_TIMEOUT_MS<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+    hasReceivedTask <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token punctuation">}</span>
+  backend<span class="token punctuation">.</span>reviveOffers<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-2-2-cancelTasks"><a href="#3-2-2-cancelTasks" class="headerlink" title="3.2.2 cancelTasks"></a>3.2.2 cancelTasks</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">override</span> <span class="token keyword">def</span> cancelTasks<span class="token punctuation">(</span>stageId<span class="token operator">:</span> <span class="token builtin">Int</span><span class="token punctuation">,</span> interruptThread<span class="token operator">:</span> <span class="token builtin">Boolean</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> synchronized <span class="token punctuation">{</span>
+  logInfo<span class="token punctuation">(</span><span class="token string">"Cancelling stage "</span> <span class="token operator">+</span> stageId<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 取消一个stage的tasks</span>
+  killAllTaskAttempts<span class="token punctuation">(</span>stageId<span class="token punctuation">,</span> interruptThread<span class="token punctuation">,</span> reason <span class="token operator">=</span> <span class="token string">"Stage cancelled"</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// Cancel all attempts for the stage.</span>
+  taskSetsByStageIdAndAttempt<span class="token punctuation">.</span>get<span class="token punctuation">(</span>stageId<span class="token punctuation">)</span><span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> attempts <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+    attempts<span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> <span class="token keyword">case</span> <span class="token punctuation">(</span>_<span class="token punctuation">,</span> tsm<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+      tsm<span class="token punctuation">.</span>abort<span class="token punctuation">(</span><span class="token string">"Stage %s cancelled"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>stageId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+      logInfo<span class="token punctuation">(</span><span class="token string">"Stage %d was cancelled"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>stageId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">override</span> <span class="token keyword">def</span> killAllTaskAttempts<span class="token punctuation">(</span>
+    stageId<span class="token operator">:</span> <span class="token builtin">Int</span><span class="token punctuation">,</span>
+    interruptThread<span class="token operator">:</span> <span class="token builtin">Boolean</span><span class="token punctuation">,</span>
+    reason<span class="token operator">:</span> <span class="token builtin">String</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> synchronized <span class="token punctuation">{</span>
+  logInfo<span class="token punctuation">(</span>s<span class="token string">"Killing all running tasks in stage $stageId: $reason"</span><span class="token punctuation">)</span>
+  taskSetsByStageIdAndAttempt<span class="token punctuation">.</span>get<span class="token punctuation">(</span>stageId<span class="token punctuation">)</span><span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> attempts <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+    attempts<span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> <span class="token keyword">case</span> <span class="token punctuation">(</span>_<span class="token punctuation">,</span> tsm<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+      <span class="token comment" spellcheck="true">// There are two possible cases here:</span>
+      <span class="token comment" spellcheck="true">// 这里有两种可能</span>
+      <span class="token comment" spellcheck="true">// 1. The task set manager has been created and some tasks have been scheduled.</span>
+      <span class="token comment" spellcheck="true">//    In this case, send a kill signal to the executors to kill the task.</span>
+      <span class="token comment" spellcheck="true">// 2. The task set manager has been created but no tasks have been scheduled. In this case,</span>
+      <span class="token comment" spellcheck="true">//    simply continue.</span>
+      tsm<span class="token punctuation">.</span>runningTasksSet<span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> tid <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+        taskIdToExecutorId<span class="token punctuation">.</span>get<span class="token punctuation">(</span>tid<span class="token punctuation">)</span><span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> execId <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+          <span class="token comment" spellcheck="true">//调用SchedulerBackend 的killTask方法</span>
+          backend<span class="token punctuation">.</span>killTask<span class="token punctuation">(</span>tid<span class="token punctuation">,</span> execId<span class="token punctuation">,</span> interruptThread<span class="token punctuation">,</span> reason<span class="token punctuation">)</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-2-3-resourceOffer"><a href="#3-2-3-resourceOffer" class="headerlink" title="3.2.3 resourceOffer"></a>3.2.3 resourceOffer</h4><pre class=" language-scala"><code class="language-scala">  <span class="token comment" spellcheck="true">// 调用者是SchedulerBackend, 用途是底层资源SchedulerBackend会把空余的workers资源给TaskScheduler,</span>
+  <span class="token comment" spellcheck="true">// 让其根据策略为排队的任务分配合理的cpu 和内存资源, 然后把任务描述列表回传给SchedulerBackend</span>
+<span class="token keyword">def</span> resourceOffers<span class="token punctuation">(</span>offers<span class="token operator">:</span> IndexedSeq<span class="token punctuation">[</span>WorkerOffer<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token operator">:</span> Seq<span class="token punctuation">[</span>Seq<span class="token punctuation">[</span>TaskDescription<span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">=</span> synchronized <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 标记每个slave是可用的并且记录它的hostname</span>
+  <span class="token comment" spellcheck="true">// 如果添加了新的executor也会一起跟踪</span>
+  <span class="token keyword">var</span> newExecAvail <span class="token operator">=</span> <span class="token boolean">false</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span>o <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span><span class="token operator">-</span> offers<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>hostToExecutors<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>o<span class="token punctuation">.</span>host<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      hostToExecutors<span class="token punctuation">(</span>o<span class="token punctuation">.</span>host<span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token keyword">new</span> HashSet<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+    <span class="token comment" spellcheck="true">//从 worker offers里收集executor和host对应信息，还有active、executors等。</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>executorIdToRunningTaskIds<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>o<span class="token punctuation">.</span>executorId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      hostToExecutors<span class="token punctuation">(</span>o<span class="token punctuation">.</span>host<span class="token punctuation">)</span> <span class="token operator">+=</span> o<span class="token punctuation">.</span>executorId
+      executorAdded<span class="token punctuation">(</span>o<span class="token punctuation">.</span>executorId<span class="token punctuation">,</span> o<span class="token punctuation">.</span>host<span class="token punctuation">)</span>
+      executorIdToHost<span class="token punctuation">(</span>o<span class="token punctuation">.</span>executorId<span class="token punctuation">)</span> <span class="token operator">=</span> o<span class="token punctuation">.</span>host
+      executorIdToRunningTaskIds<span class="token punctuation">(</span>o<span class="token punctuation">.</span>executorId<span class="token punctuation">)</span> <span class="token operator">=</span> HashSet<span class="token punctuation">[</span><span class="token builtin">Long</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      newExecAvail <span class="token operator">=</span> <span class="token boolean">true</span>
+    <span class="token punctuation">}</span>
+    <span class="token comment" spellcheck="true">//收集机架信息</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span>rack <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span><span class="token operator">-</span> getRackForHost<span class="token punctuation">(</span>o<span class="token punctuation">.</span>host<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      hostsByRack<span class="token punctuation">.</span>getOrElseUpdate<span class="token punctuation">(</span>rack<span class="token punctuation">,</span> <span class="token keyword">new</span> HashSet<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+=</span> o<span class="token punctuation">.</span>host
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token comment" spellcheck="true">// Before making any offers, remove any nodes from the blacklist whose blacklist has expired. Do</span>
+  <span class="token comment" spellcheck="true">// this here to avoid a separate thread and added synchronization overhead, and also because</span>
+  <span class="token comment" spellcheck="true">// updating the blacklist is only relevant when task offers are being made.</span>
+  <span class="token comment" spellcheck="true">//在提供资源之前，删除黑名单中的节点。</span>
+  <span class="token comment" spellcheck="true">//这样做事为了避免单独线程增加同步开销，而且因为更新黑名单仅在进行任务提交时提供相关信息</span>
+  blacklistTrackerOpt<span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>_<span class="token punctuation">.</span>applyBlacklistTimeout<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">//过滤掉黑名单中的节点</span>
+  <span class="token keyword">val</span> filteredOffers <span class="token operator">=</span> blacklistTrackerOpt<span class="token punctuation">.</span>map <span class="token punctuation">{</span> blacklistTracker <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+    offers<span class="token punctuation">.</span>filter <span class="token punctuation">{</span> offer <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+      <span class="token operator">!</span>blacklistTracker<span class="token punctuation">.</span>isNodeBlacklisted<span class="token punctuation">(</span>offer<span class="token punctuation">.</span>host<span class="token punctuation">)</span> <span class="token operator">&amp;</span>amp<span class="token punctuation">;</span><span class="token operator">&amp;</span>amp<span class="token punctuation">;</span>
+        <span class="token operator">!</span>blacklistTracker<span class="token punctuation">.</span>isExecutorBlacklisted<span class="token punctuation">(</span>offer<span class="token punctuation">.</span>executorId<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">.</span>getOrElse<span class="token punctuation">(</span>offers<span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">// worker offers资源列表进行shuffle, 任务列表里的任务列表依据调度策略进行依次排序</span>
+  <span class="token keyword">val</span> shuffledOffers <span class="token operator">=</span> shuffleOffers<span class="token punctuation">(</span>filteredOffers<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 构建一个分配给每个worker的task list.</span>
+  <span class="token keyword">val</span> tasks <span class="token operator">=</span> shuffledOffers<span class="token punctuation">.</span>map<span class="token punctuation">(</span>o <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> <span class="token keyword">new</span> ArrayBuffer<span class="token punctuation">[</span>TaskDescription<span class="token punctuation">]</span><span class="token punctuation">(</span>o<span class="token punctuation">.</span>cores <span class="token operator">/</span> CPUS_PER_TASK<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">val</span> availableCpus <span class="token operator">=</span> shuffledOffers<span class="token punctuation">.</span>map<span class="token punctuation">(</span>o <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> o<span class="token punctuation">.</span>cores<span class="token punctuation">)</span><span class="token punctuation">.</span>toArray
+  <span class="token comment" spellcheck="true">// 为每个taskSeethe提供可用的cpu核数,看是否满足</span>
+  <span class="token comment" spellcheck="true">// CPUS_PER_TASK  默认一个task需要一个cpu, 设置参数为spark.task.cpus=1</span>
+  <span class="token keyword">val</span> availableSlots <span class="token operator">=</span> shuffledOffers<span class="token punctuation">.</span>map<span class="token punctuation">(</span>o <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> o<span class="token punctuation">.</span>cores <span class="token operator">/</span> CPUS_PER_TASK<span class="token punctuation">)</span><span class="token punctuation">.</span>sum
+  <span class="token keyword">val</span> sortedTaskSets <span class="token operator">=</span> rootPool<span class="token punctuation">.</span>getSortedTaskSetQueue
+  <span class="token keyword">for</span> <span class="token punctuation">(</span>taskSet <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span><span class="token operator">-</span> sortedTaskSets<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    logDebug<span class="token punctuation">(</span><span class="token string">"parentName: %s, name: %s, runningTasks: %s"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>
+      taskSet<span class="token punctuation">.</span>parent<span class="token punctuation">.</span>name<span class="token punctuation">,</span> taskSet<span class="token punctuation">.</span>name<span class="token punctuation">,</span> taskSet<span class="token punctuation">.</span>runningTasks<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>newExecAvail<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      taskSet<span class="token punctuation">.</span>executorAdded<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token comment" spellcheck="true">// 按照我们的调度顺序获取每个TaskSet，然后按地点级别的递增顺序为每个节点提供它，以便它有机会在所有节点上启动本地任务。</span>
+  <span class="token comment" spellcheck="true">// 注意：首选的位置顺序：PROCESS_LOCAL，NODE_LOCAL，NO_PREF，RACK_LOCAL，ANY</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span>taskSet <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span><span class="token operator">-</span> sortedTaskSets<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 跳过barrier taskSet 如果available slots 的数量小于pending tasks.</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>taskSet<span class="token punctuation">.</span>isBarrier <span class="token operator">&amp;</span>amp<span class="token punctuation">;</span><span class="token operator">&amp;</span>amp<span class="token punctuation">;</span> availableSlots <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span> taskSet<span class="token punctuation">.</span>numTasks<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 跳过启动过程.</span>
+      <span class="token comment" spellcheck="true">// TODO SPARK-24819 If the job requires more slots than available (both busy and free</span>
+      <span class="token comment" spellcheck="true">// slots), fail the job on submit.</span>
+      logInfo<span class="token punctuation">(</span>s<span class="token string">"Skip current round of resource offers for barrier stage ${taskSet.stageId} "</span> <span class="token operator">+</span>
+        s<span class="token string">"because the barrier taskSet requires ${taskSet.numTasks} slots, while the total "</span> <span class="token operator">+</span>
+        s<span class="token string">"number of available slots is $availableSlots."</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">//启动任务标识</span>
+      <span class="token keyword">var</span> launchedAnyTask <span class="token operator">=</span> <span class="token boolean">false</span>
+      <span class="token comment" spellcheck="true">// 记录了所有executor id上分配的barrier tasks</span>
+      <span class="token keyword">val</span> addressesWithDescs <span class="token operator">=</span> ArrayBuffer<span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token builtin">String</span><span class="token punctuation">,</span> TaskDescription<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+      <span class="token keyword">for</span> <span class="token punctuation">(</span>currentMaxLocality <span class="token operator">&amp;</span>lt<span class="token punctuation">;</span><span class="token operator">-</span> taskSet<span class="token punctuation">.</span>myLocalityLevels<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">var</span> launchedTaskAtCurrentMaxLocality <span class="token operator">=</span> <span class="token boolean">false</span>
+        <span class="token keyword">do</span> <span class="token punctuation">{</span>
+          launchedTaskAtCurrentMaxLocality <span class="token operator">=</span> resourceOfferSingleTaskSet<span class="token punctuation">(</span>taskSet<span class="token punctuation">,</span>
+            currentMaxLocality<span class="token punctuation">,</span> shuffledOffers<span class="token punctuation">,</span> availableCpus<span class="token punctuation">,</span> tasks<span class="token punctuation">,</span> addressesWithDescs<span class="token punctuation">)</span>
+          launchedAnyTask <span class="token operator">|=</span> launchedTaskAtCurrentMaxLocality
+        <span class="token punctuation">}</span> <span class="token keyword">while</span> <span class="token punctuation">(</span>launchedTaskAtCurrentMaxLocality<span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>launchedAnyTask<span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token comment" spellcheck="true">//任务是不可调度的</span>
+        taskSet<span class="token punctuation">.</span>getCompletelyBlacklistedTaskIfAny<span class="token punctuation">(</span>hostToExecutors<span class="token punctuation">)</span><span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> taskIndex <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+
+      <span class="token comment" spellcheck="true">// 如果taskSet是不可调度的，我们试着寻找一个现在空闲黑名单executor。</span>
+      <span class="token comment" spellcheck="true">// 如果找不到就会立即终止。</span>
+      <span class="token comment" spellcheck="true">// 否则我们会终止空闲executor并启动一个abortTimer，如果它没有在超时内安排任务，那么我们无法从taskSet安排任何任务，则会中止taskSet。</span>
+      <span class="token comment" spellcheck="true">// 注意1：我们基于每个任务集而不是基于每个任务来跟踪可调度性。</span>
+      <span class="token comment" spellcheck="true">// 注意2：当有多个空闲的列入黑名单的executor启用了动态分配时，仍可以中止taskSet。</span>
+      <span class="token comment" spellcheck="true">// 当ExecutorAllocationManager没有及时替换被杀死的空闲executor时，会发生这种情况，</span>
+      <span class="token comment" spellcheck="true">// 因为它依赖于挂起的任务，并且不会在空闲超时时终止执行程序，从而导致中止计时器到期并中止taskset。</span>
+
+        executorIdToRunningTaskIds<span class="token punctuation">.</span>find<span class="token punctuation">(</span>x <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> <span class="token operator">!</span>isExecutorBusy<span class="token punctuation">(</span>x<span class="token punctuation">.</span>_1<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">match</span> <span class="token punctuation">{</span>
+              <span class="token keyword">case</span> Some <span class="token punctuation">(</span><span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> _<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+                <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>unschedulableTaskSetToExpiryTime<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>taskSet<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                  <span class="token comment" spellcheck="true">//杀掉黑名单executor</span>
+                  blacklistTrackerOpt<span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>blt <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> blt<span class="token punctuation">.</span>killBlacklistedIdleExecutor<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+                  <span class="token keyword">val</span> timeout <span class="token operator">=</span> conf<span class="token punctuation">.</span>get<span class="token punctuation">(</span>config<span class="token punctuation">.</span>UNSCHEDULABLE_TASKSET_TIMEOUT<span class="token punctuation">)</span>   <span class="token number">1000</span>
+                  unschedulableTaskSetToExpiryTime<span class="token punctuation">(</span>taskSet<span class="token punctuation">)</span> <span class="token operator">=</span> clock<span class="token punctuation">.</span>getTimeMillis<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">+</span> timeout
+                  logInfo<span class="token punctuation">(</span>s<span class="token string">"Waiting for $timeout ms for completely "</span>
+                    <span class="token operator">+</span> s<span class="token string">"blacklisted task to be schedulable again before aborting $taskSet."</span><span class="token punctuation">)</span>
+                  abortTimer<span class="token punctuation">.</span>schedule<span class="token punctuation">(</span>
+                    createUnschedulableTaskSetAbortTimer<span class="token punctuation">(</span>taskSet<span class="token punctuation">,</span> taskIndex<span class="token punctuation">)</span><span class="token punctuation">,</span> timeout<span class="token punctuation">)</span>
+                <span class="token punctuation">}</span>
+              <span class="token keyword">case</span> None <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> <span class="token comment" spellcheck="true">// 立即终止</span>
+                logInfo<span class="token punctuation">(</span><span class="token string">"Cannot schedule any task because of complete blacklisting. No idle"</span> <span class="token operator">+</span>
+                  s<span class="token string">" executors can be found to kill. Aborting $taskSet."</span> <span class="token punctuation">)</span>
+                taskSet<span class="token punctuation">.</span>abortSinceCompletelyBlacklisted<span class="token punctuation">(</span>taskIndex<span class="token punctuation">)</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+
+       <span class="token comment" spellcheck="true">// 我们希望推迟杀死任何taskSets，只要我们有一个非黑名单的executor，可以用来从任何活动的taskSet调度任务。</span>
+       <span class="token comment" spellcheck="true">// 这可确保作业可以取得进展。</span>
+       <span class="token comment" spellcheck="true">// 注意：从理论上讲，taskSet永远不会在非黑名单的执行程序上进行调度，并且由于不断提交新的TaskSet，中止计时器不会启动。 有关更多详细信息。</span>
+
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>unschedulableTaskSetToExpiryTime<span class="token punctuation">.</span>nonEmpty<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          logInfo<span class="token punctuation">(</span><span class="token string">"Clearing the expiry times for all unschedulable taskSets as a task was "</span> <span class="token operator">+</span>
+            <span class="token string">"recently scheduled."</span><span class="token punctuation">)</span>
+          <span class="token comment" spellcheck="true">//将清理所有到期不可调度任务作为最近的一个task</span>
+          unschedulableTaskSetToExpiryTime<span class="token punctuation">.</span>clear<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>launchedAnyTask <span class="token operator">&amp;</span>amp<span class="token punctuation">;</span><span class="token operator">&amp;</span>amp<span class="token punctuation">;</span> taskSet<span class="token punctuation">.</span>isBarrier<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 检查barrier stage 是否部分启动。</span>
+        <span class="token comment" spellcheck="true">// TODO SPARK-24818 handle the assert failure case (that can happen when some locality</span>
+        <span class="token comment" spellcheck="true">// requirements are not fulfilled, and we should revert the launched tasks).</span>
+        require<span class="token punctuation">(</span>addressesWithDescs<span class="token punctuation">.</span>size <span class="token operator">==</span> taskSet<span class="token punctuation">.</span>numTasks<span class="token punctuation">,</span>
+          s<span class="token string">"Skip current round of resource offers for barrier stage ${taskSet.stageId} "</span> <span class="token operator">+</span>
+            s<span class="token string">"because only ${addressesWithDescs.size} out of a total number of "</span> <span class="token operator">+</span>
+            s<span class="token string">"${taskSet.numTasks} tasks got resource offers. The resource offers may have "</span> <span class="token operator">+</span>
+            <span class="token string">"been blacklisted or cannot fulfill task locality requirements."</span><span class="token punctuation">)</span>
+
+        <span class="token comment" spellcheck="true">// 实现障碍协调员.</span>
+        maybeInitBarrierCoordinator<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+        <span class="token comment" spellcheck="true">// 将taskInfos 更新到为所有barrier task 属性中。</span>
+        <span class="token keyword">val</span> addressesStr <span class="token operator">=</span> addressesWithDescs
+          <span class="token comment" spellcheck="true">// 根据partitionId排序的地址</span>
+          <span class="token punctuation">.</span>sortBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>partitionId<span class="token punctuation">)</span>
+          <span class="token punctuation">.</span>map<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_1<span class="token punctuation">)</span>
+          <span class="token punctuation">.</span>mkString<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+        addressesWithDescs<span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>_<span class="token punctuation">.</span>_2<span class="token punctuation">.</span>properties<span class="token punctuation">.</span>setProperty<span class="token punctuation">(</span><span class="token string">"addresses"</span><span class="token punctuation">,</span> addressesStr<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+        logInfo<span class="token punctuation">(</span>s<span class="token string">"Successfully scheduled all the ${addressesWithDescs.size} tasks for barrier "</span> <span class="token operator">+</span>
+          s<span class="token string">"stage ${taskSet.stageId}."</span><span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token comment" spellcheck="true">// TODO SPARK-24823 Cancel a job that contains barrier stage(s) if the barrier tasks don't get</span>
+  <span class="token comment" spellcheck="true">// 在配置的时间内启动.</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>tasks<span class="token punctuation">.</span>size <span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    hasLaunchedTask <span class="token operator">=</span> <span class="token boolean">true</span>
+  <span class="token punctuation">}</span>
+  <span class="token keyword">return</span> tasks
+<span class="token punctuation">}</span></code></pre>
+<h4 id="3-2-4-statusUpdate"><a href="#3-2-4-statusUpdate" class="headerlink" title="3.2.4 statusUpdate"></a>3.2.4 statusUpdate</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token comment" spellcheck="true">/**  
+ *   调用者是SchedulerBackend，用途是SchedulerBackend会将task执行的状态回报给taskScheduler做一些决定
+ *   task finish 包括四种状态：finished、killed、failed、lost。只有finished是成功执行完成来，其它三种都是失败的
+ *  
+ *   @param tid
+ *   @param state
+ *   @param serializedData
+ */</span>
+<span class="token keyword">def</span> statusUpdate<span class="token punctuation">(</span>tid<span class="token operator">:</span> <span class="token builtin">Long</span><span class="token punctuation">,</span> state<span class="token operator">:</span> TaskState<span class="token punctuation">,</span> serializedData<span class="token operator">:</span> ByteBuffer<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">var</span> failedExecutor<span class="token operator">:</span> Option<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> None
+  <span class="token keyword">var</span> reason<span class="token operator">:</span> Option<span class="token punctuation">[</span>ExecutorLossReason<span class="token punctuation">]</span> <span class="token operator">=</span> None
+  synchronized <span class="token punctuation">{</span>
+    <span class="token keyword">try</span> <span class="token punctuation">{</span>
+      Option<span class="token punctuation">(</span>taskIdToTaskSetManager<span class="token punctuation">.</span>get<span class="token punctuation">(</span>tid<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">match</span> <span class="token punctuation">{</span>
+        <span class="token keyword">case</span> Some<span class="token punctuation">(</span>taskSet<span class="token punctuation">)</span> <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+          <span class="token comment" spellcheck="true">// 若taskLost：找到该task对应的executor，从active executor里移出，避免这个executor被分配到其他task继续失败下去。</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>state <span class="token operator">==</span> TaskState<span class="token punctuation">.</span>LOST<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token comment" spellcheck="true">// TaskState.LOST 仅由不推荐使用的Mesos细粒度调度模式使用，</span>
+            <span class="token comment" spellcheck="true">// 其中每个执行程序对应于单个任务，因此将执行程序标记为失败。</span>
+            <span class="token keyword">val</span> execId <span class="token operator">=</span> taskIdToExecutorId<span class="token punctuation">.</span>getOrElse<span class="token punctuation">(</span>tid<span class="token punctuation">,</span> <span class="token keyword">throw</span> <span class="token keyword">new</span> IllegalStateException<span class="token punctuation">(</span>
+              <span class="token string">"taskIdToTaskSetManager.contains(tid) &amp;lt;=&amp;gt; taskIdToExecutorId.contains(tid)"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>executorIdToRunningTaskIds<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>execId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              reason <span class="token operator">=</span> Some<span class="token punctuation">(</span>
+                SlaveLost<span class="token punctuation">(</span>s<span class="token string">"Task $tid was lost, so marking the executor as lost as well."</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+              <span class="token comment" spellcheck="true">//从active executor里移出，避免这个executor被分配到其他task继续失败下去</span>
+              removeExecutor<span class="token punctuation">(</span>execId<span class="token punctuation">,</span> reason<span class="token punctuation">.</span>get<span class="token punctuation">)</span>
+              failedExecutor <span class="token operator">=</span> Some<span class="token punctuation">(</span>execId<span class="token punctuation">)</span>
+            <span class="token punctuation">}</span>
+          <span class="token punctuation">}</span>
+          <span class="token keyword">if</span> <span class="token punctuation">(</span>TaskState<span class="token punctuation">.</span>isFinished<span class="token punctuation">(</span>state<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            cleanupTaskState<span class="token punctuation">(</span>tid<span class="token punctuation">)</span>
+            taskSet<span class="token punctuation">.</span>removeRunningTask<span class="token punctuation">(</span>tid<span class="token punctuation">)</span>
+            <span class="token comment" spellcheck="true">//task完成执行后</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>state <span class="token operator">==</span> TaskState<span class="token punctuation">.</span>FINISHED<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              <span class="token comment" spellcheck="true">//执行成功时调用</span>
+              taskResultGetter<span class="token punctuation">.</span>enqueueSuccessfulTask<span class="token punctuation">(</span>taskSet<span class="token punctuation">,</span> tid<span class="token punctuation">,</span> serializedData<span class="token punctuation">)</span>
+            <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>Set<span class="token punctuation">(</span>TaskState<span class="token punctuation">.</span>FAILED<span class="token punctuation">,</span> TaskState<span class="token punctuation">.</span>KILLED<span class="token punctuation">,</span> TaskState<span class="token punctuation">.</span>LOST<span class="token punctuation">)</span><span class="token punctuation">.</span>contains<span class="token punctuation">(</span>state<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              <span class="token comment" spellcheck="true">//执行失败时调用</span>
+              taskResultGetter<span class="token punctuation">.</span>enqueueFailedTask<span class="token punctuation">(</span>taskSet<span class="token punctuation">,</span> tid<span class="token punctuation">,</span> state<span class="token punctuation">,</span> serializedData<span class="token punctuation">)</span>
+            <span class="token punctuation">}</span>
+            <span class="token comment" spellcheck="true">//TaskResultGetter内部维护里一个线程池，负责一步fetch task执行结果并反序列话，</span>
+            <span class="token comment" spellcheck="true">// 默认四个线程做这件事，可配参数（spark.resultGetter.threads=4）</span>
+          <span class="token punctuation">}</span>
+
+        <span class="token keyword">case</span> None <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span>
+          logError<span class="token punctuation">(</span>
+            <span class="token punctuation">(</span><span class="token string">"Ignoring update with state %s for TID %s because its task set is gone (this is "</span> <span class="token operator">+</span>
+              <span class="token string">"likely the result of receiving duplicate task finished status updates) or its "</span> <span class="token operator">+</span>
+              <span class="token string">"executor has been marked as failed."</span><span class="token punctuation">)</span>
+              <span class="token punctuation">.</span>format<span class="token punctuation">(</span>state<span class="token punctuation">,</span> tid<span class="token punctuation">)</span><span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{</span>
+      <span class="token keyword">case</span> e<span class="token operator">:</span> Exception <span class="token operator">=</span><span class="token operator">&amp;</span>gt<span class="token punctuation">;</span> logError<span class="token punctuation">(</span><span class="token string">"Exception in statusUpdate"</span><span class="token punctuation">,</span> e<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+  <span class="token comment" spellcheck="true">// 更新DAGScheduler而不对其进行锁定，因为这可能会死锁</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>failedExecutor<span class="token punctuation">.</span>isDefined<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    assert<span class="token punctuation">(</span>reason<span class="token punctuation">.</span>isDefined<span class="token punctuation">)</span>
+    dagScheduler<span class="token punctuation">.</span>executorLost<span class="token punctuation">(</span>failedExecutor<span class="token punctuation">.</span>get<span class="token punctuation">,</span> reason<span class="token punctuation">.</span>get<span class="token punctuation">)</span>
+    backend<span class="token punctuation">.</span>reviveOffers<span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="3-3-TaskResultGetter-获取-task-result-的逻辑"><a href="#3-3-TaskResultGetter-获取-task-result-的逻辑" class="headerlink" title="3.3 TaskResultGetter 获取 task result 的逻辑"></a>3.3 TaskResultGetter 获取 task result 的逻辑</h3><p>对于success task，如果taskResult里的数据是直接结果数据直接把data反序列化出来得到结果。</p>
+<pre class=" language-scala"><code class="language-scala">directResult<span class="token punctuation">.</span>value<span class="token punctuation">(</span>taskResultSerializer<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true">// 如果不是，会调用</span>
+
+<span class="token keyword">val</span> serializedTaskResult <span class="token operator">=</span> sparkEnv<span class="token punctuation">.</span>blockManager<span class="token punctuation">.</span>getRemoteBytes<span class="token punctuation">(</span>blockId<span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true">// 从远程获取，如果远程取回数据是空的，那么会调用</span>
+
+scheduler<span class="token punctuation">.</span>handleFailedTask<span class="token punctuation">(</span>taskSetManager<span class="token punctuation">,</span> tid<span class="token punctuation">,</span> TaskState<span class="token punctuation">.</span>FINISHED<span class="token punctuation">,</span> TaskResultLost<span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true">// 告诉它这个任务执行完成了，但是数据丢失了，否则渠道数据之后会通知BlockMaster移除这个block信息，调用</span>
+
+scheduler<span class="token punctuation">.</span>handleSuccessfulTask<span class="token punctuation">(</span>taskSetManager<span class="token punctuation">,</span> tid<span class="token punctuation">,</span> result<span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true">// 告诉它这个任务是执行成功的，并且把result data 传回去。</span>
+<span class="token comment" spellcheck="true">// 对于failed task，从data里解析出fail的理由，调用</span>
+<span class="token comment" spellcheck="true">// 对于failed task , 从data里解析出fail 的理由</span>
+
+scheduler<span class="token punctuation">.</span>handleFailedTask<span class="token punctuation">(</span>taskSetManager<span class="token punctuation">,</span> tid<span class="token punctuation">,</span> taskState<span class="token punctuation">,</span> reason<span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true">// 告诉它失败的理由。</span></code></pre>
+<h2 id="4-SchedulerBackend"><a href="#4-SchedulerBackend" class="headerlink" title="4. SchedulerBackend"></a>4. SchedulerBackend</h2><ul>
+<li><p>后台调度器  ( trait  )</p>
+</li>
+<li><p>在taskScheduler 下层, 用于对接不同的资源管理系统, SchedulerBackend 是一个Trait</p>
+</li>
+<li><p>粗粒度：进程常住模式，典型代表是standalone模式、mesos粗粒度模式、yarn</p>
+</li>
+<li><p>细粒度：mesos细粒度模式</p>
+</li>
+<li><p>这里讨论粗细粒度模式，更好理解 CoarseGrainedSchedulerBackend</p>
+</li>
+<li><p>维护executor相关信息（包括executor的地址、通讯地址、host、总核数，剩余核数），目前executor被注册使用了多少、剩余多少、总共还有多少核实空的等待。</p>
+</li>
+</ul>
+<h3 id="4-1-SchedulerBackend-源码"><a href="#4-1-SchedulerBackend-源码" class="headerlink" title="4.1 SchedulerBackend 源码"></a>4.1 SchedulerBackend 源码</h3><pre class=" language-java"><code class="language-java"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler
+
+<span class="token comment" spellcheck="true">// 用于调度系统的后端接口，允许 TaskSchedulerImpl 对接不同的系统。</span>
+<span class="token comment" spellcheck="true">// 我们假设一个类似Mesos的模型，其中应用程序在机器可用时获得资源，并可以在它们上启动任务。</span>
+<span class="token keyword">private</span><span class="token punctuation">[</span>spark<span class="token punctuation">]</span> trait <span class="token class-name">SchedulerBackend</span> <span class="token punctuation">{</span>
+  <span class="token keyword">private</span> val appId <span class="token operator">=</span> <span class="token string">"spark-application-"</span> <span class="token operator">+</span> System<span class="token punctuation">.</span>currentTimeMillis
+
+  def <span class="token function">start</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Unit
+  def <span class="token function">stop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Unit
+
+  <span class="token comment" spellcheck="true">/**   
+   *   SchedulerBackend 将自己目前可用资源交给TaskScheduler, 
+   *   TaskScheduler 根据调度策略分配给排队的任务, 返回一批可执行的任务描述(TaskSet),
+   *   SchedulerBackend 负责launchTask, 即最终把task 塞到executor模型上, executor里的线程池会执行task的run()方法
+   */</span>
+  def <span class="token function">reviveOffers</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Unit
+  def <span class="token function">defaultParallelism</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Int
+
+  <span class="token comment" spellcheck="true">/**  
+   *  向executor发送请求杀掉一个正在执行的task
+   *  
+   *  @param taskId Id of the task.
+   *  @param executorId Id of the executor the task is running on.
+   *  @param interruptThread 执行程序是否应该中断任务线程。
+   *  @param reason 任务终止的原因。
+   */</span>
+  def <span class="token function">killTask</span><span class="token punctuation">(</span>
+      taskId<span class="token operator">:</span> Long<span class="token punctuation">,</span>
+      executorId<span class="token operator">:</span> String<span class="token punctuation">,</span>
+      interruptThread<span class="token operator">:</span> Boolean<span class="token punctuation">,</span>
+      reason<span class="token operator">:</span> String<span class="token punctuation">)</span><span class="token operator">:</span> Unit <span class="token operator">=</span>
+    <span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">UnsupportedOperationException</span>
+
+  def <span class="token function">isReady</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Boolean <span class="token operator">=</span> <span class="token boolean">true</span>
+
+  <span class="token comment" spellcheck="true">/**  
+   *  获取与job相关的application id
+   *  @return An application ID
+   */</span>
+  def <span class="token function">applicationId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> String <span class="token operator">=</span> appId
+
+  <span class="token comment" spellcheck="true">/**  
+   *   如果集群管理器支持多次尝试，请获取此运行的attempt ID。 在客户端模式下运行的应用程序将没有attempt ID。 
+   *  @return The application attempt id, if available.
+   */</span>
+  def <span class="token function">applicationAttemptId</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Option<span class="token punctuation">[</span>String<span class="token punctuation">]</span> <span class="token operator">=</span> None
+
+  <span class="token comment" spellcheck="true">/**  
+   *   获取驱动程序日志的URL。
+   *   这些URL用于显示Driver 的UI Executors选项卡中的链接。
+   *  @return Map containing the log names and their respective URLs
+   */</span>
+  def getDriverLogUrls<span class="token operator">:</span> Option<span class="token punctuation">[</span>Map<span class="token punctuation">[</span>String<span class="token punctuation">,</span> String<span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">=</span> None
+
+  <span class="token comment" spellcheck="true">/**  
+   *  获取driver的属性。 当指定自定义日志URL模式时，这些属性用于替换日志URL。
+   *  @return Map containing attributes on driver.
+   */</span>
+  def getDriverAttributes<span class="token operator">:</span> Option<span class="token punctuation">[</span>Map<span class="token punctuation">[</span>String<span class="token punctuation">,</span> String<span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">=</span> None
+
+  <span class="token comment" spellcheck="true">/**  
+   *   获取当前可以同时启动的最大任务数。
+   *   请注意，请不要缓存此方法返回的值，因为该数字可能会因添加/删除执行程序而更改。
+   * 
+   *  @return The max number of tasks that can be concurrent launched currently.
+   */</span>
+  def <span class="token function">maxNumConcurrentTasks</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> Int
+
+<span class="token punctuation">}</span></code></pre>
+<h4 id="4-1-1-RegisterExecutor"><a href="#4-1-1-RegisterExecutor" class="headerlink" title="4.1.1 RegisterExecutor"></a>4.1.1 RegisterExecutor</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">/**   
+ * 用来注册executor，通常worker拉起、重启会触发executor的注册，
+ * CoarseGrainedSchedulerBackend会把这些executor维护起来，更新内部的资源，比如综合书增加，最后调用一次makeOffer()
+ * 即把目前空闲资源丢给taskScheduler去分配一次
+ * 返回taskSet，把任务启动起来，这个makeOffer() 的调用会出现在任何资源变化的事件中，下面会看到
+ */</span>
+      <span class="token keyword">case</span> RegisterExecutor<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> executorRef<span class="token punctuation">,</span> hostname<span class="token punctuation">,</span> cores<span class="token punctuation">,</span> logUrls<span class="token punctuation">,</span> attributes<span class="token punctuation">)</span> <span class="token keyword">=></span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>executorDataMap<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          executorRef<span class="token punctuation">.</span>send<span class="token punctuation">(</span>RegisterExecutorFailed<span class="token punctuation">(</span><span class="token string">"Duplicate executor ID: "</span> <span class="token operator">+</span> executorId<span class="token punctuation">)</span><span class="token punctuation">)</span>
+          context<span class="token punctuation">.</span>reply<span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>scheduler<span class="token punctuation">.</span>nodeBlacklist<span class="token punctuation">.</span>contains<span class="token punctuation">(</span>hostname<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          <span class="token comment" spellcheck="true">/**   
+           *   如果cluster manager 在黑名单节点上给我们一个executor
+           *   （因为它在我们通知我们的黑名单之前已经开始分配这些资源，或者它忽略了我们的黑名单），
+           *   那么我们立即拒绝该执行者。
+           */</span>
+          logInfo<span class="token punctuation">(</span>s<span class="token string">"Rejecting $executorId as it has been blacklisted."</span><span class="token punctuation">)</span>
+          executorRef<span class="token punctuation">.</span>send<span class="token punctuation">(</span>RegisterExecutorFailed<span class="token punctuation">(</span>s<span class="token string">"Executor is blacklisted: $executorId"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+          context<span class="token punctuation">.</span>reply<span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+          <span class="token comment" spellcheck="true">//如果executor的rpc env 没有监听到传入连接，则 hostPort 将设置为null，并且应该使用client 连接executor</span>
+          <span class="token keyword">val</span> executorAddress <span class="token operator">=</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>executorRef<span class="token punctuation">.</span>address <span class="token operator">!=</span> <span class="token keyword">null</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              executorRef<span class="token punctuation">.</span>address
+            <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+              context<span class="token punctuation">.</span>senderAddress
+            <span class="token punctuation">}</span>
+          logInfo<span class="token punctuation">(</span>s<span class="token string">"Registered executor $executorRef ($executorAddress) with ID $executorId"</span><span class="token punctuation">)</span>
+          addressToExecutorId<span class="token punctuation">(</span>executorAddress<span class="token punctuation">)</span> <span class="token operator">=</span> executorId
+          totalCoreCount<span class="token punctuation">.</span>addAndGet<span class="token punctuation">(</span>cores<span class="token punctuation">)</span>
+          totalRegisteredExecutors<span class="token punctuation">.</span>addAndGet<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+          <span class="token keyword">val</span> data <span class="token operator">=</span> <span class="token keyword">new</span> ExecutorData<span class="token punctuation">(</span>executorRef<span class="token punctuation">,</span> executorAddress<span class="token punctuation">,</span> hostname<span class="token punctuation">,</span>
+            cores<span class="token punctuation">,</span> cores<span class="token punctuation">,</span> logUrls<span class="token punctuation">,</span> attributes<span class="token punctuation">)</span>
+          <span class="token comment" spellcheck="true">// 这必须同步，因为在请求executor时会读取此块中变异的变量</span>
+          CoarseGrainedSchedulerBackend<span class="token punctuation">.</span><span class="token keyword">this</span><span class="token punctuation">.</span>synchronized <span class="token punctuation">{</span>
+            executorDataMap<span class="token punctuation">.</span>put<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> data<span class="token punctuation">)</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>currentExecutorIdCounter <span class="token operator">&lt;</span> executorId<span class="token punctuation">.</span>toInt<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              currentExecutorIdCounter <span class="token operator">=</span> executorId<span class="token punctuation">.</span>toInt
+            <span class="token punctuation">}</span>
+            <span class="token keyword">if</span> <span class="token punctuation">(</span>numPendingExecutors <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+              numPendingExecutors <span class="token operator">-=</span> <span class="token number">1</span>
+              logDebug<span class="token punctuation">(</span>s<span class="token string">"Decremented number of pending executors ($numPendingExecutors left)"</span><span class="token punctuation">)</span>
+            <span class="token punctuation">}</span>
+          <span class="token punctuation">}</span>
+          executorRef<span class="token punctuation">.</span>send<span class="token punctuation">(</span>RegisteredExecutor<span class="token punctuation">)</span>
+          <span class="token comment" spellcheck="true">// 注意：一些测试期望在我们将执行程序放入映射之后得到答复</span>
+          context<span class="token punctuation">.</span>reply<span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+          listenerBus<span class="token punctuation">.</span>post<span class="token punctuation">(</span>
+            SparkListenerExecutorAdded<span class="token punctuation">(</span>System<span class="token punctuation">.</span>currentTimeMillis<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> executorId<span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">)</span>
+          makeOffers<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span></code></pre>
+<h4 id="4-1-2-StatusUpdate"><a href="#4-1-2-StatusUpdate" class="headerlink" title="4.1.2 StatusUpdate"></a>4.1.2 StatusUpdate</h4><pre class=" language-scala"><code class="language-scala">      <span class="token comment" spellcheck="true">//task 的状态回调</span>
+      <span class="token keyword">case</span> StatusUpdate<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> taskId<span class="token punctuation">,</span> state<span class="token punctuation">,</span> data<span class="token punctuation">)</span> <span class="token keyword">=></span>
+        <span class="token comment" spellcheck="true">//首先调用scheduler.statusUpdate(taskId, state, data.value) 上报上去</span>
+        scheduler<span class="token punctuation">.</span>statusUpdate<span class="token punctuation">(</span>taskId<span class="token punctuation">,</span> state<span class="token punctuation">,</span> data<span class="token punctuation">.</span>value<span class="token punctuation">)</span>
+        <span class="token comment" spellcheck="true">//然后判断这个task是否执行结束了</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>TaskState<span class="token punctuation">.</span>isFinished<span class="token punctuation">(</span>state<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+          <span class="token comment" spellcheck="true">//如果执行结束了</span>
+          executorDataMap<span class="token punctuation">.</span>get<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span> <span class="token keyword">match</span> <span class="token punctuation">{</span>
+              <span class="token comment" spellcheck="true">//匹配ExecutorData</span>
+            <span class="token keyword">case</span> Some<span class="token punctuation">(</span>executorInfo<span class="token punctuation">)</span> <span class="token keyword">=></span>
+              <span class="token comment" spellcheck="true">//把executor上的freeCore 加上去, 调用一次makeOffer()</span>
+              <span class="token comment" spellcheck="true">//这个事件就是别人直接向SchedulerBackend请求资源, 直接调用makeOffer()</span>
+              executorInfo<span class="token punctuation">.</span>freeCores <span class="token operator">+=</span> scheduler<span class="token punctuation">.</span>CPUS_PER_TASK
+              makeOffers<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span>
+            <span class="token keyword">case</span> None <span class="token keyword">=></span>
+              <span class="token comment" spellcheck="true">// Ignoring the update since we don't know about the executor.</span>
+              logWarning<span class="token punctuation">(</span>s<span class="token string">"Ignored task status update ($taskId state $state) "</span> <span class="token operator">+</span>
+                s<span class="token string">"from unknown executor with ID $executorId"</span><span class="token punctuation">)</span>
+          <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span></code></pre>
+<h4 id="4-1-3-killTask"><a href="#4-1-3-killTask" class="headerlink" title="4.1.3 killTask"></a>4.1.3 killTask</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">//killTask</span>
+      <span class="token keyword">case</span> KillTask<span class="token punctuation">(</span>taskId<span class="token punctuation">,</span> executorId<span class="token punctuation">,</span> interruptThread<span class="token punctuation">,</span> reason<span class="token punctuation">)</span> <span class="token keyword">=></span>
+        <span class="token comment" spellcheck="true">//找出executorid对应的executor 然后杀掉task</span>
+        executorDataMap<span class="token punctuation">.</span>get<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span> <span class="token keyword">match</span> <span class="token punctuation">{</span>
+          <span class="token keyword">case</span> Some<span class="token punctuation">(</span>executorInfo<span class="token punctuation">)</span> <span class="token keyword">=></span>
+            executorInfo<span class="token punctuation">.</span>executorEndpoint<span class="token punctuation">.</span>send<span class="token punctuation">(</span>
+              KillTask<span class="token punctuation">(</span>taskId<span class="token punctuation">,</span> executorId<span class="token punctuation">,</span> interruptThread<span class="token punctuation">,</span> reason<span class="token punctuation">)</span><span class="token punctuation">)</span>
+          <span class="token keyword">case</span> None <span class="token keyword">=></span>
+            <span class="token comment" spellcheck="true">// Ignoring the task kill since the executor is not registered.</span>
+            logWarning<span class="token punctuation">(</span>s<span class="token string">"Attempted to kill task $taskId for unknown executor $executorId."</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span></code></pre>
+<h4 id="4-1-4-stopExecutors"><a href="#4-1-4-stopExecutors" class="headerlink" title="4.1.4 stopExecutors"></a>4.1.4 stopExecutors</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">//通知每个executor 处理stopExecutor事件</span>
+<span class="token keyword">case</span> StopExecutors <span class="token keyword">=></span>
+    logInfo<span class="token punctuation">(</span><span class="token string">"Asking each executor to shut down"</span><span class="token punctuation">)</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>_<span class="token punctuation">,</span> executorData<span class="token punctuation">)</span> <span class="token keyword">&lt;-</span> executorDataMap<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      executorData<span class="token punctuation">.</span>executorEndpoint<span class="token punctuation">.</span>send<span class="token punctuation">(</span>StopExecutor<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+context<span class="token punctuation">.</span>reply<span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span></code></pre>
+<h4 id="4-1-5-RemoveExecutor"><a href="#4-1-5-RemoveExecutor" class="headerlink" title="4.1.5 RemoveExecutor"></a>4.1.5 RemoveExecutor</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token keyword">case</span> RemoveExecutor<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> reason<span class="token punctuation">)</span> <span class="token keyword">=></span>
+  <span class="token comment" spellcheck="true">/**   
+   *   我们将删除executor的状态，无法恢复它。
+   *   但是，Driver和executor之间的连接可能仍然存在，
+   *   因此执行程序不会自动退出，因此请尝试告诉执行程序自行停止。
+   *   见SPARK-13519。 
+   */</span>
+  executorDataMap<span class="token punctuation">.</span>get<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span><span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>_<span class="token punctuation">.</span>executorEndpoint<span class="token punctuation">.</span>send<span class="token punctuation">(</span>StopExecutor<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  removeExecutor<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> reason<span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment" spellcheck="true">// 从集群中移除一个断开连接的slave</span>
+<span class="token keyword">private</span> <span class="token keyword">def</span> removeExecutor<span class="token punctuation">(</span>executorId<span class="token operator">:</span> <span class="token builtin">String</span><span class="token punctuation">,</span> reason<span class="token operator">:</span> ExecutorLossReason<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Unit</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+  logDebug<span class="token punctuation">(</span>s<span class="token string">"Asked to remove executor $executorId with reason $reason"</span><span class="token punctuation">)</span>
+  executorDataMap<span class="token punctuation">.</span>get<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span> <span class="token keyword">match</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">//通过executorId匹配executor</span>
+    <span class="token keyword">case</span> Some<span class="token punctuation">(</span>executorInfo<span class="token punctuation">)</span> <span class="token keyword">=></span>
+    <span class="token comment" spellcheck="true">//这必须同步，因为在请求executor时会读取此块中变异的变量</span>
+    <span class="token keyword">val</span> killed <span class="token operator">=</span> CoarseGrainedSchedulerBackend<span class="token punctuation">.</span><span class="token keyword">this</span><span class="token punctuation">.</span>synchronized <span class="token punctuation">{</span>
+      addressToExecutorId <span class="token operator">-=</span> executorInfo<span class="token punctuation">.</span>executorAddress
+      executorDataMap <span class="token operator">-=</span> executorId
+      executorsPendingLossReason <span class="token operator">-=</span> executorId
+      executorsPendingToRemove<span class="token punctuation">.</span>remove<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span><span class="token punctuation">.</span>getOrElse<span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+    totalCoreCount<span class="token punctuation">.</span>addAndGet<span class="token punctuation">(</span><span class="token operator">-</span>executorInfo<span class="token punctuation">.</span>totalCores<span class="token punctuation">)</span>
+    totalRegisteredExecutors<span class="token punctuation">.</span>addAndGet<span class="token punctuation">(</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">// TaskScheduler.executorLost() 方法, 通知上层我这边有一批资源不能用了,你处理下吧，</span>
+    <span class="token comment" spellcheck="true">// TaskScheduler会继续把 executorLost事件上报给DAGScheduler,</span>
+    <span class="token comment" spellcheck="true">// 原因是DAGScheduler关心shuffle任务的outputlocation,</span>
+    <span class="token comment" spellcheck="true">// DAGScheduler会告诉BlockManager这个executor不能用了,然后移走它,</span>
+    <span class="token comment" spellcheck="true">// 然后把所有的stage的shuffleOutput信息都遍历一遍, 移走这个executor,</span>
+    <span class="token comment" spellcheck="true">// 并且更新后的shuffleoutput信息注册到MapOutputTracker 上, 最后清理下本地的CacheLocationsMap</span>
+    scheduler<span class="token punctuation">.</span>executorLost<span class="token punctuation">(</span>executorId<span class="token punctuation">,</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>killed<span class="token punctuation">)</span> ExecutorKilled <span class="token keyword">else</span> reason<span class="token punctuation">)</span>
+    listenerBus<span class="token punctuation">.</span>post<span class="token punctuation">(</span>
+      SparkListenerExecutorRemoved<span class="token punctuation">(</span>System<span class="token punctuation">.</span>currentTimeMillis<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> executorId<span class="token punctuation">,</span> reason<span class="token punctuation">.</span>toString<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">case</span> None <span class="token keyword">=></span>
+    <span class="token comment" spellcheck="true">// SPARK-15262: If an executor is still alive even after the scheduler has removed</span>
+    <span class="token comment" spellcheck="true">// its metadata, we may receive a heartbeat from that executor and tell its block</span>
+    <span class="token comment" spellcheck="true">// manager to reregister itself. If that happens, the block manager master will know</span>
+    <span class="token comment" spellcheck="true">// about the executor, but the scheduler will not. Therefore, we should remove the</span>
+    <span class="token comment" spellcheck="true">// executor from the block manager when we hit this case.</span>
+    scheduler<span class="token punctuation">.</span>sc<span class="token punctuation">.</span>env<span class="token punctuation">.</span>blockManager<span class="token punctuation">.</span>master<span class="token punctuation">.</span>removeExecutorAsync<span class="token punctuation">(</span>executorId<span class="token punctuation">)</span>
+    logInfo<span class="token punctuation">(</span>s<span class="token string">"Asked to remove non-existent executor $executorId"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="4-1-6-reviveOffers"><a href="#4-1-6-reviveOffers" class="headerlink" title="4.1.6 reviveOffers"></a>4.1.6 reviveOffers</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token comment" spellcheck="true">//直接调用了makeOffers()方法，等到一批和执行的任务描述(taskSet) , 调用launchTasks</span>
+<span class="token keyword">case</span> ReviveOffers <span class="token keyword">=></span>
+makeOffers<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<h4 id="4-1-7-makeOffers"><a href="#4-1-7-makeOffers" class="headerlink" title="4.1.7 makeOffers"></a>4.1.7 makeOffers</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token comment" spellcheck="true">// 为所有executor提供虚拟资源</span>
+<span class="token keyword">private</span> <span class="token keyword">def</span> makeOffers<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 确保在某个任务启动时没有executor被杀死</span>
+  <span class="token keyword">val</span> taskDescs <span class="token operator">=</span> CoarseGrainedSchedulerBackend<span class="token punctuation">.</span><span class="token keyword">this</span><span class="token punctuation">.</span>synchronized <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 过滤出活跃的executor</span>
+    <span class="token keyword">val</span> activeExecutors <span class="token operator">=</span> executorDataMap<span class="token punctuation">.</span>filterKeys<span class="token punctuation">(</span>executorIsAlive<span class="token punctuation">)</span>
+    <span class="token keyword">val</span> workOffers <span class="token operator">=</span> activeExecutors<span class="token punctuation">.</span>map <span class="token punctuation">{</span>
+      <span class="token keyword">case</span> <span class="token punctuation">(</span>id<span class="token punctuation">,</span> executorData<span class="token punctuation">)</span> <span class="token keyword">=></span>
+      <span class="token keyword">new</span> WorkerOffer<span class="token punctuation">(</span>id<span class="token punctuation">,</span> executorData<span class="token punctuation">.</span>executorHost<span class="token punctuation">,</span> executorData<span class="token punctuation">.</span>freeCores<span class="token punctuation">,</span>
+                      Some<span class="token punctuation">(</span>executorData<span class="token punctuation">.</span>executorAddress<span class="token punctuation">.</span>hostPort<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">.</span>toIndexedSeq
+    scheduler<span class="token punctuation">.</span>resourceOffers<span class="token punctuation">(</span>workOffers<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>taskDescs<span class="token punctuation">.</span>isEmpty<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    launchTasks<span class="token punctuation">(</span>taskDescs<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h4 id="4-1-8-launchTask"><a href="#4-1-8-launchTask" class="headerlink" title="4.1.8 launchTask"></a>4.1.8 launchTask</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token comment" spellcheck="true">// 启动一组提供资源的 task</span>
+<span class="token keyword">private</span> <span class="token keyword">def</span> launchTasks<span class="token punctuation">(</span>tasks<span class="token operator">:</span> Seq<span class="token punctuation">[</span>Seq<span class="token punctuation">[</span>TaskDescription<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">for</span> <span class="token punctuation">(</span>task <span class="token keyword">&lt;-</span> tasks<span class="token punctuation">.</span>flatten<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">//将task转换为二进制</span>
+    <span class="token keyword">val</span> serializedTask <span class="token operator">=</span> TaskDescription<span class="token punctuation">.</span>encode<span class="token punctuation">(</span>task<span class="token punctuation">)</span>
+    <span class="token comment" spellcheck="true">//判断二进制数据大小，如果二进制数据超过最大范围则报错</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>serializedTask<span class="token punctuation">.</span>limit<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">>=</span> maxRpcMessageSize<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      Option<span class="token punctuation">(</span>scheduler<span class="token punctuation">.</span>taskIdToTaskSetManager<span class="token punctuation">.</span>get<span class="token punctuation">(</span>task<span class="token punctuation">.</span>taskId<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>foreach <span class="token punctuation">{</span> taskSetMgr <span class="token keyword">=></span>
+        <span class="token keyword">try</span> <span class="token punctuation">{</span>
+          <span class="token keyword">var</span> msg <span class="token operator">=</span> <span class="token string">"Serialized task %s:%d was %d bytes, which exceeds max allowed: "</span> <span class="token operator">+</span>
+          s<span class="token string">"${RPC_MESSAGE_MAX_SIZE.key} (%d bytes). Consider increasing "</span> <span class="token operator">+</span>
+          s<span class="token string">"${RPC_MESSAGE_MAX_SIZE.key} or using broadcast variables for large values."</span>
+          msg <span class="token operator">=</span> msg<span class="token punctuation">.</span>format<span class="token punctuation">(</span>task<span class="token punctuation">.</span>taskId<span class="token punctuation">,</span> task<span class="token punctuation">.</span>index<span class="token punctuation">,</span> serializedTask<span class="token punctuation">.</span>limit<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> maxRpcMessageSize<span class="token punctuation">)</span>
+          taskSetMgr<span class="token punctuation">.</span>abort<span class="token punctuation">(</span>msg<span class="token punctuation">)</span>
+        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{</span>
+          <span class="token keyword">case</span> e<span class="token operator">:</span> Exception <span class="token keyword">=></span> logError<span class="token punctuation">(</span><span class="token string">"Exception in error callback"</span><span class="token punctuation">,</span> e<span class="token punctuation">)</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+    <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> executorData <span class="token operator">=</span> executorDataMap<span class="token punctuation">(</span>task<span class="token punctuation">.</span>executorId<span class="token punctuation">)</span>
+      executorData<span class="token punctuation">.</span>freeCores <span class="token operator">-=</span> scheduler<span class="token punctuation">.</span>CPUS_PER_TASK
+
+      logDebug<span class="token punctuation">(</span>s<span class="token string">"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: "</span> <span class="token operator">+</span>
+               s<span class="token string">"${executorData.executorHost}."</span><span class="token punctuation">)</span>
+      <span class="token comment" spellcheck="true">//将task 发送给executor执行</span>
+      executorData<span class="token punctuation">.</span>executorEndpoint<span class="token punctuation">.</span>send<span class="token punctuation">(</span>LaunchTask<span class="token punctuation">(</span><span class="token keyword">new</span> SerializableBuffer<span class="token punctuation">(</span>serializedTask<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="4-2-后台调度器的子类实现"><a href="#4-2-后台调度器的子类实现" class="headerlink" title="4.2 后台调度器的子类实现"></a>4.2 后台调度器的子类实现</h3><p>下面有三个子实现类</p>
+<ol>
+<li>CoarseGrainedSchedulerBackend</li>
+<li>LocalSchedulerBackend</li>
+<li>StandaloneSchedulerBackend</li>
+</ol>
+<h4 id="4-2-1-CoarseGrainedSchedulerBackend"><a href="#4-2-1-CoarseGrainedSchedulerBackend" class="headerlink" title="4.2.1     CoarseGrainedSchedulerBackend"></a>4.2.1     CoarseGrainedSchedulerBackend</h4><pre class=" language-scala"><code class="language-scala">
+<span class="token comment" spellcheck="true">/**   
+ *   调度程序后端代码，等待粗粒度执行程序连接。
+ *   在Spark执行期间保留每个executor，不会在程序完成时关闭executor,在新的任务进来时不会创建新的executor。
+ *   executor可以以多种方式运行，比如粗粒度mesos模式下或者standalone
+ */</span>
+<span class="token keyword">private</span><span class="token punctuation">[</span>spark<span class="token punctuation">]</span>
+<span class="token keyword">class</span> CoarseGrainedSchedulerBackend<span class="token punctuation">(</span>scheduler<span class="token operator">:</span> TaskSchedulerImpl<span class="token punctuation">,</span> <span class="token keyword">val</span> rpcEnv<span class="token operator">:</span> RpcEnv<span class="token punctuation">)</span>
+  <span class="token keyword">extends</span> ExecutorAllocationClient <span class="token keyword">with</span> SchedulerBackend <span class="token keyword">with</span> Logging</code></pre>
+<h4 id="4-2-2-LocalSchedulerBackend"><a href="#4-2-2-LocalSchedulerBackend" class="headerlink" title="4.2.2     LocalSchedulerBackend"></a>4.2.2     LocalSchedulerBackend</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">/**  
+ *   本地调度器,在本地版的spark时使用,
+ *   其中 executor, backend，master 都运行在相同的jvm中, 它位于 TaskSchedulerImpl的下一层, 
+ *   在本地运行单个executor (由 LocalSchedulerBackend创建) 上处理启动等任务
+ *   对[[LocalSchedulerBackend]]的调用都是通过LocalEndpoint序列化的。 使用RpcEndpoint使[[LocalSchedulerBackend]]上的调用异步，这是必要的
+ *     防止[[LocalSchedulerBackend]]和[[TaskSchedulerImpl]]之间的死锁。
+ */</span>
+<span class="token keyword">private</span><span class="token punctuation">[</span>spark<span class="token punctuation">]</span> <span class="token keyword">class</span> LocalEndpoint<span class="token punctuation">(</span>
+    <span class="token keyword">override</span> <span class="token keyword">val</span> rpcEnv<span class="token operator">:</span> RpcEnv<span class="token punctuation">,</span>
+    userClassPath<span class="token operator">:</span> Seq<span class="token punctuation">[</span>URL<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    scheduler<span class="token operator">:</span> TaskSchedulerImpl<span class="token punctuation">,</span>
+    executorBackend<span class="token operator">:</span> LocalSchedulerBackend<span class="token punctuation">,</span>
+    <span class="token keyword">private</span> <span class="token keyword">val</span> totalCores<span class="token operator">:</span> <span class="token builtin">Int</span><span class="token punctuation">)</span>
+  <span class="token keyword">extends</span> ThreadSafeRpcEndpoint <span class="token keyword">with</span> Logging</code></pre>
+<h4 id="4-2-3-StandaloneSchedulerBackend"><a href="#4-2-3-StandaloneSchedulerBackend" class="headerlink" title="4.2.3     StandaloneSchedulerBackend"></a>4.2.3     StandaloneSchedulerBackend</h4><pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">// A [[SchedulerBackend]] 针对spark standalone 集群模式的实现</span>
+<span class="token keyword">private</span><span class="token punctuation">[</span>spark<span class="token punctuation">]</span> <span class="token keyword">class</span> StandaloneSchedulerBackend<span class="token punctuation">(</span>
+    scheduler<span class="token operator">:</span> TaskSchedulerImpl<span class="token punctuation">,</span>
+    sc<span class="token operator">:</span> SparkContext<span class="token punctuation">,</span>
+    masters<span class="token operator">:</span> Array<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+  <span class="token keyword">extends</span> CoarseGrainedSchedulerBackend<span class="token punctuation">(</span>scheduler<span class="token punctuation">,</span> sc<span class="token punctuation">.</span>env<span class="token punctuation">.</span>rpcEnv<span class="token punctuation">)</span>
+  <span class="token keyword">with</span> StandaloneAppClientListener
+  <span class="token keyword">with</span> Logging
+</code></pre>
+<h2 id="3-Spark-提交作业图形化"><a href="#3-Spark-提交作业图形化" class="headerlink" title="3. Spark 提交作业图形化"></a>3. Spark 提交作业图形化</h2><p><img src="https://images.hnbian.cn/FlonMqHIUVxo4iAu8r8ZCb5AKiHO" alt></p>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/3974552e.html">https://www.hnbian.cn/posts/3974552e.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/44572866.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FtWTbEp-v-jz5lqNdm0X31jveys6" class="responsive-img" alt="HDFS 负载均衡策略">
+                        
+                        <span class="card-title">HDFS 负载均衡策略</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Hadoop HDFS介绍Hadoop 分布式文件系统（Hadoop Distributed File System），简称 HDFS，被设计成适合运行在通用硬件上的分布式文件系统。它和现有的分布式文件系统有很多的共同点。HDFS 是
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2019-08-29
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hdfs/" class="post-category">
+                                    hdfs
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hdfs/">
+                        <span class="chip bg-color">hdfs</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e502dedc.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FuRziobQkR3tOU6i-96wABw_pDOU" class="responsive-img" alt="Spark 中的基本概念">
+                        
+                        <span class="card-title">Spark 中的基本概念</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Application应用
+Spark上运行的应用，
+
+包含了驱动器进程（Driver）和集群上的执行器进程（Executor）
+
+每个Application 只有一个Driver 但是可以有多个Executor
+
+
+2. Appli
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2019-08-19
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+<script src="https://cdn.bootcss.com/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+<script>
+    MathJax.Hub.Config({
+        tex2jax: {inlineMath: [['$', '$'], ['\(', '\)']]}
+    });
+</script>
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

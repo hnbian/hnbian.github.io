@@ -1,0 +1,2022 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="ClickHouse 13. 表引擎5 MergeTree 家族其它引擎, hnbian">
+    <meta name="description" content="1. ReplacingMergeTree1.1 介绍
+MergeTree 虽然可以设置主键，但是主键没有唯一约束的作用，即使多行主键相同的数据一样能够写入成功，但是在某些场景下，我们希望表中不存在主键重复的数据。
+
+ReplacingMe">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>ClickHouse 13. 表引擎5 MergeTree 家族其它引擎 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FsF18llbga4FF1qBOCPw323MgABS')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">ClickHouse 13. 表引擎5 MergeTree 家族其它引擎</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/clickhouse/">
+                                <span class="chip bg-color">clickhouse</span>
+                            </a>
+                        
+                            <a href="/tags/olap/">
+                                <span class="chip bg-color">olap</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/clickhouse/" class="post-category">
+                                clickhouse
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2021-06-13
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    5.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    25 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-ReplacingMergeTree"><a href="#1-ReplacingMergeTree" class="headerlink" title="1. ReplacingMergeTree"></a>1. ReplacingMergeTree</h2><h3 id="1-1-介绍"><a href="#1-1-介绍" class="headerlink" title="1.1 介绍"></a>1.1 介绍</h3><ul>
+<li><p>MergeTree 虽然可以设置主键，但是主键没有唯一约束的作用，即使多行主键相同的数据一样能够写入成功，但是在某些场景下，我们希望表中不存在主键重复的数据。</p>
+</li>
+<li><p>ReplacingMergeTree就是为这种场景设计的，它能够在分区合并时删除重复数据</p>
+</li>
+<li><p>创建 ReplacingMergeTree 语法</p>
+</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token punctuation">[</span><span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span><span class="token punctuation">]</span> <span class="token punctuation">[</span>db_name<span class="token punctuation">.</span><span class="token punctuation">]</span>table_name<span class="token punctuation">(</span>
+  name1 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name2 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> ReplacingMergeTree<span class="token punctuation">(</span>var<span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SAMPLE <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SETTINGS name<span class="token operator">=</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span>
+</code></pre>
+<p>其中 var 是选填参数，会指定一个 UInt、Date或 DateTime 类型的段作为版本号，这个参数确定了去重时使用的算法。</p>
+<h3 id="1-2-使用示例"><a href="#1-2-使用示例" class="headerlink" title="1.2 使用示例"></a>1.2 使用示例</h3><ol>
+<li>准备数据 </li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>code</th>
+<th>create_time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A01</td>
+<td>102</td>
+<td>2021-06-03 10:04:35</td>
+</tr>
+<tr>
+<td>A01</td>
+<td>101</td>
+<td>2021-06-03 10:05:35</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>104</td>
+<td>2021-06-03 10:06:35</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>103</td>
+<td>2021-06-03 10:07:35</td>
+</tr>
+<tr>
+<td>A03</td>
+<td>105</td>
+<td>2021-06-03 10:08:35</td>
+</tr>
+<tr>
+<td>A03</td>
+<td>105</td>
+<td>2021-06-03 10:09:35</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>创建测试表并插入数据</li>
+</ol>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 创建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> t_merge_replace
+<span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> UInt8<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span>
+<span class="token keyword">ENGINE</span> <span class="token operator">=</span> ReplacingMergeTree
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token punctuation">(</span>id<span class="token punctuation">,</span>code<span class="token punctuation">)</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> id<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 建表时的 order by 是删除数据的判断依据，在这张表中，会依据id 和 code 两个字段进行去重</span>
+
+<span class="token comment" spellcheck="true">-- 插入数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> t_merge_replace <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">102</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">101</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">104</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:06:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">103</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:07:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:08:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:09:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<ol start="3">
+<li>执行分区合并删除重复数据</li>
+</ol>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 手动合并分区</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> t_merge_replace<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看去重后的数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> t_merge_replace<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A01 │  <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">103</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">104</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+│ A03 │  <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 经过对比可以发现，并没有根据 primary key 去重，</span>
+<span class="token comment" spellcheck="true">-- 而是根据 id,code 组合进行去重，从而只删除了 A03 其中的一条数据</span></code></pre>
+<ol start="4">
+<li>不同分区数据去重</li>
+</ol>
+<p>从上面的例子中可以看到去重效果还不错，但是当插入不同分区的重复数据时发现并不是想象的那样</p>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 插入新的数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> t_merge_replace <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">102</span><span class="token punctuation">,</span><span class="token string">'2021-07-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">101</span><span class="token punctuation">,</span><span class="token string">'2021-07-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查询数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> t_merge_replace<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A01 │  <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">103</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">104</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+│ A03 │  <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">07</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A01 │  <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">07</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 按照 前面的规则（根据 id,code 去重）</span>
+<span class="token comment" spellcheck="true">-- 那么当手动合并分区的时候，因为新曾部分数据，导致会有重复数据被删掉，</span>
+<span class="token comment" spellcheck="true">-- 但是手动合并分区发现并不是这样</span>
+
+<span class="token comment" spellcheck="true">-- 合并分区</span>
+ <span class="token keyword">optimize</span> <span class="token keyword">table</span> t_merge_replace<span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">-- 查询数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> t_merge_replace<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">07</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A01 │  <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">07</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A01 │  <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">103</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">104</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+│ A03 │  <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 可以看到数据 （A01,101,A02,102）依旧重复</span>
+<span class="token comment" spellcheck="true">-- 原因是 ReplacingMergeTree 是以分区为单位删除重复数据的，不同分区内的重复数据依旧是无法去重的</span></code></pre>
+<h3 id="1-3-版本号的用法"><a href="#1-3-版本号的用法" class="headerlink" title="1.3 版本号的用法"></a>1.3 版本号的用法</h3><pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 创建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> t_merge_replace2
+<span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> UInt8<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span>
+<span class="token keyword">ENGINE</span> <span class="token operator">=</span> ReplacingMergeTree<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token punctuation">(</span>id<span class="token punctuation">)</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> id<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 建表时的 order by 是删除数据的判断依据，在这张表中，会依据id 和 code 两个字段进行去重</span>
+
+<span class="token comment" spellcheck="true">-- 插入数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> t_merge_replace2 <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">102</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">101</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">104</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:06:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">103</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:07:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:08:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:09:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 手动合并分区</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> t_merge_replace2<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> t_merge_replace2<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┐
+│ A01 │  <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A02 │  <span class="token number">103</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A03 │  <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴──────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 可以看到每个 id 的 create_time 最大的一条数据被保留下来</span></code></pre>
+<h3 id="1-4-总结"><a href="#1-4-总结" class="headerlink" title="1.4 总结"></a>1.4 总结</h3><ol>
+<li>使用 order by 排序键作为判断数据是否重复的依据</li>
+<li>只有在分区合并时触发删除重复数据的逻辑</li>
+<li>以分区为单位删除重复数据，不同分区内的重复数据不会去重</li>
+<li>进行数据去重时，因为分区内的数据已经按照order by 进行排序了，所以能够找到重复的数据</li>
+<li>去重策略有联众<ol>
+<li>如果没有设置版本号（var） 保留同一组中最后一行数据</li>
+<li>如果设置了版本号（var）保留同一组数据中保留var 字段取值最大的一行数据</li>
+</ol>
+</li>
+</ol>
+<h2 id="2-SummingMergeTree"><a href="#2-SummingMergeTree" class="headerlink" title="2. SummingMergeTree"></a>2. SummingMergeTree</h2><h3 id="2-1-介绍"><a href="#2-1-介绍" class="headerlink" title="2.1 介绍"></a>2.1 介绍</h3><ul>
+<li>SummingMergeTree是为了只关心汇总结果，不关心明细数据，且汇总条件固定不会随意修改的场景而设计的。</li>
+<li>SummingMergeTree能够在合并分区时按照预先定义的条件汇总聚合数据，将同一组下的多行数据合并成一行，这样既减少了数据量，有降低了查询汇总数据时的消耗。</li>
+</ul>
+<h3 id="2-2-排序键与主键"><a href="#2-2-排序键与主键" class="headerlink" title="2.2 排序键与主键"></a>2.2 排序键与主键</h3><p>在 MergeTree 分区内数据会按照 order by （排序键）表达式排序，主键索引也会按照 primary key（主键） 表达式取值并排序，而 order by 可以取代 主键，在一般情形下，只需要定义 order by 即可，此时排序键与主键相同，即数据排序与主键索引相同。</p>
+<p>如果需要同时定义 排序键 与 主键 通常只有一种情况，那就是希望排序键与主键不同，这种情况通常只在定义 SummingMergeTree 和 AggregratingMergeTree 时才会出现，这是因为，这两种表引擎的数据聚合都是根据排序键进行的，主键与聚合的条件定义分离，为修改聚合条件留下更大的空间。</p>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 假设现有一张数据表，表中有 A,B,C,D,E,F 六个字段，如果按照 A,B,C汇总则条件为：</span>
+<span class="token keyword">order</span> <span class="token keyword">by</span> <span class="token punctuation">(</span>A<span class="token punctuation">,</span>B<span class="token punctuation">,</span>C<span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true">-- 上面这样定义表，主键也会被定义为 A,B,C </span>
+<span class="token comment" spellcheck="true">-- 假如此时业务上只会根据 A 字段进行过滤，应该只使用 A 字段作为主键，那么就需要更换一种定义形式：</span>
+<span class="token keyword">order</span> <span class="token keyword">by</span> <span class="token punctuation">(</span>A<span class="token punctuation">,</span>B<span class="token punctuation">,</span>C<span class="token punctuation">)</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> A
+
+<span class="token comment" spellcheck="true">-- 如果同时声明了排序键和主键，那么 MergeTree 会强制要求 主键 为 排序键 的前缀</span>
+<span class="token comment" spellcheck="true">-- 即如下定义是错误的</span>
+<span class="token keyword">order</span> <span class="token keyword">by</span> <span class="token punctuation">(</span>A<span class="token punctuation">,</span>B<span class="token punctuation">,</span>C<span class="token punctuation">)</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> B
+
+<span class="token comment" spellcheck="true">-- 这种强制约束保障了在两者定义不同的情况下，主键仍然是排序键的前缀，不会出现索引与数据混乱的问题。</span></code></pre>
+<p>当业务发生变化，只需要根据需要增减排序键改变聚合规则即可，相对于不可修改的主键，便利了很多。</p>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 减少排序键</span>
+<span class="token keyword">alter</span> <span class="token keyword">table</span> table_name <span class="token keyword">modify</span> ordery <span class="token keyword">by</span> <span class="token punctuation">(</span>A<span class="token punctuation">,</span>B<span class="token punctuation">)</span></code></pre>
+<h3 id="2-3-使用介绍"><a href="#2-3-使用介绍" class="headerlink" title="2.3 使用介绍"></a>2.3 使用介绍</h3><pre class=" language-sql"><code class="language-sql">
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token punctuation">[</span><span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span><span class="token punctuation">]</span> <span class="token punctuation">[</span>db_name<span class="token punctuation">.</span><span class="token punctuation">]</span>table_name<span class="token punctuation">(</span>
+  name1 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name2 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> SummingMergeTree<span class="token punctuation">(</span><span class="token punctuation">(</span>col1<span class="token punctuation">,</span>col2<span class="token punctuation">,</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SAMPLE <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SETTINGS name<span class="token operator">=</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span>
+</code></pre>
+<ul>
+<li>col1,col2,… 是选填项，为 columns 参数值，用于设置除主键外的其它数值类型字段，以指定被 sum 汇总的列字段，若不指定此字段，会将所有非主键的数值类型字段进行汇总</li>
+<li>ORDER BY 排序键，也作为数据聚合的依据</li>
+<li>PRIMARY KEY 主键，主键必须作为排序键的前缀</li>
+</ul>
+<h3 id="2-4-使用示例"><a href="#2-4-使用示例" class="headerlink" title="2.4 使用示例"></a>2.4 使用示例</h3><ol>
+<li>准备数据 </li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>code</th>
+<th>num1</th>
+<th>num2</th>
+<th>create_time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A01</td>
+<td>C01</td>
+<td>102</td>
+<td>10.3</td>
+<td>2021-06-03 10:04:35</td>
+</tr>
+<tr>
+<td>A01</td>
+<td>C01</td>
+<td>101</td>
+<td>5.7</td>
+<td>2021-06-03 10:05:35</td>
+</tr>
+<tr>
+<td>A01</td>
+<td>C02</td>
+<td>104</td>
+<td>9.7</td>
+<td>2021-06-03 10:06:35</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>C02</td>
+<td>103</td>
+<td>5.8</td>
+<td>2021-06-03 10:07:35</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>C02</td>
+<td>105</td>
+<td>3.2</td>
+<td>2021-06-03 10:08:35</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>C03</td>
+<td>105</td>
+<td>1.3</td>
+<td>2021-06-03 10:09:35</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>创建测试表并插入数据</li>
+</ol>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_sum <span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>num1<span class="token punctuation">`</span> UInt32<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>num2<span class="token punctuation">`</span> Float32<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> SummingMergeTree<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token punctuation">(</span>id<span class="token punctuation">,</span>code<span class="token punctuation">)</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> id<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 插入测试数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_sum <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token string">'C01'</span><span class="token punctuation">,</span><span class="token number">102</span><span class="token punctuation">,</span><span class="token number">9.3</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token string">'C01'</span><span class="token punctuation">,</span><span class="token number">101</span><span class="token punctuation">,</span><span class="token number">5.7</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token string">'C02'</span><span class="token punctuation">,</span><span class="token number">104</span><span class="token punctuation">,</span><span class="token number">9.7</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:06:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token string">'C02'</span><span class="token punctuation">,</span><span class="token number">103</span><span class="token punctuation">,</span><span class="token number">5.8</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:07:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token string">'C02'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token number">3.2</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:08:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token string">'C03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token number">1.3</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:09:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 强制合并操作</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_sum final<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_sum<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─num1─┬─num2─┬─────────create_time─┐
+│ A01 │ C01  │  <span class="token number">203</span> │   <span class="token number">15</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A01 │ C02  │  <span class="token number">104</span> │  <span class="token number">9.7</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+│ A02 │ C02  │  <span class="token number">208</span> │    <span class="token number">9</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A02 │ C03  │  <span class="token number">105</span> │  <span class="token number">1.3</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴──────┴──────┴──────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 可以看到 A01,C01 等多行数据汇总成了一行，而不再汇总范围的 create_time 取了每组的第一行的值</span>
+<span class="token comment" spellcheck="true">-- 与 ReplacingMergeTree 相同，聚合数据只是在同一分区内，不同分区的数据无法进行聚合汇总</span>
+</code></pre>
+<ol start="3">
+<li>嵌套类型数据聚合</li>
+</ol>
+<p>SummingMergeTree 同样支持嵌套类型的字段，在使用嵌套类型段时，需要被 sum汇总的字段名称必须以map 后缀结尾，</p>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_sum_nested
+<span class="token punctuation">(</span>
+    <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+    <span class="token punctuation">`</span>nestMap<span class="token punctuation">`</span> Nested<span class="token punctuation">(</span>id UInt32<span class="token punctuation">,</span> <span class="token keyword">key</span> UInt32<span class="token punctuation">,</span> val UInt32<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span>
+<span class="token keyword">ENGINE</span> <span class="token operator">=</span> SummingMergeTree
+<span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> id<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 插入测试数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_sum_nested <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span>  <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">20</span><span class="token punctuation">,</span><span class="token number">30</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">11</span><span class="token punctuation">,</span><span class="token number">12</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span>  <span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">40</span><span class="token punctuation">,</span><span class="token number">50</span><span class="token punctuation">,</span><span class="token number">60</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">13</span><span class="token punctuation">,</span><span class="token number">14</span><span class="token punctuation">,</span><span class="token number">15</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span>  <span class="token punctuation">[</span><span class="token number">5</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">,</span><span class="token number">6</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token number">70</span><span class="token punctuation">,</span><span class="token number">80</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token punctuation">[</span><span class="token number">16</span><span class="token punctuation">,</span><span class="token number">17</span><span class="token punctuation">,</span><span class="token number">18</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:06:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 强制合并操作</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_sum final<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看聚合结果数据</span>
+ <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_sum_nested<span class="token punctuation">;</span>
+
+┌─id──┬─nestMap<span class="token punctuation">.</span>id─┬─nestMap<span class="token punctuation">.</span><span class="token keyword">key</span>───┬─nestMap<span class="token punctuation">.</span>val───┬─────────create_time─┐
+│ A01 │ <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">]</span>  │ <span class="token punctuation">[</span><span class="token number">30</span><span class="token punctuation">,</span><span class="token number">30</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">,</span><span class="token number">60</span><span class="token punctuation">]</span> │ <span class="token punctuation">[</span><span class="token number">21</span><span class="token punctuation">,</span><span class="token number">12</span><span class="token punctuation">,</span><span class="token number">27</span><span class="token punctuation">,</span><span class="token number">15</span><span class="token punctuation">]</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A02 │ <span class="token punctuation">[</span><span class="token number">5</span><span class="token punctuation">,</span><span class="token number">6</span><span class="token punctuation">]</span>      │ <span class="token punctuation">[</span><span class="token number">150</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">]</span>      │ <span class="token punctuation">[</span><span class="token number">33</span><span class="token punctuation">,</span><span class="token number">18</span><span class="token punctuation">]</span>       │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+└─────┴────────────┴───────────────┴───────────────┴─────────────────────┘
+</code></pre>
+<p>在使用嵌套类型的时候，也支持使用复合 key 作为聚合条件为了使用复合 key ，在嵌套类型的字段中，除第一个字段外，任何以 key，id 或 type为后缀结尾的字段，都将和第一个字段组成复合 key。如将上面的 key 改为 Key，就会以 id 和 Key 作为聚合条件。</p>
+<h3 id="2-5-总结"><a href="#2-5-总结" class="headerlink" title="2.5 总结"></a>2.5 总结</h3><ol>
+<li>用 order by 排序键作为聚合数据的条件 key</li>
+<li>只有在分区合并的时候才会触发合并逻辑</li>
+<li>以分区为单位聚合数据，合并分区时，同一分区内相同排序键的数据将会被合并汇总，不同分区间的数据不会被汇总</li>
+<li>如果在定义引擎时指定了 columns 参数值，则会汇总被指定的列字段，若不指定此字段，会将所有非主键的数值类型字段进行汇总</li>
+<li>在进行数据汇总时，因为分区内的数据已经进行了 order by 排序，所以能够找到相邻具有相同聚合 key 的数据。</li>
+<li>在进行数据汇总时，同一分区内多行相同聚合 key 的数据会合并成一行，对于非聚合字段，会取第一行数据的值</li>
+<li>支持嵌套结构，但列明字段必须以 Map 结尾，嵌套类型中，默认以第一个字段作为聚合 key，除第一个字段外，任何以Key、ID或Type为后缀的字段，都将与第一个字段一起组成复合 key。</li>
+</ol>
+<h2 id="3-AggregatingMergeTree"><a href="#3-AggregatingMergeTree" class="headerlink" title="3. AggregatingMergeTree"></a>3. AggregatingMergeTree</h2><blockquote>
+<p>数据仓库领域有一个十分常见的模型，数据立方体，它通过以空间换时间的方式提升查询性能，将需要聚合的数据预先算出来，并将结果保存，在需要进行聚合查询时，直接查询结果</p>
+</blockquote>
+<h3 id="3-1-介绍"><a href="#3-1-介绍" class="headerlink" title="3.1 介绍"></a>3.1 介绍</h3><ul>
+<li>AggregatingMergeTree 跟数据立方体有些相似，它能够在合并分区时，按照预先定义的条件聚合数据。</li>
+<li>AggregatingMergeTree 会根据预先定义的聚合函数计算数据并通过二进制的格式存入表中。</li>
+<li>AggregatingMergeTree 将同一分组下的多行数据聚合成一行，即减少了数据又降低了后续聚合查询的开销。</li>
+<li>AggregatingMergeTree 相当于是SummingMergeTree的升级版，二者有许多设计思路是一致的，比如 排序键与主键的设计。</li>
+</ul>
+<h3 id="3-2-定义方式"><a href="#3-2-定义方式" class="headerlink" title="3.2 定义方式"></a>3.2 定义方式</h3><pre class=" language-sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token punctuation">[</span><span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span><span class="token punctuation">]</span> <span class="token punctuation">[</span>db_name<span class="token punctuation">.</span><span class="token punctuation">]</span>table_name<span class="token punctuation">(</span>
+  name1 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name2 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name3 AggregateFunction<span class="token punctuation">(</span><span class="token keyword">Function</span><span class="token punctuation">,</span><span class="token keyword">type</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> AggregatingMergeTree<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SAMPLE <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SETTINGS name<span class="token operator">=</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span>
+</code></pre>
+<p>AggregatingMergeTree 没有额外设置的参数，合并分区时在每个数据分区内，会按照order by 聚合数据，而做哪种聚合操作会通过AggregateFunction 数据类型实现。</p>
+<h3 id="3-3-使用介绍"><a href="#3-3-使用介绍" class="headerlink" title="3.3 使用介绍"></a>3.3 使用介绍</h3><ul>
+<li><p>AggregatingMergeTree 是 clickhouse提供的一种特殊数据类型，它能够以二进制的形式存储中间状态结果。</p>
+</li>
+<li><p>AggregatingMergeTree 使用方式也有些特殊，对于AggregateFunction 类型的列，数据的查询与写入都与平常的列不同，</p>
+</li>
+<li><p>AggregatingMergeTree 在写入数据时需要调用 对应的State函数， 而在查询时，需要调用对应的 Merge 函数。</p>
+</li>
+<li><p>示例如下：</p>
+</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_agg <span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>city<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> AggregateFunction<span class="token punctuation">(</span>uniq<span class="token punctuation">,</span>String<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment" spellcheck="true">-- 聚合字段 等同于 UNIQ(code)</span>
+  <span class="token punctuation">`</span><span class="token keyword">value</span><span class="token punctuation">`</span> AggregateFunction<span class="token punctuation">(</span>sum<span class="token punctuation">,</span>UInt32<span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment" spellcheck="true">-- 聚合字段 等同于 SUM(value)</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> AggregatingMergeTree<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token punctuation">(</span>id<span class="token punctuation">,</span>city<span class="token punctuation">)</span> <span class="token comment" spellcheck="true">-- 等同于 group by id,city</span>
+<span class="token keyword">primary</span> <span class="token keyword">key</span> id<span class="token punctuation">;</span>
+
+
+<span class="token comment" spellcheck="true">-- 插入数据</span>
+<span class="token comment" spellcheck="true">-- 需要调用 UNIQ对应的 uniqState 方法 和 sum 对应的 sumState 方法，并使用 insert select 语法</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_agg
+<span class="token keyword">select</span> <span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token string">'shenzhen'</span><span class="token punctuation">,</span>uniqState<span class="token punctuation">(</span><span class="token string">'code1'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>sumState<span class="token punctuation">(</span>toUInt32<span class="token punctuation">(</span><span class="token number">100</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 15:27:22'</span>
+<span class="token keyword">union</span> <span class="token keyword">all</span> 
+<span class="token keyword">select</span> <span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token string">'shenzhen'</span><span class="token punctuation">,</span>uniqState<span class="token punctuation">(</span><span class="token string">'code2'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>sumState<span class="token punctuation">(</span>toUInt32<span class="token punctuation">(</span><span class="token number">200</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 15:28:22'</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查询数据</span>
+<span class="token comment" spellcheck="true">-- 需要调用 UNIQ对应的 uniqMrege 方法 和 sum 对应的 sumMerge 方法</span>
+
+<span class="token keyword">select</span> id<span class="token punctuation">,</span>city<span class="token punctuation">,</span>uniqMerge<span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">,</span>sumMerge<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">)</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_agg <span class="token keyword">group</span> <span class="token keyword">by</span> id<span class="token punctuation">,</span>city<span class="token punctuation">;</span>
+
+┌─id──┬─city─────┬─uniqMerge<span class="token punctuation">(</span>code<span class="token punctuation">)</span>─┬─sumMerge<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">)</span>─┐
+│ A01 │ shenzhen │               <span class="token number">2</span> │             <span class="token number">300</span> │
+└─────┴──────────┴─────────────────┴─────────────────┘
+
+</code></pre>
+<p>AggregatingMergeTree 更常用的方式是结合物化视图使用，将它作为物化视图的表引擎。</p>
+<p>物化视图使用AggregatingMergeTree 表引擎用于特定场景的数据查询，比 MergeTree 的性能更高，</p>
+<p>使用示例如下：</p>
+<pre class=" language-sql"><code class="language-sql">
+<span class="token comment" spellcheck="true">-- 先建立明细数据表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_basic <span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span><span class="token keyword">value</span><span class="token punctuation">`</span> UInt32<span class="token punctuation">,</span> 
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> MergeTree<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> id<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 使用 MergeTree 表作为底表，存储明细数据，对外提供实时查询的能力</span>
+<span class="token comment" spellcheck="true">-- 创建物化视图</span>
+<span class="token keyword">CREATE</span> MATERIALIZED <span class="token keyword">VIEW</span> db_merge<span class="token punctuation">.</span>t_merge_basic_view
+<span class="token keyword">ENGINE</span> <span class="token operator">=</span> AggregatingMergeTree<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> month
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> <span class="token punctuation">(</span>id<span class="token punctuation">)</span> 
+<span class="token keyword">as</span>
+<span class="token keyword">select</span> 
+  id<span class="token punctuation">,</span>
+  toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span> <span class="token keyword">as</span> month<span class="token punctuation">,</span>
+  sumState<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token keyword">value</span>
+<span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_basic
+<span class="token keyword">group</span> <span class="token keyword">by</span> id<span class="token punctuation">,</span>month<span class="token punctuation">;</span>
+
+<span class="token keyword">drop</span> <span class="token keyword">VIEW</span> db_merge<span class="token punctuation">.</span>t_merge_basic_view<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 向明细数据表增加数据</span>
+
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_basic <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">102</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:04:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">101</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:05:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">104</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:06:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">103</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:07:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:08:35'</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">105</span><span class="token punctuation">,</span><span class="token string">'2021-06-03 10:09:35'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查询明细表数据</span>
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_basic<span class="token punctuation">;</span>
+
+┌─id──┬─<span class="token keyword">value</span>─┬─────────create_time─┐
+│ A01 │   <span class="token number">102</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">04</span>:<span class="token number">35</span> │
+│ A01 │   <span class="token number">101</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">05</span>:<span class="token number">35</span> │
+│ A02 │   <span class="token number">104</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">06</span>:<span class="token number">35</span> │
+│ A02 │   <span class="token number">103</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">07</span>:<span class="token number">35</span> │
+│ A03 │   <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">08</span>:<span class="token number">35</span> │
+│ A03 │   <span class="token number">105</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">03</span> <span class="token number">10</span>:<span class="token number">09</span>:<span class="token number">35</span> │
+└─────┴───────┴─────────────────────┘
+
+<span class="token comment" spellcheck="true">-- 查询物化视图数据</span>
+
+<span class="token keyword">select</span> id<span class="token punctuation">,</span>month<span class="token punctuation">,</span>sumMerge<span class="token punctuation">(</span><span class="token keyword">value</span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token keyword">value</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_basic_view <span class="token keyword">group</span> <span class="token keyword">by</span> id<span class="token punctuation">,</span>month<span class="token punctuation">;</span>
+
+┌─id──┬──month─┬─<span class="token keyword">value</span>─┐
+│ A01 │ <span class="token number">202106</span> │   <span class="token number">203</span> │
+│ A02 │ <span class="token number">202106</span> │   <span class="token number">207</span> │
+│ A03 │ <span class="token number">202106</span> │   <span class="token number">210</span> │
+└─────┴────────┴───────┘</code></pre>
+<h3 id="3-4-总结"><a href="#3-4-总结" class="headerlink" title="3.4 总结"></a>3.4 总结</h3><ul>
+<li><p>用 order by 排序键作为聚合数据的条件 key</p>
+</li>
+<li><p>只有在分区合并的时候才会触发合并逻辑</p>
+</li>
+<li><p>以分区为单位聚合数据，合并分区时，同一分区内相同排序键的数据将会被聚合计算，不同分区间的数据不会被计算</p>
+</li>
+<li><p>在进行数据汇总时，因为分区内的数据已经进行了 order by 排序，所以能够找到相邻具有相同聚合 key 的数据</p>
+</li>
+<li><p>在进行数据聚合时，同一分区内多行相同聚合 key 的数据会合并成一行，对于非主键非聚合字段，会取第一行数据的值</p>
+</li>
+<li><p>使用 AggregateFunction 定义聚合函数与聚合字段</p>
+</li>
+<li><p>AggregateFunction 类型的字段使用二进制存储，在写入数据时需要调用 对应的State函数， 而在查询时，需要调用对应的 Merge 函数。</p>
+</li>
+<li><p>AggregatingMergeTree 通常作为物化视图的引擎表，与 MergeTree 配合使用</p>
+</li>
+</ul>
+<h2 id="4-CollapsingMergeTree"><a href="#4-CollapsingMergeTree" class="headerlink" title="4. CollapsingMergeTree"></a>4. CollapsingMergeTree</h2><h3 id="4-1-介绍"><a href="#4-1-介绍" class="headerlink" title="4.1 介绍"></a>4.1 介绍</h3><p>海量数据的更新与删除，通常是一个让人头疼的问题，一种最符合常规思维的逻辑是先找到要修改数据的文件，接着修改文件，删除或修改有变化的数据，然而在大数据领域，或者说对于clickhouse 这类高性能分析性数据库而言，对数据源文件的修改是一件代价非常昂贵的操作，相较于直接修改源文件，更多时候会将删除与修改操作，转换为新增操作，即以增代删。</p>
+<ul>
+<li><p>CollapsingMergeTree 就是一种通过以增代删的思路，支持行级数据修改和删除的表引擎。</p>
+</li>
+<li><p>CollapsingMergeTree 通过一个标记位 sign 来标识该行记录的状态，如果 sign 为 1 表示该行数据有效，如果 sign 为 -1 表示数据需要被删除</p>
+</li>
+<li><p>CollapsingMergeTree 合并分区时，同一分区内sign 标记为 1 和-1 的一组数据会被抵消删除</p>
+</li>
+<li><p>CollapsingMergeTree 以 order by 作为后续判断数据是否重复的唯一标准。</p>
+</li>
+<li><p>CollapsingMergeTree 支持对一行数据进行更新与删除操作。</p>
+</li>
+</ul>
+<h3 id="4-2-使用介绍"><a href="#4-2-使用介绍" class="headerlink" title="4.2 使用介绍"></a>4.2 使用介绍</h3><pre class=" language-sql"><code class="language-sql">
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token punctuation">[</span><span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span><span class="token punctuation">]</span> <span class="token punctuation">[</span>db_name<span class="token punctuation">.</span><span class="token punctuation">]</span>table_name<span class="token punctuation">(</span>
+  name1 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name2 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> CollapsingMergeTree<span class="token punctuation">(</span>sign<span class="token punctuation">)</span> <span class="token comment" spellcheck="true">-- sign 用于指定一个 Int8 类型的标识位字段</span>
+<span class="token punctuation">[</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SAMPLE <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SETTINGS name<span class="token operator">=</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span>
+
+
+<span class="token comment" spellcheck="true">-- 建表示例</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_collapse <span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> UInt32<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span><span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>sign<span class="token punctuation">`</span> Int8
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> CollapsingMergeTree<span class="token punctuation">(</span>sign<span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> id<span class="token punctuation">;</span>
+
+
+<span class="token comment" spellcheck="true">-- 插入测试数据</span>
+
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_collapse <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">100</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">200</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:22:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A03'</span><span class="token punctuation">,</span><span class="token number">300</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:23:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">(</span><span class="token string">'A04'</span><span class="token punctuation">,</span><span class="token number">400</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:24:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查询数据</span>
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_collapse<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┬─sign─┐
+│ A01 │  <span class="token number">100</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">21</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+│ A02 │  <span class="token number">200</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">22</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+│ A03 │  <span class="token number">300</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">23</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+│ A04 │  <span class="token number">400</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">24</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+└─────┴──────┴─────────────────────┴──────┘
+
+
+<span class="token comment" spellcheck="true">-- 修改一条数据 </span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_collapse <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">500</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true">-- 删除一条数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_collapse <span class="token keyword">values</span>
+<span class="token punctuation">(</span><span class="token string">'A02'</span><span class="token punctuation">,</span><span class="token number">200</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:22:01'</span><span class="token punctuation">,</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 强制合并查看结果</span>
+
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_collapse<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_collapse<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┬─sign─┐
+│ A01 │  <span class="token number">500</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">21</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+│ A03 │  <span class="token number">300</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">23</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+│ A04 │  <span class="token number">400</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">24</span>:<span class="token number">01</span> │    <span class="token number">1</span> │
+└─────┴──────┴─────────────────────┴──────┘</code></pre>
+<h3 id="4-3-折叠规则"><a href="#4-3-折叠规则" class="headerlink" title="4.3 折叠规则"></a>4.3 折叠规则</h3><p>CollapsingMergeTree 折叠数据时遵循下面的规则：</p>
+<p>当 <font color="green">sign = 1</font> 与 <font color="red">sign = -1</font> 一样多时：</p>
+<pre><code>- 最后一行是 &lt;font color=&#39;green&#39;&gt;sign = 1&lt;/font&gt;：保留第一行 &lt;font color=&#39;red&#39;&gt;sign = -1&lt;/font&gt; 和最后一行 &lt;font color=&#39;green&#39;&gt;sign = 1&lt;/font&gt;
+- 最后一行是 &lt;font color=&#39;red&#39;&gt;sign = -1&lt;/font&gt;：什么也不保留</code></pre><p>当<font color="green">sign = 1</font> 比 <font color="red">sign = -1</font> 多一行时：</p>
+<ul>
+<li>保留最后一行 <font color="green">sign = 1</font></li>
+</ul>
+<p>当<font color="red">sign = -1</font> 比 <font color="green">sign = 1</font> 多一行时：</p>
+<ul>
+<li>保留第一行<font color="red">sign = -1</font></li>
+</ul>
+<p>其余情况，clickhouse 会打印警告信息，但是不会报错，查询结果未可预知。</p>
+<h3 id="4-4-注意事项"><a href="#4-4-注意事项" class="headerlink" title="4.4 注意事项"></a>4.4 注意事项</h3><ul>
+<li>数据折叠不是事实触发，而是在分区合并时触发，在分区合并之前，还能够查询到旧数据，这种情况有两种解决办法：</li>
+</ul>
+<ol>
+<li>在查询前进行强制分区合并，但这种方法效率很低，生产环境慎用。</li>
+<li>改变查询方式，如下示例：</li>
+</ol>
+<pre class=" language-sql"><code class="language-sql">
+<span class="token keyword">select</span> 
+  id<span class="token punctuation">,</span><span class="token function">sum</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token function">count</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token function">avg</span><span class="token punctuation">(</span>code<span class="token punctuation">)</span> 
+<span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_collapse 
+<span class="token keyword">group</span> <span class="token keyword">by</span> id
+
+<span class="token comment" spellcheck="true">-- 修改为：</span>
+
+<span class="token keyword">select</span> 
+  id<span class="token punctuation">,</span><span class="token function">sum</span><span class="token punctuation">(</span>code <span class="token operator">*</span> sign<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token function">count</span><span class="token punctuation">(</span>code <span class="token operator">*</span> sign<span class="token punctuation">)</span><span class="token punctuation">,</span><span class="token function">avg</span><span class="token punctuation">(</span>code <span class="token operator">*</span> sign<span class="token punctuation">)</span> 
+<span class="token keyword">from</span>  db_merge<span class="token punctuation">.</span>t_merge_collapse 
+<span class="token keyword">group</span> <span class="token keyword">by</span> id 
+<span class="token keyword">having</span> <span class="token function">sum</span><span class="token punctuation">(</span>sign<span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">;</span>
+</code></pre>
+<ul>
+<li>只有相同分区内的数据可以被折叠，通常来说，修改或删除的数据都处于同一分区，所以这不是很严重的问题</li>
+<li>CollapsingMergeTree对写入数据的顺序有着严格的要求，<ul>
+<li>如果按照正常顺序写入，先写入 <font color="green">sign = 1</font> 再写入 <font color="red">sign = -1</font> 数据能够正常折叠</li>
+<li>如果将写入顺序掉转，先写入<font color="red">sign = -1</font>  再写入 <font color="green">sign = 1</font>  则不能够折叠</li>
+</ul>
+</li>
+</ul>
+<p>这是 因为CollapsingMergeTree 的处理机制引起的，它要求<font color="green">sign = 1</font> 和 <font color="red">sign = -1</font> 数据相邻，而分区内数据基于 order by 排序，要按照<font color="green">sign = 1</font> 和 <font color="red">sign = -1</font> 数据相邻 只能严格按照顺序写入。</p>
+<p>如果数据时单线程写入就会很好控制写入顺序，但想处理大量数据往往是多线程写入，这时就不太好控制写入顺序了这种情况下CollapsingMergeTree的工作机制就会出现问题，还好clickhouse 提供了VersionedCollapsingMergeTree 表引擎来解决这个问题。</p>
+<h2 id="5-VersionedCollapsingMergeTree"><a href="#5-VersionedCollapsingMergeTree" class="headerlink" title="5. VersionedCollapsingMergeTree"></a>5. VersionedCollapsingMergeTree</h2><h3 id="5-1-介绍"><a href="#5-1-介绍" class="headerlink" title="5.1 介绍"></a>5.1 介绍</h3><ul>
+<li>VersionedCollapsingMergeTree 表引擎的作用于CollapsingMergeTree完全相同</li>
+<li>VersionedCollapsingMergeTree 与CollapsingMergeTree不同之处在于其对写入顺序没有要求</li>
+<li>VersionedCollapsingMergeTree 通过版本号来实现这一特性</li>
+<li>VersionedCollapsingMergeTree 在定义版本号字段（ver）之后，会自动将 ver 作为排序条件增加到order by 末端，所以无论写入顺序如何，在折叠处理时都能回到正确的顺序。</li>
+</ul>
+<h3 id="5-2-使用示例"><a href="#5-2-使用示例" class="headerlink" title="5.2 使用示例"></a>5.2 使用示例</h3><ul>
+<li>建表语法</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token punctuation">[</span><span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span><span class="token punctuation">]</span> <span class="token punctuation">[</span>db_name<span class="token punctuation">.</span><span class="token punctuation">]</span>table_name<span class="token punctuation">(</span>
+  name1 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  name2 <span class="token punctuation">[</span><span class="token keyword">type</span><span class="token punctuation">]</span> <span class="token punctuation">[</span><span class="token keyword">DEFAULT</span><span class="token operator">|</span>MATERIALIZED<span class="token operator">|</span>ALIAS expr<span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> VersionedCollapsingMergeTree<span class="token punctuation">(</span>sign<span class="token punctuation">,</span>ver<span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token keyword">PARTITION</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">ORDER</span> <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SAMPLE <span class="token keyword">BY</span> expr<span class="token punctuation">]</span>
+<span class="token punctuation">[</span>SETTINGS name<span class="token operator">=</span><span class="token keyword">value</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span>
+</code></pre>
+<ul>
+<li>使用示例</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 建表</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token punctuation">(</span>
+  <span class="token punctuation">`</span>id<span class="token punctuation">`</span> String<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>code<span class="token punctuation">`</span> UInt32<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>create_time<span class="token punctuation">`</span> <span class="token keyword">DateTime</span><span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>sign<span class="token punctuation">`</span> Int8<span class="token punctuation">,</span>
+  <span class="token punctuation">`</span>ver<span class="token punctuation">`</span> UInt8
+<span class="token punctuation">)</span> <span class="token keyword">ENGINE</span> <span class="token operator">=</span> VersionedCollapsingMergeTree<span class="token punctuation">(</span>sign<span class="token punctuation">,</span>ver<span class="token punctuation">)</span>
+<span class="token keyword">partition</span> <span class="token keyword">by</span> toYYYYMM<span class="token punctuation">(</span>create_time<span class="token punctuation">)</span>
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> id<span class="token punctuation">;</span> <span class="token comment" spellcheck="true">-- 会按照 order by id,ver desc 排序</span>
+</code></pre>
+<ul>
+<li>删除数据示例</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql">
+<span class="token comment" spellcheck="true">-- 插入数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token keyword">values</span> <span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">100</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token keyword">values</span> <span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">200</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┬─sign─┬─ver─┐
+│ A01 │  <span class="token number">200</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">21</span>:<span class="token number">01</span> │    <span class="token number">1</span> │   <span class="token number">1</span> │
+└─────┴──────┴─────────────────────┴──────┴─────┘
+┌─id──┬─code─┬─────────create_time─┬─sign─┬─ver─┐
+│ A01 │  <span class="token number">100</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">21</span>:<span class="token number">01</span> │   <span class="token operator">-</span><span class="token number">1</span> │   <span class="token number">1</span> │
+└─────┴──────┴─────────────────────┴──────┴─────┘
+<span class="token comment" spellcheck="true">-- 强制合并后查看数据</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse final<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse<span class="token punctuation">;</span>
+Query id: <span class="token number">80e69d05</span><span class="token operator">-</span><span class="token number">b279</span><span class="token operator">-</span><span class="token number">4f7a</span><span class="token operator">-</span><span class="token number">9f1a</span><span class="token operator">-</span><span class="token number">3640628fa2a8</span>
+
+Ok<span class="token punctuation">.</span>
+
+<span class="token number">0</span> <span class="token keyword">rows</span> <span class="token operator">in</span> <span class="token keyword">set</span><span class="token punctuation">.</span> Elapsed: <span class="token number">0.003</span> sec<span class="token punctuation">.</span>
+
+</code></pre>
+<ul>
+<li>更新数据测试</li>
+</ul>
+<pre class=" language-sql"><code class="language-sql"><span class="token comment" spellcheck="true">-- 更新数据</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token keyword">values</span> <span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">100</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token keyword">values</span> <span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">200</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">insert</span> <span class="token keyword">into</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse <span class="token keyword">values</span> <span class="token punctuation">(</span><span class="token string">'A01'</span><span class="token punctuation">,</span><span class="token number">300</span><span class="token punctuation">,</span><span class="token string">'2021-06-04 17:21:01'</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 强制合并后查看数据</span>
+<span class="token keyword">optimize</span> <span class="token keyword">table</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse final<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">-- 查看数据</span>
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> db_merge<span class="token punctuation">.</span>t_merge_version_collapse<span class="token punctuation">;</span>
+
+┌─id──┬─code─┬─────────create_time─┬─sign─┬─ver─┐
+│ A01 │  <span class="token number">300</span> │ <span class="token number">2021</span><span class="token operator">-</span><span class="token number">06</span><span class="token operator">-</span><span class="token number">04</span> <span class="token number">17</span>:<span class="token number">21</span>:<span class="token number">01</span> │    <span class="token number">1</span> │   <span class="token number">1</span> │
+└─────┴──────┴─────────────────────┴──────┴─────┘
+</code></pre>
+<h2 id="6-MergeTree表引擎之间的关系"><a href="#6-MergeTree表引擎之间的关系" class="headerlink" title="6. MergeTree表引擎之间的关系"></a>6. MergeTree表引擎之间的关系</h2><h3 id="6-1-继承关系"><a href="#6-1-继承关系" class="headerlink" title="6.1 继承关系"></a>6.1 继承关系</h3><ul>
+<li>MergeTree 表引擎下面有 6 个变种MergeTree 表引擎。</li>
+<li>这 7 种表引擎主要区别在于，Merge 合并数据的逻辑上。</li>
+<li>在具体实现逻辑部分，7 中 Merge 共用一个主体，在触发 merge动作时，它们分别实现了自己的合并逻辑。</li>
+<li>除了 MergeTree 之外，其它 6 个变种的 Merge 逻辑都是建立在MergeTree 之上的，并且均继承于MergingSortedBlockInputStream。</li>
+<li>MergingSortedBlockInputStream 的主要作用是按照order by 的规则保持新分区数据的有序性，其它 6 个变种在此基础上各有所长，或去除重复数据或进行汇总操作。</li>
+<li>从继承角度看7 中 MergeTree 主要区别在于Merge 逻辑部分，所以特殊逻辑之后再 Merge 合并时触发。</li>
+</ul>
+<img src="https://images.hnbian.cn/FnEzUdt0c9vyvOWg10gjfqAsFHBS" alt="MergeTree 家族继承关系图" style="zoom:50%;">
+
+
+
+<img src="https://images.hnbian.cn/FrAgKFPnSKOEUUGIRl7EDU3vBuFU" alt="MergeTree 各种表引擎的逻辑处理部分" style="zoom:50%;">
+
+<img src="https://images.hnbian.cn/Fg27r0MwFyMAWqkr8KIbT4PoROLf" alt="MergeTree 各种表引擎的 Merge 逻辑" style="zoom:50%;">
+
+
+
+<h3 id="6-2-组成关系"><a href="#6-2-组成关系" class="headerlink" title="6.2 组成关系"></a>6.2 组成关系</h3><p>ReplicatedMergeTree 跟普通的 MergeTree 有什么关系呢？</p>
+<img src="https://images.hnbian.cn/FnpczbK4GqQx0UCIj61B5UKzymef" alt="ReplicatedMergeTree 图示" style="zoom:50%;">
+
+
+
+<ul>
+<li>ReplicatedMergeTree 在 MergeTree 的基础上增加了分布式协调处理的能力，借助 Zookeeper 的消息广播功能，实现了副本之间的数据同步。</li>
+<li>ReplicatedMergeTree 系列可以用组合关系来理解</li>
+<li>7 种 MergeTree 引擎前面加上 Replicated 又能组合出 7 种新的引擎，这些引擎拥有副本协同能力</li>
+</ul>
+<img src="https://images.hnbian.cn/Fm3pI-aExeVhj8Zi1tBYPMVxf7eq" alt="ReplicatedMergeTree组合关系图" style="zoom:50%;">
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/f1dd16d2.html">https://www.hnbian.cn/posts/f1dd16d2.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/clickhouse/">
+                                    <span class="chip bg-color">clickhouse</span>
+                                </a>
+                            
+                                <a href="/tags/olap/">
+                                    <span class="chip bg-color">olap</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="far fa-dot-circle"></i>&nbsp;本篇
+            </div>
+            <div class="card">
+                <a href="/posts/f1dd16d2.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FsF18llbga4FF1qBOCPw323MgABS" class="responsive-img" alt="ClickHouse 13. 表引擎5 MergeTree 家族其它引擎">
+                        
+                        <span class="card-title">ClickHouse 13. 表引擎5 MergeTree 家族其它引擎</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. ReplacingMergeTree1.1 介绍
+MergeTree 虽然可以设置主键，但是主键没有唯一约束的作用，即使多行主键相同的数据一样能够写入成功，但是在某些场景下，我们希望表中不存在主键重复的数据。
+
+ReplacingMe
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2021-06-13
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/f7754ba7.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FjlgajDV9gvuEjHd849QqrIAa7Nf" class="responsive-img" alt="ClickHouse 12. 表引擎4 MergeTree 多路径存储">
+                        
+                        <span class="card-title">ClickHouse 12. 表引擎4 MergeTree 多路径存储</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. 多路径存储策略介绍
+ClickHouse 19.15 版本之前，Merge 支持支单路径存储，所有数据都被写入 config.xml 配置的 path 指定的路径下，即使挂载多块磁盘也无法有效利用这些空间
+为了解决这个痛点，19.15
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2021-06-05
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

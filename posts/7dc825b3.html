@@ -1,0 +1,1927 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Flink系列 14. 介绍Flink中的StateBackend, hnbian">
+    <meta name="description" content="1. 状态后端介绍
+Flink 实时计算数据场景下，有时需要启动 checkpoint 保存数据的状态，那么状态会随着 checkpoint 被持久化某个地方，以防止数据丢失，保证状态数据能够在需要恢复程序状态时保持数据的一致性。而进行 c">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Flink系列 14. 介绍Flink中的StateBackend | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/all.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/aos.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="https://images.hnbian.cn/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    
+    <script src="https://images.hnbian.cn/jquery.min.mind.js"></script>
+    <meta name="google-site-verification" content="GrFMoauFrf8T4o0YL7D2b8YqhXQwVruyJKGw57gZ8J4">
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper head-container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fa fa-graduation-cap" style="zoom: 0.6;"></i>
+      
+      <span>知识图谱</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fa fa-graduation-cap"></i>
+			
+			知识图谱
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FunchEUIcTrFOqWAVbDFry-UxokA')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Flink系列 14. 介绍Flink中的StateBackend</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="https://images.hnbian.cn/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        width: 345px;
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content {
+        height: calc(100vh - 250px);
+        overflow: auto;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 15px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/flink/" class="post-category">
+                                flink
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-09-12
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    7.9k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    31 分
+                </div>
+                
+				
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+            
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-状态后端介绍"><a href="#1-状态后端介绍" class="headerlink" title="1. 状态后端介绍"></a>1. 状态后端介绍</h2><ul>
+<li><p>Flink 实时计算数据场景下，有时需要启动 checkpoint 保存数据的状态，那么状态会随着 checkpoint 被持久化某个地方，以防止数据丢失，保证状态数据能够在需要恢复程序状态时保持数据的一致性。而进行 checkpoint 时保存状态数据的位置就是 <strong>状态后端  *<em>（ *</em>State Backend）</strong>。</p>
+</li>
+<li><p>状态后端中每传入一条数据，有状态的算子任务就会读取和更新状态。由于有效的状态访问对于处理数据的低延迟至关重要，因此每个并行任务都会在本地维护其状态，以确保能够快速的访问状态。</p>
+</li>
+<li><p>状态后端定义如何存储和检查点流式应用程序的状态。 不同的状态后端以不同的方式存储其状态，并使用不同的数据结构来保存正在运行的应用程序的状态。</p>
+</li>
+<li><p>状态后端实现必须是线程安全的。 多个线程可能正在同时创建流和键控/运算符状态后端</p>
+</li>
+<li><p>状态后端需要可serializable ，因为它们与流应用程序代码一起分布在并行进程中，StateBackend的实现提供访问持久存储并保持keyed-和操作状态数据结构的工厂。 这样，状态后端可以非常轻量级（仅包含配置），这使其更易于序列化。</p>
+</li>
+</ul>
+<p>状态后端主要负责两件事：</p>
+<ol>
+<li>管理本地状态</li>
+<li>将检查点状态写入远端存储</li>
+</ol>
+<p>flink 中提供了三种状态后端：</p>
+<ul>
+<li>MemoryStateBackend：将状态数据保存在内存中</li>
+<li>FsStateBackend：将状态数据包括到文件系统中</li>
+<li>RocksDBStateBackend：将状态数据保存在RocksDB中</li>
+</ul>
+<h2 id="2-StateBackend-接口"><a href="#2-StateBackend-接口" class="headerlink" title="2. StateBackend 接口"></a>2. StateBackend 接口</h2><p><img src="https://images.hnbian.cn/FgI3Gb91BmdKV2s8GBiKtpV9sjRp" alt="状态后端相关类继承图"></p>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">package</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>PublicEvolving<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>JobID<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>typeutils<span class="token punctuation">.</span>TypeSerializer<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>core<span class="token punctuation">.</span>fs<span class="token punctuation">.</span>CloseableRegistry<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>metrics<span class="token punctuation">.</span>MetricGroup<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>Environment<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>query<span class="token punctuation">.</span>TaskKvStateRegistry<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>ttl<span class="token punctuation">.</span>TtlTimeProvider<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> javax<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Nonnull<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Collection<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@PublicEvolving</span>
+public interface StateBackend <span class="token keyword">extends</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Serializable <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">// ------------------------------------------------------------------------</span>
+    <span class="token comment" spellcheck="true">//  Checkpoint storage - the durable persistence of checkpoint data</span>
+    <span class="token comment" spellcheck="true">// ------------------------------------------------------------------------</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 将指向检查点/保存点的给定指针解析到检查点位置。 
+     * 该位置支持读取检查点元数据，或布置检查点存储位置。
+     * 如果状态后端无法理解指针的格式（例如，因为它是由其他状态后端创建的），则此方法应抛出IOException 。
+     *
+     * @param 要解析的外部检查点指针
+     * @return 检查点位置句柄
+     *
+     */</span>
+    CompletedCheckpointStorageLocation resolveCheckpoint<span class="token punctuation">(</span><span class="token builtin">String</span> externalPointer<span class="token punctuation">)</span> throws IOException<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 为给定作业的检查点创建存储。 检查点存储用于写入检查点数据和元数据。
+     *
+     * @param 要为其存储检查点数据的作业
+     * @return 给定作业的检查点存储
+     */</span>
+    CheckpointStorage createCheckpointStorage<span class="token punctuation">(</span>JobID jobId<span class="token punctuation">)</span> throws IOException<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// ------------------------------------------------------------------------</span>
+    <span class="token comment" spellcheck="true">//  Structure Backends </span>
+    <span class="token comment" spellcheck="true">// ------------------------------------------------------------------------</span>
+    <span class="token comment" spellcheck="true">/**
+     * 创建一个新的 AbstractKeyedStateBackend ，它负责保持键控状态并对其进行检查点设置。
+     *
+     * @param env                  任务的环境
+     * @param jobID                任务所属的作业的ID
+     * @param operatorIdentifier   运算符的标识符
+     * @param keySerializer        key 序列化方式
+     * @param numberOfKeyGroups    key-groups 最大并行度
+     * @param keyGroupRange        key-groups 区间范围
+     * @param kvStateRegistry      指定任务的KvState注册的帮助器
+     * @param ttlTimeProvider      生存周期
+     * @param metricGroup          所有状态后端指标的父指标组。
+     * @param stateHandles         用于还原的状态句柄。
+     * @param cancelStreamRegistry 在还原过程中将向其注册已创建可关闭对象的注册表。
+     * @param &lt;K>                  用来组织状态的键的类型
+     *
+     * @return 给定job，operator和key group 范围的键控状态后端。
+     * 
+     */</span>
+    <span class="token operator">&lt;</span>K<span class="token operator">></span> AbstractKeyedStateBackend<span class="token operator">&lt;</span>K<span class="token operator">></span> createKeyedStateBackend<span class="token punctuation">(</span>
+        Environment env<span class="token punctuation">,</span>
+        JobID jobID<span class="token punctuation">,</span>
+        <span class="token builtin">String</span> operatorIdentifier<span class="token punctuation">,</span>
+        TypeSerializer<span class="token operator">&lt;</span>K<span class="token operator">></span> keySerializer<span class="token punctuation">,</span>
+        int numberOfKeyGroups<span class="token punctuation">,</span>
+        KeyGroupRange keyGroupRange<span class="token punctuation">,</span>
+        TaskKvStateRegistry kvStateRegistry<span class="token punctuation">,</span>
+        TtlTimeProvider ttlTimeProvider<span class="token punctuation">,</span>
+        MetricGroup metricGroup<span class="token punctuation">,</span>
+        <span class="token annotation punctuation">@Nonnull</span> Collection<span class="token operator">&lt;</span>KeyedStateHandle<span class="token operator">></span> stateHandles<span class="token punctuation">,</span>
+        CloseableRegistry cancelStreamRegistry<span class="token punctuation">)</span> throws Exception<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 创建一个新的OperatorStateBackend ，可用于存储operator state
+     * operator state 是与并行运算符（或函数）实例相关联的状态，而不是 keyd stated相关的状态。
+     *
+     * @param env 执行任务的运行时环境
+     * @param operatorIdentifier 应该存储其状态的operator state的标识符
+     * @param stateHandles 用于还原的状态句柄
+     * @param cancelStreamRegistry 用于注册流的注册表，如果任务被取消，则关闭该流
+     * @return 返回由 job 和 operator identified标识的OperatorStateBackend
+     *
+     */</span>
+    OperatorStateBackend createOperatorStateBackend<span class="token punctuation">(</span>
+        Environment env<span class="token punctuation">,</span>
+        <span class="token builtin">String</span> operatorIdentifier<span class="token punctuation">,</span>
+        <span class="token annotation punctuation">@Nonnull</span> Collection<span class="token operator">&lt;</span>OperatorStateHandle<span class="token operator">></span> stateHandles<span class="token punctuation">,</span>
+        CloseableRegistry cancelStreamRegistry<span class="token punctuation">)</span> throws Exception<span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="3-MemoryStateBackend"><a href="#3-MemoryStateBackend" class="headerlink" title="3 MemoryStateBackend"></a>3 MemoryStateBackend</h2><ul>
+<li>memory state backend 是 flink 的默认状态后端方式，它将 <strong>工作状态</strong> 保存在 <strong>TaskManager的内存中</strong> ，并将 <strong>检查点</strong> 存储在 <strong>JobManager的内存中</strong> 。 </li>
+<li>memory state backend 是轻量级的，没有其他依赖关系，访问速度快，但是容错率低，并且仅支持小状态。</li>
+<li>在进行 CheckPoint 操作时，State Backend 对状态进行快照，并将快照信息作为 CheckPoint 应答消息的一部分发送给 JobManager(master)，同时 JobManager 也将快照信息存储在堆内存中</li>
+<li>StateBackend 创建用于原始字节存储以及键控状态和运算符状态的服务。</li>
+<li>原始字节存储（通过CheckpointStreamFactory ）是基本服务，它仅以容错方式存储字节。 JobManager使用此服务来存储检查点和恢复元数据，并且键控和操作员状态后端通常还使用该服务来存储检查点状态。</li>
+<li>由此状态后端创建的AbstractKeyedStateBackend和OperatorStateBackend定义如何保持键和运算符的工作状态。 它们还定义了如何使用原始字节存储（通过CheckpointStreamFactory ）来频繁地检查该状态。 但是，也可能的是，例如键控状态后端仅实现了到键/值存储的桥接，并且不需要在检查点上将任何内容存储在原始字节存储中。</li>
+</ul>
+<h4 id="3-1-1-异步快照"><a href="#3-1-1-异步快照" class="headerlink" title="3.1.1 异步快照"></a>3.1.1 异步快照</h4><p>MemoryStateBackend 能配置异步快照。强烈建议使用异步快照来防止数据流阻塞，注意，异步快照默认是开启的。 用户可以在实例化 <code>MemoryStateBackend</code> 的时候，将相应布尔类型的构造参数设置为 <code>false</code> 来关闭异步快照（仅在 debug 的时候使用）。</p>
+<pre class=" language-scala"><code class="language-scala"><span class="token comment" spellcheck="true">// 是否启用异步快照，默认开启，true 开启，false 关闭</span>
+<span class="token keyword">new</span> MemoryStateBackend<span class="token punctuation">(</span>MAX_MEM_STATE_SIZE<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<h4 id="3-1-2-限制"><a href="#3-1-2-限制" class="headerlink" title="3.1.2 限制"></a>3.1.2 限制</h4><ul>
+<li>默认情况下，每个独立的状态大小限制是 5 MB。在 MemoryStateBackend 的构造器中可以增加其大小。</li>
+<li>无论配置的最大状态内存大小（MAX_MEM_STATE_SIZE）有多大，都不能大于 akka.framesize 大小(默认 1.25M)（<a href="https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/deployment/config.html" target="_blank" rel="noopener">详见配置参数</a>)</li>
+<li>聚合后的状态必须能够放进 JobManager 的内存中</li>
+</ul>
+<h4 id="3-1-3-适用场景"><a href="#3-1-3-适用场景" class="headerlink" title="3.1.3 适用场景"></a>3.1.3 适用场景</h4><ul>
+<li>本地开发和调试。</li>
+<li>状态很小的 Job，例如：由每次只处理一条记录的函数（Map、FlatMap、Filter 等）构成的 Job。Kafka Consumer 仅仅需要非常小的状态。</li>
+</ul>
+<h4 id="3-1-4-构造器"><a href="#3-1-4-构造器" class="headerlink" title="3.1.4 构造器"></a>3.1.4 构造器</h4><pre class=" language-java"><code class="language-java"><span class="token comment" spellcheck="true">/**
+     * 1. 创建一个新的内存状态后端，
+     * 该后端接受其序列化形式最大为默认状态大小（5 MB）的状态。
+     * 检查点和默认保存点位置的使用与运行时配置中指定的相同。
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 2. 创建一个新的内存状态后端，该后端接受其序列化形式最大为默认状态大小（5 MB）的状态。 
+     * 状态后端使用配置的异步快照或同步快照。 检查点和默认保存点位置的使用与运行时配置中指定的相同。
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span><span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 3. 创建一个新的内存状态后端，
+     * 该后端接受序列化形式不超过给定字节数的状态。检查点和默认保存点位置的使用与运行时配置中指定的相同。
+     * 警告：应谨慎地将此值的大小增加到默认值（ 5242880 ）以上。 
+     * 需要通过有限大小的RPC消息将检查点状态发送到JobManager，并且在那里，JobManager需要能够将所有聚合状态保存在其内存中。
+     * @param maxStateSize 序列化状态的最大大小
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span><span class="token keyword">int</span> maxStateSize<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 4. 创建一个新的内存状态后端，
+     * 该后端接受其序列化形式不超过给定字节数并且使用配置的异步快照的状态。
+     * 检查点和默认保存点位置的使用与运行时配置中指定的相同。
+     * 警告：应谨慎地将此值的大小增加到默认值（ 5242880 ）以上。 
+     * 需要通过有限大小的RPC消息将检查点状态发送到JobManager，并且在那里，JobManager需要能够将所有聚合状态保存在其内存中。
+     * @param maxStateSize 序列化状态的最大大小
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span><span class="token keyword">int</span> maxStateSize<span class="token punctuation">,</span> <span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 5. 创建一个新的MemoryStateBackend，
+     * 可选地设置将检查点元数据持久化到和将保存点持久化到的路径。
+     *
+     * @param checkpointPath 将检查点元数据写入的路径。 如果为null，则将使用运行时配置中的值。
+     * @param savepointPath  向其写入保存点的路径。 如果为null，则将使用运行时配置中的值。
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span><span class="token annotation punctuation">@Nullable</span> String checkpointPath<span class="token punctuation">,</span> <span class="token annotation punctuation">@Nullable</span> String savepointPath<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 6. 创建一个新的MemoryStateBackend，
+     * 可以选择设置持久化checkpoint元数据和savepoint的路径，以及配置状态阈值和异步操作。
+     *
+     * 警告：应谨慎地将此值的大小增加到默认值（ 5242880 ）以上。 
+     * 需要通过有限大小的RPC消息将检查点状态发送到JobManager，并且在那里，JobManager需要能够将所有聚合状态保存在其内存中。
+     *
+     * @param checkpointPath 将检查点元数据写入的路径。 如果为null，则将使用运行时配置中的值。
+     * @param savepointPath  向其写入保存点的路径。 如果为null，则将使用运行时配置中的值。
+     * @param maxStateSize   序列化状态的最大大小。
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">MemoryStateBackend</span><span class="token punctuation">(</span>
+            <span class="token annotation punctuation">@Nullable</span> String checkpointPath<span class="token punctuation">,</span>
+            <span class="token annotation punctuation">@Nullable</span> String savepointPath<span class="token punctuation">,</span>
+            <span class="token keyword">int</span> maxStateSize<span class="token punctuation">,</span>
+            TernaryBoolean asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span></code></pre>
+<h4 id="3-1-5-代码示例"><a href="#3-1-5-代码示例" class="headerlink" title="3.1.5 代码示例"></a>3.1.5 代码示例</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Obj1
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>state<span class="token punctuation">.</span>keyed<span class="token punctuation">.</span>TestValueState
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>state<span class="token punctuation">.</span><span class="token punctuation">{</span>ValueState<span class="token punctuation">,</span> ValueStateDescriptor<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>createTypeInformation
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>typeutils<span class="token punctuation">.</span>Types
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>memory<span class="token punctuation">.</span>MemoryStateBackend
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>KeyedProcessFunction
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span><span class="token punctuation">{</span>DataStream<span class="token punctuation">,</span> KeyedStream<span class="token punctuation">,</span> StreamExecutionEnvironment<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Collector
+
+<span class="token keyword">object</span> TestMemoryStateBackend <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  env<span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>CheckpointingMode
+  <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>environment<span class="token punctuation">.</span>CheckpointConfig
+
+  env<span class="token punctuation">.</span>enableCheckpointing<span class="token punctuation">(</span><span class="token number">5000</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">// 使用内存存储状态</span>
+  <span class="token keyword">val</span> stateBackend <span class="token operator">=</span> <span class="token keyword">new</span> MemoryStateBackend<span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+  env<span class="token punctuation">.</span>setStateBackend<span class="token punctuation">(</span>stateBackend<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置检查点模式（精确一次 或 至少一次）</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setCheckpointingMode<span class="token punctuation">(</span>CheckpointingMode<span class="token punctuation">.</span>EXACTLY_ONCE<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置两次检查点尝试之间的最小暂停时间</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setMinPauseBetweenCheckpoints<span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置检查点超时时间</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setCheckpointTimeout<span class="token punctuation">(</span><span class="token number">30</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置可能同时进行的最大检查点尝试次数</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setMaxConcurrentCheckpoints<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 使检查点可以在外部保留</span>
+      env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>enableExternalizedCheckpoints<span class="token punctuation">(</span>CheckpointConfig<span class="token punctuation">.</span>ExternalizedCheckpointCleanup<span class="token punctuation">.</span>RETAIN_ON_CANCELLATION<span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1
+    <span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value1<span class="token operator">:</span> KeyedStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> value<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+
+  value1
+    <span class="token punctuation">.</span>process<span class="token punctuation">(</span><span class="token keyword">new</span> TestMemoryStateBackend<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestMemoryStateBackend"</span><span class="token punctuation">)</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">class</span> TestMemoryStateBackend <span class="token keyword">extends</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 定义状态描述符</span>
+  <span class="token keyword">val</span> valueStateDescriptor <span class="token operator">=</span> <span class="token keyword">new</span> ValueStateDescriptor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token string">"objs"</span><span class="token punctuation">,</span> Types<span class="token punctuation">.</span>of<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">)</span>
+  <span class="token keyword">lazy</span> <span class="token keyword">val</span> valueState<span class="token operator">:</span> ValueState<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> getRuntimeContext<span class="token punctuation">.</span>getState<span class="token punctuation">(</span>valueStateDescriptor<span class="token punctuation">)</span>
+
+  <span class="token keyword">override</span> <span class="token keyword">def</span> processElement<span class="token punctuation">(</span>value<span class="token operator">:</span> Obj1<span class="token punctuation">,</span> ctx<span class="token operator">:</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span>#Context<span class="token punctuation">,</span> out<span class="token operator">:</span> Collector<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> prev <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">null</span>  <span class="token operator">==</span>  prev<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 更新状态</span>
+      valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 获取状态</span>
+      <span class="token keyword">val</span> obj1 <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+      println<span class="token punctuation">(</span>s<span class="token string">"obj1.time=${obj1.time},value.time=${value.time}"</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>obj1<span class="token punctuation">.</span>time <span class="token operator">&lt;</span> value<span class="token punctuation">.</span>time<span class="token punctuation">)</span><span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 如果 最新数据时间 大于之前时间，更新状态</span>
+        valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+    out<span class="token punctuation">.</span>collect<span class="token punctuation">(</span>value<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="4-FsStateBackend"><a href="#4-FsStateBackend" class="headerlink" title="4. FsStateBackend"></a>4. FsStateBackend</h2><h4 id="3-2-1-介绍"><a href="#3-2-1-介绍" class="headerlink" title="3.2.1 介绍"></a>3.2.1 介绍</h4><ul>
+<li><p>FsStateBackend 将正在运行中的状态数据保存在 TaskManager 的内存中。CheckPoint 时，将状态快照写入到配置的文件系统目录中，通常是复制的高可用性文件系统，例如HDFS ， Ceph ， S3 ， GCS 等。 少量的元数据信息存储到 JobManager 的内存中（高可用模式下，将其写入到 CheckPoint 的元数据文件中）。</p>
+</li>
+<li><p>file system state backend 有着内存级别的快速访问和文件系统存储的安全性，能够更好的容错</p>
+</li>
+<li><p>file system state backend 需要配置一个文件系统的 URL（类型、地址、路径），例如：”hdfs://namenode:40010/flink/checkpoints” 或 “file:///data/flink/checkpoints”。</p>
+</li>
+<li><p>FsStateBackend 默认使用异步快照来防止 CheckPoint 写状态时对数据处理造成阻塞。 用户可以在实例化 <code>FsStateBackend</code> 的时候，将相应布尔类型的构造参数设置为 <code>false</code> 来关闭异步快照，例如：</p>
+</li>
+</ul>
+<pre class=" language-java"><code class="language-java"><span class="token comment" spellcheck="true">// true 启动异步快照，false 关闭异步快照</span>
+<span class="token keyword">new</span> <span class="token class-name">FsStateBackend</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<h4 id="3-2-2-使用场景"><a href="#3-2-2-使用场景" class="headerlink" title="3.2.2 使用场景"></a>3.2.2 使用场景</h4><ul>
+<li>状态比较大、窗口比较长、key/value 状态比较大的 Job。</li>
+<li>所有高可用的场景。</li>
+</ul>
+<h4 id="3-2-3-构造器"><a href="#3-2-3-构造器" class="headerlink" title="3.2.3 构造器"></a>3.2.3 构造器</h4><pre class=" language-java"><code class="language-java">    <span class="token comment" spellcheck="true">/**
+     * 1. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     *对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径。
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>String checkpointDataUri<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 2. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>String checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 3. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>Path checkpointDataUri<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 4. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>Path checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 5. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 6. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。 （可选）此构造函数接受默认的保存点存储目录，如果没有将自定义目标路径提供给savepoint命令，则将保存点存储到该默认保存点。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param defaultSavepointDirectory 将保存点存储到的默认目录。 可能为空。
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">,</span> <span class="token annotation punctuation">@Nullable</span> URI defaultSavepointDirectory<span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 7. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 8. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param fileStateSizeThreshold 达到此大小的状态将作为元数据的一部分存储，而不是存储在文件中
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">int</span> fileStateSizeThreshold<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 9. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统（方案和权限）的URI，以及指向检查点数据目录的路径
+     * @param fileStateSizeThreshold 达到此大小的状态将作为元数据的一部分存储，而不是存储在文件中，默认值：-1
+     * @param asynchronousSnapshots 是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">,</span><span class="token keyword">int</span> fileStateSizeThreshold<span class="token punctuation">,</span><span class="token keyword">boolean</span> asynchronousSnapshots<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 10. 创建一个新的状态后端，该后端将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 必须通过FileSystem.get(URI)访问URI中用于文件系统方案的文件系统（例如'file：//'，'hdfs：//'或'S3：//' FileSystem.get(URI) 。
+     * 对于以HDFS为目标的状态后端，这意味着URI必须指定权限（主机和端口），或者描述该信息的Hadoop配置必须位于类路径中。
+     *
+     * @param checkpointDirectory        将检查点元数据写入的路径。
+     * @param defaultSavepointDirectory  向其写入保存点的路径。 如果为null，则将使用运行时配置中的值，或者在触发保存点时需要传递保存点目标位置。
+     * @param fileStateSizeThreshold     小于此大小的状态将作为元数据的一部分存储，而不是存储在文件中。 如果为-1，则将使用运行时配置中配置的值；如果未配置任何内容，则使用默认值（1KB）。
+     * @param writeBufferSize            用于序列化状态的写缓冲区大小。 如果为-1，则将使用运行时配置中配置的值；如果未配置任何内容，则使用默认值（4KB）。
+     * @param asynchronousSnapshots      是否启用异步快照，true 启用，false 不启用
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">FsStateBackend</span><span class="token punctuation">(</span>URI checkpointDirectory<span class="token punctuation">,</span><span class="token annotation punctuation">@Nullable</span> URI defaultSavepointDirectory<span class="token punctuation">,</span>
+                        <span class="token keyword">int</span> fileStateSizeThreshold<span class="token punctuation">,</span><span class="token keyword">int</span> writeBufferSize<span class="token punctuation">,</span>TernaryBoolean asynchronousSnapshots<span class="token punctuation">)</span><span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+</code></pre>
+<h4 id="3-2-4-代码示例"><a href="#3-2-4-代码示例" class="headerlink" title="3.2.4 代码示例"></a>3.2.4 代码示例</h4><pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Obj1
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>state<span class="token punctuation">.</span>keyed<span class="token punctuation">.</span>TestValueState
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>state<span class="token punctuation">.</span><span class="token punctuation">{</span>ValueState<span class="token punctuation">,</span> ValueStateDescriptor<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>createTypeInformation
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>typeutils<span class="token punctuation">.</span>Types
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>memory<span class="token punctuation">.</span>MemoryStateBackend
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>KeyedProcessFunction
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span><span class="token punctuation">{</span>DataStream<span class="token punctuation">,</span> KeyedStream<span class="token punctuation">,</span> StreamExecutionEnvironment<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Collector
+
+<span class="token keyword">object</span> TestFsStateBackend <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 创建执行环境</span>
+  <span class="token keyword">val</span> env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+  env<span class="token punctuation">.</span>setParallelism<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>filesystem<span class="token punctuation">.</span>FsStateBackend
+  <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>CheckpointingMode
+  <span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>environment<span class="token punctuation">.</span>CheckpointConfig
+
+  env<span class="token punctuation">.</span>enableCheckpointing<span class="token punctuation">(</span><span class="token number">5000</span><span class="token punctuation">)</span>
+
+  <span class="token comment" spellcheck="true">// 使用文件存储状态</span>
+  <span class="token keyword">val</span> stateBackend <span class="token operator">=</span> <span class="token keyword">new</span> FsStateBackend<span class="token punctuation">(</span><span class="token string">"file:///opt/flink-1.10.2/checkpoint"</span><span class="token punctuation">,</span><span class="token boolean">true</span><span class="token punctuation">)</span>
+
+  env<span class="token punctuation">.</span>setStateBackend<span class="token punctuation">(</span>stateBackend<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置检查点模式（精确一次 或 至少一次）</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setCheckpointingMode<span class="token punctuation">(</span>CheckpointingMode<span class="token punctuation">.</span>EXACTLY_ONCE<span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置两次检查点尝试之间的最小暂停时间</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setMinPauseBetweenCheckpoints<span class="token punctuation">(</span><span class="token number">500</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置检查点超时时间</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setCheckpointTimeout<span class="token punctuation">(</span><span class="token number">30</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 设置可能同时进行的最大检查点尝试次数</span>
+  env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>setMaxConcurrentCheckpoints<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+  <span class="token comment" spellcheck="true">// 使检查点可以在外部保留</span>
+      env<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>enableExternalizedCheckpoints<span class="token punctuation">(</span>CheckpointConfig<span class="token punctuation">.</span>ExternalizedCheckpointCleanup<span class="token punctuation">.</span>RETAIN_ON_CANCELLATION<span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> env<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1
+    <span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value1<span class="token operator">:</span> KeyedStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> value<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+
+  value1
+    <span class="token punctuation">.</span>process<span class="token punctuation">(</span><span class="token keyword">new</span> TestFsStateBackend<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestFsStateBackend"</span><span class="token punctuation">)</span>
+  env<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">class</span> TestFsStateBackend <span class="token keyword">extends</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 定义状态描述符</span>
+  <span class="token keyword">val</span> valueStateDescriptor <span class="token operator">=</span> <span class="token keyword">new</span> ValueStateDescriptor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token string">"objs"</span><span class="token punctuation">,</span> Types<span class="token punctuation">.</span>of<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">)</span>
+  <span class="token keyword">lazy</span> <span class="token keyword">val</span> valueState<span class="token operator">:</span> ValueState<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> getRuntimeContext<span class="token punctuation">.</span>getState<span class="token punctuation">(</span>valueStateDescriptor<span class="token punctuation">)</span>
+
+  <span class="token keyword">override</span> <span class="token keyword">def</span> processElement<span class="token punctuation">(</span>value<span class="token operator">:</span> Obj1<span class="token punctuation">,</span> ctx<span class="token operator">:</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span>#Context<span class="token punctuation">,</span> out<span class="token operator">:</span> Collector<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> prev <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">null</span>  <span class="token operator">==</span>  prev<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 更新状态</span>
+      valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 获取状态</span>
+      <span class="token keyword">val</span> obj1 <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+      println<span class="token punctuation">(</span>s<span class="token string">"obj1.time=${obj1.time},value.time=${value.time}"</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>obj1<span class="token punctuation">.</span>time <span class="token operator">&lt;</span> value<span class="token punctuation">.</span>time<span class="token punctuation">)</span><span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 如果 最新数据时间 大于之前时间，更新状态</span>
+        valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+    out<span class="token punctuation">.</span>collect<span class="token punctuation">(</span>value<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="5-RocksDBStateBackend"><a href="#5-RocksDBStateBackend" class="headerlink" title="5. RocksDBStateBackend"></a>5. RocksDBStateBackend</h2><h3 id="5-1-介绍"><a href="#5-1-介绍" class="headerlink" title="5.1 介绍"></a>5.1 介绍</h3><ul>
+<li><p>RocksDBStateBackend 将正在运行中的状态数据保存在 <a href="https://rocksdb.org/" target="_blank" rel="noopener">RocksDB</a> 数据库中，RocksDB 数据库默认将数据存储在 TaskManager 的数据目录。</p>
+</li>
+<li><p>CheckPoint 时，整个 RocksDB 数据库被 checkpoint 到配置的文件系统目录中。 少量的元数据信息存储到 JobManager 的内存中（高可用模式下，将其存储到 CheckPoint 的元数据文件中）。</p>
+</li>
+<li><p>RocksDB 的支持并不直接包含在 flink 中，需要引入依赖</p>
+</li>
+<li><p>RocksDBStateBackend 只支持异步快照。</p>
+</li>
+<li><p>RocksDBStateBackend将工作状态存储在RocksDB中 ，并默认将状态检查点指向文件系统（类似于FsStateBackend ）。所以 RocksDBStateBackend 需要配置一个文件系统的 URL （类型、地址、路径），例如：”hdfs://namenode:40010/flink/checkpoints” 或 “file:///data/flink/checkpoints”。</p>
+</li>
+</ul>
+<h3 id="5-2-限制"><a href="#5-2-限制" class="headerlink" title="5.2 限制"></a>5.2 限制</h3><ul>
+<li>由于 RocksDB 的 JNI API 构建在 byte[] 数据结构之上, 所以每个 key 和 value 最大支持 2^31 字节。 重要信息: RocksDB 合并操作的状态（例如：ListState）累积数据量大小可以超过 2^31 字节，但是会在下一次获取数据时失败。这是当前 RocksDB JNI 的限制。</li>
+</ul>
+<h3 id="5-3-使用场景"><a href="#5-3-使用场景" class="headerlink" title="5.3 使用场景"></a>5.3 使用场景</h3><ul>
+<li>状态非常大、窗口非常长、key/value 状态非常大的 Job。</li>
+<li>所有高可用的场景。</li>
+</ul>
+<p>注意，你可以保留的状态大小仅受磁盘空间的限制。与状态存储在内存中的 FsStateBackend 相比，RocksDBStateBackend 允许存储非常大的状态。 然而，这也意味着使用 RocksDBStateBackend 将会使应用程序的最大吞吐量降低。 所有的读写都必须序列化、反序列化操作，这个比基于堆内存的 state backend 的效率要低很多。</p>
+<p>RocksDBStateBackend 是目前唯一支持增量 CheckPoint 的 State Backend (见 <a href="https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/ops/state/large_state_tuning.html" target="_blank" rel="noopener">这里</a>)。</p>
+<p>可以使用一些 RocksDB 的本地指标(metrics)，但默认是关闭的。你能在 <a href="https://ci.apache.org/projects/flink/flink-docs-release-1.11/zh/ops/config.html#rocksdb-native-metrics" target="_blank" rel="noopener">这里</a> 找到关于 RocksDB 本地指标的文档。</p>
+<h3 id="5-4-增量快照"><a href="#5-4-增量快照" class="headerlink" title="5.4 增量快照"></a>5.4 增量快照</h3><ul>
+<li><p>增量快照即 只包含自上一次快照完成之后被修改的记录，使用增量快照方式可以显著减少快照完成的耗时。</p>
+</li>
+<li><p>RocksDBStateBackend 支持 增量快照。不同于产生一个包含所有数据的全量备份</p>
+</li>
+<li><p>一个增量快照通常是基于多个前序快照构建的。由于 RocksDB 内部存在 compaction 机制对 sst 文件进行合并，Flink 的增量快照也会定期重新设立起点（rebase），因此增量链条不会一直增长，旧快照包含的文件也会逐渐过期并被自动清理。</p>
+</li>
+</ul>
+<p>增量快照 与全量快照的比较</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>增量快照</th>
+<th>全量快照</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>网络带宽是瓶颈</td>
+<td>消耗更多时间<br>增量快照包含的 sst 文件之间可能存在数据重叠导致需要下载的数据量变大</td>
+<td>消耗更少时间<br>只保存快照文件，并没有其他描述文件</td>
+</tr>
+<tr>
+<td>CPU 或者 IO 是瓶颈</td>
+<td>消耗更少时间<br>从增量快照恢复不需要解析 Flink 的统一快照格式来重建本地的 RocksDB 数据表，而是可以直接基于 sst 文件加载。</td>
+<td>消耗更多时间<br>每次恢复快照需要读取全量快照文件</td>
+</tr>
+</tbody></table>
+<p>在状态数据量很大时我们可以使用增量快照，需要通过下述配置手动开启该功能（默认不开启）：</p>
+<ul>
+<li>在 <code>flink-conf.yaml</code> 中设置：<code>state.backend.incremental: true</code> 或者</li>
+<li>在代码中按照右侧方式配置（来覆盖默认配置）：<code>RocksDBStateBackend backend = new RocksDBStateBackend(filebackend, true);</code></li>
+</ul>
+<p>需要注意的是，一旦启用了增量快照，网页上展示的 <code>Checkpointed Data Size</code> 只代表增量上传的数据量，而不是一次快照的完整数据量。</p>
+<p>5.5 构造器</p>
+<pre class=" language-java"><code class="language-java">    <span class="token comment" spellcheck="true">/**
+     * 1. 创建一个新的RocksDBStateBackend ，将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 在HDFS或S3中存储检查点的状态后端必须在URI中指定文件系统主机和端口，或者具有从Flink配置引用的描述文件系统的Hadoop配置（主机/高可用性组/可能是凭据），或包含在类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统和指向检查点数据目录的路径的URI
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>String checkpointDataUri<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException<span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 2. 创建一个新的RocksDBStateBackend ，将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 在HDFS或S3中存储检查点的状态后端必须在URI中指定文件系统主机和端口，或者具有从Flink配置引用的描述文件系统的Hadoop配置（主机/高可用性组/可能是凭据），或包含在类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统和指向检查点数据目录的路径的URI
+     * @param enableIncrementalCheckpointing 如果启用了增量检查点，则为true
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>String checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">boolean</span> enableIncrementalCheckpointing<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 3. 创建一个新的RocksDBStateBackend ，将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 在HDFS或S3中存储检查点的状态后端必须在URI中指定文件系统主机和端口，或者具有从Flink配置引用的描述文件系统的Hadoop配置（主机/高可用性组/可能是凭据），或包含在类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统和指向检查点数据目录的路径的URI
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 4. 创建一个新的RocksDBStateBackend ，将其检查点数据存储在给定URI定义的文件系统和位置中。
+     * 在HDFS或S3中存储检查点的状态后端必须在URI中指定文件系统主机和端口，或者具有从Flink配置引用的描述文件系统的Hadoop配置（主机/高可用性组/可能是凭据），或包含在类路径中。
+     *
+     * @param checkpointDataUri 描述文件系统和指向检查点数据目录的路径的URI
+     * @param enableIncrementalCheckpointing 如果启用了增量检查点，则为true
+     * @throws IOException Thrown, if no file system can be found for the scheme in the URI.
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>URI checkpointDataUri<span class="token punctuation">,</span> <span class="token keyword">boolean</span> enableIncrementalCheckpointing<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 5. 创建一个新的RocksDBStateBackend ，它使用给定的状态后端存储其检查点数据流。 
+     * 通常，将在此处提供文件系统或数据库状态后端，用于存储RocksDB的快照。
+     * RocksDB状态的快照将使用给定后端的StateBackend.createCheckpointStorage(JobID)进行存储。
+     *
+     * @param checkpointStreamBackend 向后端写入检查点流的后端
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>StateBackend checkpointStreamBackend<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 6. 创建一个新的RocksDBStateBackend ，它使用给定的状态后端存储其检查点数据流。 
+     * 通常，将在此处提供文件系统或数据库状态后端，用于存储RocksDB的快照。
+     * RocksDB状态的快照将使用给定后端的StateBackend.createCheckpointStorage(JobID)进行存储。
+   * 
+     * @param checkpointStreamBackend 向后端写入检查点流的后端
+     * @param enableIncrementalCheckpointing 如果启用了增量检查点，则为true。
+     */</span>
+    <span class="token keyword">public</span> <span class="token function">RocksDBStateBackend</span><span class="token punctuation">(</span>StateBackend checkpointStreamBackend<span class="token punctuation">,</span> TernaryBoolean enableIncrementalCheckpointing<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">}</span></code></pre>
+<h3 id="5-5-代码示例"><a href="#5-5-代码示例" class="headerlink" title="5.5 代码示例"></a>5.5 代码示例</h3><ol>
+<li>引入依赖</li>
+</ol>
+<pre class=" language-xml"><code class="language-xml">        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.flink<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>flink-statebackend-rocksdb_2.11<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${flink.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span></code></pre>
+<ol start="2">
+<li>设置状态后端</li>
+</ol>
+<pre class=" language-scala"><code class="language-scala"><span class="token keyword">import</span> com<span class="token punctuation">.</span>hnbian<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>common<span class="token punctuation">.</span>Obj1
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span><span class="token punctuation">{</span>DataStream<span class="token punctuation">,</span> KeyedStream<span class="token punctuation">,</span> StreamExecutionEnvironment<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>restartstrategy<span class="token punctuation">.</span>RestartStrategies
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>common<span class="token punctuation">.</span>state<span class="token punctuation">.</span><span class="token punctuation">{</span>ValueState<span class="token punctuation">,</span> ValueStateDescriptor<span class="token punctuation">}</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>createTypeInformation
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>api<span class="token punctuation">.</span>scala<span class="token punctuation">.</span>typeutils<span class="token punctuation">.</span>Types
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>contrib<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>state<span class="token punctuation">.</span>RocksDBStateBackend
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>environment<span class="token punctuation">.</span>CheckpointConfig
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>KeyedProcessFunction
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Collector
+
+<span class="token keyword">object</span> TestRocksDBStateBackend <span class="token keyword">extends</span> App <span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 状态后端数据存储应该存储在分布式文件系统里，便于管理维护</span>
+  System<span class="token punctuation">.</span>setProperty<span class="token punctuation">(</span><span class="token string">"HADOOP_USER_NAME"</span><span class="token punctuation">,</span> <span class="token string">"root"</span><span class="token punctuation">)</span>
+  System<span class="token punctuation">.</span>setProperty<span class="token punctuation">(</span><span class="token string">"hadoop.home.dir"</span><span class="token punctuation">,</span> <span class="token string">"/usr/hdp/3.1.0.0-78/hadoop//bin/"</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> environment<span class="token operator">:</span> StreamExecutionEnvironment <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span>getExecutionEnvironment
+
+    <span class="token comment" spellcheck="true">// 只有开启了checkpoint，重启策略才会生效；默认不开启重启策略</span>
+    <span class="token comment" spellcheck="true">// 开启，检查点周期，单位毫秒；默认是-1，不开启</span>
+    environment<span class="token punctuation">.</span>enableCheckpointing<span class="token punctuation">(</span><span class="token number">5000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// 默认的重启策略是固定延迟无限重启, 该配置指定在重新启动的情况下将用于执行图的重新启动策略</span>
+    <span class="token comment" spellcheck="true">// environment.getConfig().setRestartStrategy(RestartStrategies.fallBackRestart());</span>
+
+    <span class="token comment" spellcheck="true">// 设置固定延迟固定次数重启；默认是无限重启</span>
+    environment<span class="token punctuation">.</span>setRestartStrategy<span class="token punctuation">(</span>RestartStrategies<span class="token punctuation">.</span>fixedDelayRestart<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">1000</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">val</span> stateBackend <span class="token operator">=</span> <span class="token keyword">new</span> RocksDBStateBackend<span class="token punctuation">(</span><span class="token string">"file:///opt/flink-1.10.2/checkpoint"</span><span class="token punctuation">)</span>
+
+    environment<span class="token punctuation">.</span>setStateBackend<span class="token punctuation">(</span>stateBackend<span class="token punctuation">)</span>
+
+    <span class="token comment" spellcheck="true">// 程序异常退出或人为cancel掉，不删除checkpoint的数据；默认是会删除Checkpoint数据</span>
+ environment<span class="token punctuation">.</span>getCheckpointConfig<span class="token punctuation">.</span>enableExternalizedCheckpoints<span class="token punctuation">(</span>CheckpointConfig<span class="token punctuation">.</span>ExternalizedCheckpointCleanup<span class="token punctuation">.</span>RETAIN_ON_CANCELLATION<span class="token punctuation">)</span>
+
+  <span class="token keyword">val</span> stream1<span class="token operator">:</span> DataStream<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> environment<span class="token punctuation">.</span>socketTextStream<span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span><span class="token number">9999</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value<span class="token operator">:</span> DataStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> stream1
+    <span class="token punctuation">.</span>map<span class="token punctuation">(</span>data <span class="token keyword">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">val</span> arr <span class="token operator">=</span> data<span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">)</span>
+      Obj1<span class="token punctuation">(</span>arr<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">,</span> arr<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">.</span>toLong<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token keyword">private</span> <span class="token keyword">val</span> value1<span class="token operator">:</span> KeyedStream<span class="token punctuation">[</span>Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span> <span class="token operator">=</span> value<span class="token punctuation">.</span>keyBy<span class="token punctuation">(</span>_<span class="token punctuation">.</span>id<span class="token punctuation">)</span>
+
+  value1
+    <span class="token punctuation">.</span>process<span class="token punctuation">(</span><span class="token keyword">new</span> TestRocksDBStateBackend<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>print<span class="token punctuation">(</span><span class="token string">"TestRocksDBStateBackend"</span><span class="token punctuation">)</span>
+  environment<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">class</span> TestRocksDBStateBackend <span class="token keyword">extends</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">{</span>
+  <span class="token comment" spellcheck="true">// 定义状态描述符</span>
+  <span class="token keyword">val</span> valueStateDescriptor <span class="token operator">=</span> <span class="token keyword">new</span> ValueStateDescriptor<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token string">"objs"</span><span class="token punctuation">,</span> Types<span class="token punctuation">.</span>of<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span><span class="token punctuation">)</span>
+  <span class="token keyword">lazy</span> <span class="token keyword">val</span> valueState<span class="token operator">:</span> ValueState<span class="token punctuation">[</span>Obj1<span class="token punctuation">]</span> <span class="token operator">=</span> getRuntimeContext<span class="token punctuation">.</span>getState<span class="token punctuation">(</span>valueStateDescriptor<span class="token punctuation">)</span>
+
+  <span class="token keyword">override</span> <span class="token keyword">def</span> processElement<span class="token punctuation">(</span>value<span class="token operator">:</span> Obj1<span class="token punctuation">,</span> ctx<span class="token operator">:</span> KeyedProcessFunction<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">,</span> Obj1<span class="token punctuation">,</span> <span class="token builtin">String</span><span class="token punctuation">]</span>#Context<span class="token punctuation">,</span> out<span class="token operator">:</span> Collector<span class="token punctuation">[</span><span class="token builtin">String</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">=</span> <span class="token punctuation">{</span>
+    <span class="token keyword">val</span> prev <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">null</span>  <span class="token operator">==</span>  prev<span class="token punctuation">)</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 更新状态</span>
+      valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
+      <span class="token comment" spellcheck="true">// 获取状态</span>
+      <span class="token keyword">val</span> obj1 <span class="token operator">=</span> valueState<span class="token punctuation">.</span>value<span class="token punctuation">(</span><span class="token punctuation">)</span>
+      println<span class="token punctuation">(</span>s<span class="token string">"obj1.time=${obj1.time},value.time=${value.time}"</span><span class="token punctuation">)</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span>obj1<span class="token punctuation">.</span>time <span class="token operator">&lt;</span> value<span class="token punctuation">.</span>time<span class="token punctuation">)</span><span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 如果 最新数据时间 大于之前时间，更新状态</span>
+        valueState<span class="token punctuation">.</span>update<span class="token punctuation">(</span>value<span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+    out<span class="token punctuation">.</span>collect<span class="token punctuation">(</span>value<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="6-State-Backend-其他配置"><a href="#6-State-Backend-其他配置" class="headerlink" title="6. State Backend 其他配置"></a>6. State Backend 其他配置</h2><p>如果没有明确指定，将使用 jobmanager 做为默认的 state backend。你能在 <strong>flink-conf.yaml</strong> 中为所有 Job 设置其他默认的 State Backend。 每一个 Job 的 state backend 配置会覆盖默认的 state backend 配置，如下所示：</p>
+<h3 id="6-1-设置每个-Job-的-State-Backend"><a href="#6-1-设置每个-Job-的-State-Backend" class="headerlink" title="6.1 设置每个 Job 的 State Backend"></a>6.1 设置每个 Job 的 State Backend</h3><p><code>StreamExecutionEnvironment</code> 可以对每个 Job 的 State Backend 进行设置，如下所示：</p>
+<pre class=" language-java"><code class="language-java">StreamExecutionEnvironment env <span class="token operator">=</span> StreamExecutionEnvironment<span class="token punctuation">.</span><span class="token function">getExecutionEnvironment</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+env<span class="token punctuation">.</span><span class="token function">setStateBackend</span><span class="token punctuation">(</span><span class="token keyword">new</span> <span class="token class-name">FsStateBackend</span><span class="token punctuation">(</span><span class="token string">"hdfs://namenode:40010/flink/checkpoints"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<p>如果你想在 IDE 中使用 <code>RocksDBStateBackend</code>，或者需要在作业中通过编程方式动态配置 <code>RocksDBStateBackend</code>，必须添加以下依赖到 Flink 项目中。</p>
+<pre class=" language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.flink<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>flink-statebackend-rocksdb_2.11<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${flink.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span></code></pre>
+<h3 id="6-2-设置默认的（全局的）-State-Backend"><a href="#6-2-设置默认的（全局的）-State-Backend" class="headerlink" title="6.2 设置默认的（全局的） State Backend"></a>6.2 设置默认的（全局的） State Backend</h3><p>在 <code>flink-conf.yaml</code> 可以通过键 <code>state.backend</code> 设置默认的 State Backend。</p>
+<p>可选值包括 jobmanager (MemoryStateBackend)、filesystem (FsStateBackend)、rocksdb*(RocksDBStateBackend)， 或使用实现了 state backend 工厂 <a href="https://github.com/apache/flink/blob/master/flink-runtime/src/main/java/org/apache/flink/runtime/state/StateBackendFactory.java" target="_blank" rel="noopener">StateBackendFactory</a> 的类的全限定类名， 例如： RocksDBStateBackend 对应为 <code>org.apache.flink.contrib.streaming.state.RocksDBStateBackendFactory</code>。</p>
+<p><code>state.checkpoints.dir</code> 选项指定了所有 State Backend 写 CheckPoint 数据和写元数据文件的目录。 你能在 <a href="https://www.oschina.net/action/GoToLink?url=https%3A%2F%2Fci.apache.org%2Fprojects%2Fflink%2Fflink-docs-release-1.11%2Fzh%2Fops%2Fstate%2Fcheckpoints.html%23directory-structure" target="_blank" rel="noopener">这里</a> 找到关于 CheckPoint 目录结构的详细信息。</p>
+<p>配置文件的部分示例如下所示：</p>
+<pre class=" language-yaml"><code class="language-yaml"><span class="token comment" spellcheck="true"># 用于存储 operator state 快照的 State Backend</span>
+<span class="token key atrule">state.backend</span><span class="token punctuation">:</span> filesystem
+
+<span class="token comment" spellcheck="true"># 存储快照的目录</span>
+<span class="token key atrule">state.checkpoints.dir</span><span class="token punctuation">:</span> hdfs<span class="token punctuation">:</span>//namenode<span class="token punctuation">:</span>40010/flink/checkpoints</code></pre>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kity@2.0.4/dist/kity.min.js"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/kityminder-core@1.4.50/dist/kityminder.core.min.js"></script><script defer="true" type="text/javascript" src="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.js"></script><link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/hexo-simple-mindmap@0.2.0/dist/mindmap.min.css">
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/7dc825b3.html">https://www.hnbian.cn/posts/7dc825b3.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="https://images.hnbian.cn/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        notify: 'true' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '10',
+        lang: 'zh-cn',
+        placeholder: ' 写点什么吧 . . .'
+    });
+</script>
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/7095f91f.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FkY6J7q2jHHRGQ0aNw65J01QAkhm" class="responsive-img" alt="Flink系列 15. 介绍Flink中Checkpoint与Savepoint">
+                        
+                        <span class="card-title">Flink系列 15. 介绍Flink中Checkpoint与Savepoint</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Flink Checkpoint1.1 Checkpoint 介绍
+Flink Checkpoint 是容错恢复机制的核心。这种机制保证了保证实时程序运行时的数据安全，即使突然遇到异常也能够进行自我恢复。
+Flink Checkpoi
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-10-03
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/1dadc314.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FhUvMtkmQN6kyaw9n0h1-hoWULIo" class="responsive-img" alt="Flink系列 13. 介绍Flink中的operator state 和 keyed state">
+                        
+                        <span class="card-title">Flink系列 13. 介绍Flink中的operator state 和 keyed state</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            1. Flink State 介绍1.1 什么是 State（状态）
+由一个任务维护，并且用来计算某个结果的所有数据，就属于这个任务的状态
+可以认为状态就是一个本地变量，可以被任务的业务逻辑访问
+当任务失败时，可以使用状态恢复数据
+状态始终
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-09-06
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+    
+<!-- 代码块复制 -->
+
+
+<!-- 代码块收缩 -->
+
+
+<!-- 代码块折行 -->
+
+<style type="text/css">
+code[class*="language-"], pre[class*="language-"] { white-space: pre !important; }
+</style>
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="https://images.hnbian.cn/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+    <footer class="page-footer bg-color">
+    <div class="container row center-align" style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            <span id="year">2019</span>
+            <a href="https://www.hnbian.cn" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            <br>
+            
+            &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                class="white-color">488.7k</span>&nbsp;字
+            
+            
+            
+            
+            
+            
+            <span id="busuanzi_container_site_pv">
+                |&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;<span id="busuanzi_value_site_pv"
+                    class="white-color"></span>&nbsp;次
+            </span>
+            
+            
+            <span id="busuanzi_container_site_uv">
+                |&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;<span id="busuanzi_value_site_uv"
+                    class="white-color"></span>&nbsp;人
+            </span>
+            
+            <br>
+            
+            <span id="sitetime">载入运行时间...</span>
+            <script>
+                function siteTime() {
+                    var seconds = 1000;
+                    var minutes = seconds * 60;
+                    var hours = minutes * 60;
+                    var days = hours * 24;
+                    var years = days * 365;
+                    var today = new Date();
+                    var startYear = "2019";
+                    var startMonth = "6";
+                    var startDate = "28";
+                    var startHour = "0";
+                    var startMinute = "0";
+                    var startSecond = "0";
+                    var todayYear = today.getFullYear();
+                    var todayMonth = today.getMonth() + 1;
+                    var todayDate = today.getDate();
+                    var todayHour = today.getHours();
+                    var todayMinute = today.getMinutes();
+                    var todaySecond = today.getSeconds();
+                    var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                    var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                    var diff = t2 - t1;
+                    var diffYears = Math.floor(diff / years);
+                    var diffDays = Math.floor((diff / days) - diffYears * 365);
+                    var diffHours = Math.floor((diff - (diffYears * 365 + diffDays) * days) / hours);
+                    var diffMinutes = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours) /
+                        minutes);
+                    var diffSeconds = Math.floor((diff - (diffYears * 365 + diffDays) * days - diffHours * hours -
+                        diffMinutes * minutes) / seconds);
+                    if (startYear == todayYear) {
+                        document.getElementById("year").innerHTML = todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffDays + " 天 " + diffHours +
+                            " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    } else {
+                        document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                        document.getElementById("sitetime").innerHTML = "本站已安全运行 " + diffYears + " 年 " + diffDays +
+                            " 天 " + diffHours + " 小时 " + diffMinutes + " 分钟 " + diffSeconds + " 秒";
+                    }
+                }
+                setInterval(siteTime, 1000);
+            </script>
+            
+            <br>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="https://images.hnbian.cn/materialize.min.js"></script>
+    <script src="https://images.hnbian.cn/masonry.pkgd.min.js"></script>
+    <script src="https://images.hnbian.cn/aos.js"></script>
+    <script src="https://images.hnbian.cn/scrollProgress.min.js"></script>
+    <script src="https://images.hnbian.cn/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'UA-155985521-1');
+    </script>
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="https://images.hnbian.cn/clicklove.js" async="async"></script>
+    
+    
+    <script async src="https://images.hnbian.cn/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <script type="text/javascript" src="https://images.hnbian.cn/ribbon-dynamic.js" async="async"></script>
+    
+    
+    
+    <script src="https://images.hnbian.cn/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>
