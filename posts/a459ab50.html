@@ -1,0 +1,1729 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Flink系列 9. 介绍 Flink 窗口触发器、移除器和延迟数据等, hnbian">
+    <meta name="description" content="1. 触发器1.1 触发器介绍
+当数据到达某种情况，符合了某种条件去关闭窗口，这种到达条件就是触发。
+设置到达某种条件并触发窗口执行就是触发器。
+触发器的作用就是控制什么时候进行数据的聚合计算
+flink 中的窗口计算依赖于触发器。
+每种窗">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Flink系列 9. 介绍 Flink 窗口触发器、移除器和延迟数据等 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fqi9MoH_nopCI4v8n6eELRCs2NNa')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Flink系列 9. 介绍 Flink 窗口触发器、移除器和延迟数据等</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/flink/" class="post-category">
+                                flink
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-07-25
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-触发器"><a href="#1-触发器" class="headerlink" title="1. 触发器"></a>1. 触发器</h2><h3 id="1-1-触发器介绍"><a href="#1-1-触发器介绍" class="headerlink" title="1.1 触发器介绍"></a>1.1 触发器介绍</h3><ul>
+<li>当数据到达某种情况，符合了某种条件去关闭窗口，这种到达条件就是触发。</li>
+<li>设置到达某种条件并触发窗口执行就是触发器。</li>
+<li>触发器的作用就是控制什么时候进行数据的聚合计算</li>
+<li>flink 中的窗口计算依赖于触发器。</li>
+<li>每种窗口类型都会有默认的触发器。</li>
+<li>默认的Trigger不能满足需求，可以使用自定义的 trigger</li>
+</ul>
+<h3 id="1-2-Trigger-抽象类结构"><a href="#1-2-Trigger-抽象类结构" class="headerlink" title="1.2 Trigger 抽象类结构"></a>1.2 Trigger 抽象类结构</h3><p>Flink 中有一个 Trigger 抽象类，它是所有窗口触发器的父类。Flink 中触发器相关类集成图如下：</p>
+<p>Trigger 接口有六个方法，允许trigger对不同的事件做出反应：</p>
+<ul>
+<li><p>onElement()：进入窗口的每个元素都会调用该方法。</p>
+</li>
+<li><p>onEventTime()：事件时间timer触发的时候被调用。</p>
+</li>
+<li><p>onProcessingTime()：处理时间timer触发的时候会被调用。</p>
+</li>
+<li><p>onMerge()：有状态的触发器相关，并在它们相应的窗口合并时合并两个触发器的状态，例如使用会话窗口。</p>
+</li>
+<li><p>canMerge：如果此触发器支持合并触发器则返回 true，否则返回 false</p>
+</li>
+<li><p>clear()：该方法主要是执行窗口的删除操作。</p>
+</li>
+<li><p>TriggerContext 接口是Trigger的一个内部接口它的方法如下：</p>
+<ul>
+<li>getCurrentProcessingTime：获取当前处理时间</li>
+<li>getMetricGroup：获取触发器的 metric group</li>
+<li>getCurrentWatermark：获得当前的 WaterMark</li>
+<li>registerProcessingTimeTimer：注册系统回调时间，当系统时间超过指定时间后，将使用此处指定的时间</li>
+<li>registerEventTimeTimer：注册 EventTime 回调时间，当前水印经过指定的时间时，将使用此处指定的时间onEventTime</li>
+<li>deleteProcessingTimeTimer：删除给定时间的处理时间触发器</li>
+<li>deleteEventTimeTimer：删除给定时间的事件时间触发器。</li>
+<li>getPartitionedState：检索一个State对象，该对象可用于与范围为当前触发器调用的窗口和键的容错状态进行交互</li>
+<li>getKeyValueState：检索一个ValueState对象，该对象可用于与范围为当前触发器调用的窗口和键的容错状态进行交互</li>
+</ul>
+</li>
+</ul>
+<h3 id="1-3-TriggerResult-枚举类结构"><a href="#1-3-TriggerResult-枚举类结构" class="headerlink" title="1.3 TriggerResult 枚举类结构"></a>1.3 TriggerResult 枚举类结构</h3><p>TriggerResult是触发方法的结果类型，onElement()、onEventTime()、onProcessingTime()方法都需要返回一个TriggerResult， 这确定了窗口会发生什么情况，例如是应调用窗口函数还是应丢弃窗口。<br>如果Trigger返回 FIRE 或 FIRE_AND_PURGE 但是窗口不包含任何数据，则不会调用窗口函数，即不会为该窗口生成任何数据。</p>
+<ul>
+<li>fire：表示是否要触发window 的 computation 操作</li>
+<li>purge：表示是否要清理 window 的数据</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>是否触发窗口计算<br>fire</th>
+<th>是否清理数据<br>purge</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CONTINUE</td>
+<td>×</td>
+<td>×</td>
+</tr>
+<tr>
+<td>FIRE</td>
+<td>√</td>
+<td>×</td>
+</tr>
+<tr>
+<td>FIRE_AND_PURGE</td>
+<td>√</td>
+<td>√</td>
+</tr>
+<tr>
+<td>PURGE</td>
+<td>√</td>
+<td>×</td>
+</tr>
+</tbody></table>
+<h3 id="1-4-实现的触发器类型"><a href="#1-4-实现的触发器类型" class="headerlink" title="1.4 实现的触发器类型"></a>1.4 实现的触发器类型</h3><table>
+<thead>
+<tr>
+<th>触发器类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>EventTimeTrigger</td>
+<td>通过对比 Watermark 和窗口的 Endtime 确定是否触发窗口计算，如果 Watermark 大于 Window EndTime 则触发，否则不触发，窗口将继续等待</td>
+</tr>
+<tr>
+<td>ProcessingTimeTrigger</td>
+<td>通过对比 ProcessTime 和窗口 EndTme 确定是否触发窗口，如果 ProcessTime 大于 EndTime 则触发计算，否则窗口继续等待</td>
+</tr>
+<tr>
+<td>ContinuousEventTimeTrigger</td>
+<td>根据间隔时间周期性触发窗口 或者 Window 的结束时间小于当前 EndTime 触发窗口计算</td>
+</tr>
+<tr>
+<td>ContinuousProcessingTimeTrigger</td>
+<td>根据间隔时间周期性触发窗口 或者 Window 的结束时间小于当前 ProcessTime 触发窗口计算</td>
+</tr>
+<tr>
+<td>CounterTrigger</td>
+<td>根据接入数据量是否超过设定的阙值判断是否触发窗口计算</td>
+</tr>
+<tr>
+<td>PurgingTrigger</td>
+<td>可以将任意触发器作为参数转换为Purge类型的触发器，计算完成后计算完成的数据将被清理</td>
+</tr>
+<tr>
+<td>DeltaTrigger</td>
+<td>根据接入数据计算出来的Delta指标是否超过指定的Threshold去判断是否触发窗口计算</td>
+</tr>
+<tr>
+<td>NeverTrigger</td>
+<td>永远不会触发的触发器，它是 GlobalWindow 的默认触发器</td>
+</tr>
+</tbody></table>
+<p><img src="https://images.hnbian.cn/FlPDHdM5wYER6OwWvNkG-GoxhcFM?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Flink 中触发器相关的类继承图"></p>
+<h2 id="2-窗口触发器介绍"><a href="#2-窗口触发器介绍" class="headerlink" title="2. 窗口触发器介绍"></a>2. 窗口触发器介绍</h2><h3 id="2-1-EventTimeTrigger"><a href="#2-1-EventTimeTrigger" class="headerlink" title="2.1 EventTimeTrigger"></a>2.1 EventTimeTrigger</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onElement(</span><br><span class="line">  <span class="type">Object</span> element, long timestamp, <span class="type">TimeWindow</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line"></span><br><span class="line">   <span class="comment">// window.maxTimestamp()：当前窗口的最大时间戳的数值</span></span><br><span class="line">   <span class="comment">// 当前 WaterMark 值，当WaterMark 大于等于窗口的最大时间戳时触发窗口计算</span></span><br><span class="line">   <span class="keyword">if</span> (window.maxTimestamp() &lt;= ctx.getCurrentWatermark()) {</span><br><span class="line">      <span class="comment">// if the watermark is already past the window fire immediately</span></span><br><span class="line">      <span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">   } <span class="keyword">else</span> {</span><br><span class="line">      ctx.registerEventTimeTimer(window.maxTimestamp());</span><br><span class="line">      <span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">   }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">TimeWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">   <span class="keyword">return</span> time == window.maxTimestamp() ?</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">FIRE</span> :</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.<span class="type">TimeCharacteristic</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.timestamps.<span class="type">AscendingTimestampExtractor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingEventTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.<span class="type">EventTimeTrigger</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestEventTimeTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line">    environment.setStreamTimeCharacteristic(<span class="type">TimeCharacteristic</span>.<span class="type">EventTime</span>)</span><br><span class="line">    <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line">    stream1.print(<span class="string">"stream1"</span>)</span><br><span class="line">    <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">      <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">      <span class="comment">//println(arr)</span></span><br><span class="line">      <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toLong)</span><br><span class="line">    }).assignTimestampsAndWatermarks(<span class="keyword">new</span> <span class="type">AscendingTimestampExtractor</span>[<span class="type">Obj1</span>] {</span><br><span class="line">      <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">extractAscendingTimestamp</span></span>(element: <span class="type">Obj1</span>) = {</span><br><span class="line">        <span class="comment">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span></span><br><span class="line">        element.time * <span class="number">1000</span></span><br><span class="line">      }</span><br><span class="line">    })</span><br><span class="line"></span><br><span class="line">    stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">      .window(<span class="type">TumblingEventTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">6</span>)))</span><br><span class="line">      .trigger(<span class="type">EventTimeTrigger</span>.create()) <span class="comment">// 设置 EventTimeTrigger</span></span><br><span class="line">      .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">      .print(<span class="string">"TumblingEventTimeWindow"</span>)</span><br><span class="line"></span><br><span class="line">    environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-2-ProcessingTimeTrigger"><a href="#2-2-ProcessingTimeTrigger" class="headerlink" title="2.2 ProcessingTimeTrigger"></a>2.2 ProcessingTimeTrigger</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onElement(<span class="type">Object</span> element, long timestamp, <span class="type">TimeWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">	ctx.registerProcessingTimeTimer(window.maxTimestamp());</span><br><span class="line">	<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">TimeWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">	<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.<span class="type">ProcessingTimeTrigger</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestProcessingTimeTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>).window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>)))</span><br><span class="line">    .trigger(<span class="type">ProcessingTimeTrigger</span>.create())</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print()</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<h3 id="2-3-ContinuousEventTimeTrigger"><a href="#2-3-ContinuousEventTimeTrigger" class="headerlink" title="2.3 ContinuousEventTimeTrigger"></a>2.3 ContinuousEventTimeTrigger</h3><p>ContinuousEventTimeTrigger表示连续事件时间触发器，用在EventTime属性的任务流中，以事件时间的进度来推动定期触发。我们可能有疑惑，既然会自动触发窗口计算那么为什么还要设置这个连续事件触发器呢？当设置的窗口时间短的时候我们自然可以等到窗口触发的时间去看结果，但是当一个窗口时间比较长，而我们又想看到实时结果的时候，就需要使用 ContinuousEventTimeTrigger 了，它能够指定一个固定的时间间隔，实时看到窗口当前的计算结果，无需等到窗口结束以后才能看到结果。</p>
+<ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onElement(<span class="type">Object</span> element, long timestamp, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (window.maxTimestamp() &lt;= ctx.getCurrentWatermark()) {</span><br><span class="line">			<span class="comment">// if the watermark is already past the window fire immediately</span></span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		} <span class="keyword">else</span> {</span><br><span class="line">			ctx.registerEventTimeTimer(window.maxTimestamp());</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="type">ReducingState</span>&lt;<span class="type">Long</span>&gt; fireTimestamp = ctx.getPartitionedState(stateDesc);</span><br><span class="line">		<span class="keyword">if</span> (fireTimestamp.get() == <span class="literal">null</span>) {</span><br><span class="line">			long start = timestamp - (timestamp % interval);</span><br><span class="line">			long nextFireTimestamp = start + interval;</span><br><span class="line">			ctx.registerEventTimeTimer(nextFireTimestamp);</span><br><span class="line">			fireTimestamp.add(nextFireTimestamp);</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (time == window.maxTimestamp()){</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="type">ReducingState</span>&lt;<span class="type">Long</span>&gt; fireTimestampState = ctx.getPartitionedState(stateDesc);</span><br><span class="line"></span><br><span class="line">		<span class="type">Long</span> fireTimestamp = fireTimestampState.get();</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (fireTimestamp != <span class="literal">null</span> &amp;&amp; fireTimestamp == time) {</span><br><span class="line">			fireTimestampState.clear();</span><br><span class="line">			fireTimestampState.add(time + interval);</span><br><span class="line">			ctx.registerEventTimeTimer(time + interval);</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.<span class="type">TimeCharacteristic</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.timestamps.<span class="type">AscendingTimestampExtractor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingEventTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.<span class="type">ContinuousEventTimeTrigger</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestContinuousEventTimeTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line">  environment.setStreamTimeCharacteristic(<span class="type">TimeCharacteristic</span>.<span class="type">EventTime</span>)</span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line">  stream1.print(<span class="string">"stream1"</span>)</span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="comment">//println(arr)</span></span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toLong)</span><br><span class="line">  }).assignTimestampsAndWatermarks(<span class="keyword">new</span> <span class="type">AscendingTimestampExtractor</span>[<span class="type">Obj1</span>] {</span><br><span class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">extractAscendingTimestamp</span></span>(element: <span class="type">Obj1</span>) = {</span><br><span class="line">      <span class="comment">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span></span><br><span class="line">      element.time * <span class="number">1000</span></span><br><span class="line">    }</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingEventTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">600</span>))) <span class="comment">// 设置窗口时间是十分钟</span></span><br><span class="line">    .trigger(<span class="type">ContinuousEventTimeTrigger</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>))) <span class="comment">// 每十秒钟计算一次窗口数据</span></span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print(<span class="string">"TumblingEventTimeWindow"</span>)</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-4-ContinuousProcessingTimeTrigger"><a href="#2-4-ContinuousProcessingTimeTrigger" class="headerlink" title="2.4 ContinuousProcessingTimeTrigger"></a>2.4 ContinuousProcessingTimeTrigger</h3><p>ContinuousProcessingTimeTrigger 表示连续ProcessingTime触发器，用在ProcessingTime属性的任务流中，以ProcessingTime进度来推动定期触发。我们可能有疑惑，既然会自动触发窗口计算那么为什么还要设置这个连续事件触发器呢？当设置的窗口时间短的时候我们自然可以等到窗口触发的时间去看结果，但是当一个窗口时间比较长，而我们又想看到实时结果的时候，就需要使用 ContinuousProcessingTimeTrigger 了，它能够指定一个固定的时间间隔，实时看到窗口当前的计算结果，无需等到窗口结束以后才能看到结果。</p>
+<ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onElement(<span class="type">Object</span> element, long timestamp, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="type">ReducingState</span>&lt;<span class="type">Long</span>&gt; fireTimestamp = ctx.getPartitionedState(stateDesc);</span><br><span class="line"></span><br><span class="line">		timestamp = ctx.getCurrentProcessingTime();</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (fireTimestamp.get() == <span class="literal">null</span>) {</span><br><span class="line">			long start = timestamp - (timestamp % interval);</span><br><span class="line">			long nextFireTimestamp = start + interval;</span><br><span class="line"></span><br><span class="line">			ctx.registerProcessingTimeTimer(nextFireTimestamp);</span><br><span class="line"></span><br><span class="line">			fireTimestamp.add(nextFireTimestamp);</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">		}</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="type">ReducingState</span>&lt;<span class="type">Long</span>&gt; fireTimestamp = ctx.getPartitionedState(stateDesc);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (fireTimestamp.get().equals(time)) {</span><br><span class="line">			fireTimestamp.clear();</span><br><span class="line">			fireTimestamp.add(time + interval);</span><br><span class="line">			ctx.registerProcessingTimeTimer(time + interval);</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		}</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.{<span class="type">ContinuousProcessingTimeTrigger</span>, <span class="type">ProcessingTimeTrigger</span>}</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestContinuousProcessingTimeTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 600 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>).window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">600</span>)))</span><br><span class="line">    .trigger(<span class="type">ContinuousProcessingTimeTrigger</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>))) <span class="comment">// 每 10 秒触发一次窗口计算</span></span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print()</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+<h3 id="2-5-CounterTrigger"><a href="#2-5-CounterTrigger" class="headerlink" title="2.5 CounterTrigger"></a>2.5 CounterTrigger</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onElement(<span class="type">Object</span> element, long timestamp, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="type">ReducingState</span>&lt;<span class="type">Long</span>&gt; count = ctx.getPartitionedState(stateDesc);</span><br><span class="line">		count.add(<span class="number">1</span>L);</span><br><span class="line">		<span class="keyword">if</span> (count.get() &gt;= maxCount) {</span><br><span class="line">			count.clear();</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		}</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.<span class="type">Record</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.<span class="type">CountTrigger</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestCounterTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="comment">// 创建执行环境</span></span><br><span class="line">  <span class="keyword">val</span> env: <span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = env.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Record</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Record</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  stream2.map(record=&gt;{</span><br><span class="line">    (record.classId,record.age)</span><br><span class="line">  }).keyBy(_._1)</span><br><span class="line">    .timeWindow(<span class="type">Time</span>.seconds(<span class="number">20</span>)) <span class="comment">// 默认使用的是 processing time</span></span><br><span class="line">    .trigger(<span class="type">CountTrigger</span>.of(<span class="number">2</span>)) <span class="comment">// 设置 CountTrigger</span></span><br><span class="line">    .reduce((r1,r2)=&gt;{(r1._1,r1._2.min(r2._2))})</span><br><span class="line">    .print(<span class="string">"TestCounterTrigger"</span>)</span><br><span class="line">  env.execute()</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-6-PurgingTrigger"><a href="#2-6-PurgingTrigger" class="headerlink" title="2.6 PurgingTrigger"></a>2.6 PurgingTrigger</h3><ul>
+<li>PurgingTrigger 清理计算结果的说明</li>
+</ul>
+<p>假如我们定义一个5分钟的基于 EventTime 的滚动窗口，定义一个每2分触发计算的 ContinuousEventTimeTrigger，有4条数据事件时间分别是20:01、20:02、20:03、20:04，对应的值分别是1、2、3、2，我们要对值做 Sum 操作。</p>
+<p><img src="https://images.hnbian.cn/Fu9yfFqKbNhWCCNCGnjRuhjWrHwL?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="1.初始时 State 和 Result 中的值都为0"></p>
+<p><img src="https://images.hnbian.cn/FmkSIGgNOPK4Bi0t9Lxzk51_Vuc3?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="2.数据20:01进入窗口时State的值为1，此时还没有到达Trigger的触发时间"></p>
+<p><img src="https://images.hnbian.cn/Fhrl8YX8s6c8_wBwGfEOfIw9nuwc?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="3.第二条数据20:02进入窗口State中的值为1+2=3，此时达到2分钟满足Trigger的触发条件，故Result输出结果为3"></p>
+<p><img src="https://images.hnbian.cn/FrM8NFJAsiAWau8NDlI9XPCQVkHc?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="4.第三条数据20:03进入窗口State中的值为3+3=6，此时未达到 Trigger 触发条件没有结果输出"></p>
+<p><img src="https://images.hnbian.cn/FjtbMZqVw7yPxq4UPwXZBYzzJFHp?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="5.第四条数据20:04进入窗口State中的值更新为6+2=8，此时又到了2分钟达到了Trigger触发时间，所以输出结果为8"></p>
+<p>如果我们把结果输出到支持 update 的存储，比如 MySQL，那么结果值就由之前的3更新成了8。但是如果Result 所在的存储介质只支持 add 操作会有什么样的结果呢？</p>
+<p><img src="https://images.hnbian.cn/Fgy2Bb8GwPOvBc2ndPAx5nllJDnO?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="6.因为 Result只支持 add 所以 Result 中存在两条结果数据"></p>
+<p>如果在此基础上做计算，那么数据处理就会出现问题，这时如果使用 <strong>🌟PurgingTrigger</strong> 就可以很简单的解决这个问题。</p>
+<ul>
+<li><p>使用 PurgingTrigger 的计算流程</p>
+<p>和上面的示例一样，唯一的不同是在 ContinuousEventTimeTrigger 外面包装了一个 PurgingTrigger，其作用是在 ContinuousEventTimeTrigger 触发窗口计算之后将窗口的 State 中的数据清除。</p>
+</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FqecHg7De0UrVFxNBqoip9sf-kPh?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="1.初始时，State 和 Result 中的值都为0"></p>
+<p><img src="https://images.hnbian.cn/FkoAuaOEpPBYI3coe2gOYjC7Iz0_?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="2.数据20:01进入窗口时State的值为1，此时还没有到达Trigger的触发时间"></p>
+<p><img src="https://images.hnbian.cn/FpiiVnrgAfdZmlB7X-XsHZqbf7Ua" alt="3.第二条数据20:02进入窗口State中的值为1+2=3，此时达到2分钟满足Trigger的触发条件，故Result输出结果为3"></p>
+<p><img src="https://images.hnbian.cn/FnllyQDHV8gvff3UEcUem1zVIBep" alt="4.窗口出发后由于 PurgingTrigger 的作用，State中的数据会被清除"></p>
+<p><img src="https://images.hnbian.cn/FvvEdw3g6A8pPbvKIl5Ysf2E4HJY" alt="5.数据20:03进入窗口时因为之前的State已经清空所以当前State的值为3，此时还没有到达Trigger的触发时间"></p>
+<p><img src="https://images.hnbian.cn/Fux7YJJ-CGb0yAN-70PEwTg17lYD" alt="6.数据20:04进入窗口后到达Trigger的触发时间，计算结果为 5 写入 Result"></p>
+<p>由于结果输出是 append 模式，会输出3和5两条数据，然后再做 Sum 也能得到正确的结果。</p>
+<ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onElement(<span class="type">T</span> element, long timestamp, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">	<span class="type">TriggerResult</span> triggerResult = nestedTrigger.onElement(element, timestamp, window, ctx);</span><br><span class="line">	<span class="keyword">return</span> triggerResult.isFire() ? <span class="type">TriggerResult</span>.<span class="type">FIRE_AND_PURGE</span> : triggerResult;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">	<span class="type">TriggerResult</span> triggerResult = nestedTrigger.onEventTime(time, window, ctx);</span><br><span class="line">	<span class="keyword">return</span> triggerResult.isFire() ? <span class="type">TriggerResult</span>.<span class="type">FIRE_AND_PURGE</span> : triggerResult;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line">public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">	<span class="type">TriggerResult</span> triggerResult = nestedTrigger.onProcessingTime(time, window, ctx);</span><br><span class="line">	<span class="keyword">return</span> triggerResult.isFire() ? <span class="type">TriggerResult</span>.<span class="type">FIRE_AND_PURGE</span> : triggerResult;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">Record</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.{<span class="type">TumblingProcessingTimeWindows</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.{<span class="type">ContinuousProcessingTimeTrigger</span>, <span class="type">PurgingTrigger</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.windows.<span class="type">Window</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestPurgingTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="comment">// 创建执行环境</span></span><br><span class="line">  <span class="keyword">val</span> env: <span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = env.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Record</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Record</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  stream2.map(record=&gt;{</span><br><span class="line">    (record.classId,record.age)</span><br><span class="line">  }).keyBy(_._1)</span><br><span class="line">    .window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.minutes(<span class="number">10</span>)))<span class="comment">// 默认使用的是 processing time</span></span><br><span class="line">    .trigger(<span class="type">PurgingTrigger</span>.of(<span class="type">ContinuousProcessingTimeTrigger</span>.of[<span class="type">Window</span>](<span class="type">Time</span>.seconds(<span class="number">10</span>))))</span><br><span class="line">    .reduce((r1,r2)=&gt;{(r1._1,r1._2.min(r2._2))})</span><br><span class="line">    .print(<span class="string">"TestPurgingTrigger"</span>)</span><br><span class="line">  env.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-7-DeltaTrigger"><a href="#2-7-DeltaTrigger" class="headerlink" title="2.7 DeltaTrigger"></a>2.7 DeltaTrigger</h3><p>基于DeltaFunction和一个给定的阈值触发，该触发器在最后一个到达元素和当前元素之间计算一个delta值跟给定的阈值比较，如果高于给定的阈值则触发。</p>
+<ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onElement(<span class="type">T</span> element, long timestamp, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="type">ValueState</span>&lt;<span class="type">T</span>&gt; lastElementState = ctx.getPartitionedState(stateDesc);</span><br><span class="line">		<span class="keyword">if</span> (lastElementState.value() == <span class="literal">null</span>) {</span><br><span class="line">			lastElementState.update(element);</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">		}</span><br><span class="line">		<span class="keyword">if</span> (deltaFunction.getDelta(lastElementState.value(), element) &gt; <span class="keyword">this</span>.threshold) {</span><br><span class="line">			lastElementState.update(element);</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">FIRE</span>;</span><br><span class="line">		}</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">W</span> window, <span class="type">TriggerContext</span> ctx) <span class="keyword">throws</span> <span class="type">Exception</span> {</span><br><span class="line">		<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">	}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.<span class="type">TimeCharacteristic</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.timestamps.<span class="type">AscendingTimestampExtractor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.windowing.delta.<span class="type">DeltaFunction</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingEventTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.<span class="type">DeltaTrigger</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.windows.<span class="type">Window</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestDeltaTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line">  environment.setStreamTimeCharacteristic(<span class="type">TimeCharacteristic</span>.<span class="type">EventTime</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="comment">//println(arr)</span></span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toLong)</span><br><span class="line">  }).assignTimestampsAndWatermarks(<span class="keyword">new</span> <span class="type">AscendingTimestampExtractor</span>[<span class="type">Obj1</span>] {</span><br><span class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">extractAscendingTimestamp</span></span>(element: <span class="type">Obj1</span>) = {</span><br><span class="line">      <span class="comment">// 提取当前的 EventTime，会设置当前的 EventTime 为 WaterMark</span></span><br><span class="line">      element.time * <span class="number">1000</span></span><br><span class="line">    }</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> deltaFunction: <span class="type">DeltaFunction</span>[<span class="type">Obj1</span>] = <span class="keyword">new</span> <span class="type">DeltaFunction</span>[<span class="type">Obj1</span>] {</span><br><span class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">getDelta</span></span>(oldDataPoint: <span class="type">Obj1</span>, newDataPoint: <span class="type">Obj1</span>) = {</span><br><span class="line">      newDataPoint.time - oldDataPoint.time</span><br><span class="line">    }</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> deltaTrigger: <span class="type">DeltaTrigger</span>[<span class="type">Obj1</span>, <span class="type">Window</span>]</span><br><span class="line">  = <span class="type">DeltaTrigger</span>.of[<span class="type">Obj1</span>, <span class="type">Window</span>](<span class="number">10</span>L, deltaFunction, createTypeInformation[(<span class="type">Obj1</span>)].createSerializer(environment.getConfig))</span><br><span class="line"></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingEventTimeWindows</span>.of(<span class="type">Time</span>.minutes(<span class="number">10</span>))) <span class="comment">// 设置窗口时间是十分钟</span></span><br><span class="line">    .trigger(deltaTrigger)</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print(<span class="string">"TumblingEventTimeWindow"</span>)</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+<h3 id="2-8-NeverTrigger"><a href="#2-8-NeverTrigger" class="headerlink" title="2.8 NeverTrigger"></a>2.8 NeverTrigger</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">		public <span class="type">TriggerResult</span> onElement(<span class="type">Object</span> element, long timestamp, <span class="type">GlobalWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="meta">@Override</span></span><br><span class="line">		public <span class="type">TriggerResult</span> onEventTime(long time, <span class="type">GlobalWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		<span class="meta">@Override</span></span><br><span class="line">		public <span class="type">TriggerResult</span> onProcessingTime(long time, <span class="type">GlobalWindow</span> window, <span class="type">TriggerContext</span> ctx) {</span><br><span class="line">			<span class="keyword">return</span> <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span>;</span><br><span class="line">		}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+<h3 id="2-9-自定义触发器"><a href="#2-9-自定义触发器" class="headerlink" title="2.9 自定义触发器"></a>2.9 自定义触发器</h3><ul>
+<li><p>功能说明</p>
+<ul>
+<li>增加一个自定义触发器，</li>
+<li>当数量达到 5 条记录时触发计算</li>
+<li>当时间到 5 秒时触发计算</li>
+<li>没有数据不触发计算</li>
+<li>窗口关闭时清理数据</li>
+</ul>
+</li>
+<li><p>代码</p>
+</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.common.functions.<span class="type">ReduceFunction</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.triggers.{<span class="type">Trigger</span>, <span class="type">TriggerResult</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.common.state.{<span class="type">ReducingState</span>, <span class="type">ReducingStateDescriptor</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.windows.<span class="type">TimeWindow</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestCustomTrigger</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.minutes(<span class="number">10</span>)))</span><br><span class="line">    .trigger(<span class="keyword">new</span> <span class="type">CustomTrigger</span>[<span class="type">TumblingProcessingTimeWindows</span>](<span class="number">5</span>,<span class="number">5</span>))</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print(<span class="string">"TestCustomTrigger"</span>)</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * 计数方法 记录当前数据量</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Sum</span> <span class="keyword">extends</span> <span class="title">ReduceFunction</span>[<span class="type">Long</span>] </span>{</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">reduce</span></span>(value1: <span class="type">Long</span>, value2: <span class="type">Long</span>): <span class="type">Long</span> = value1 + value2</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * 更新状态为最新的时间戳</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Update</span> <span class="keyword">extends</span> <span class="title">ReduceFunction</span>[<span class="type">Long</span>] </span>{</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">reduce</span></span>(value1: <span class="type">Long</span>, value2: <span class="type">Long</span>): <span class="type">Long</span> = value2</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * 实现自定义的 window，</span></span><br><span class="line"><span class="comment">  * 在指定的 时间或者数量触发窗口计算</span></span><br><span class="line"><span class="comment">  * @tparam Window</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CustomTrigger</span>[<span class="type">Window</span>] <span class="keyword">extends</span> <span class="title">Trigger</span>[<span class="type">Object</span>,<span class="type">TimeWindow</span>]</span>{</span><br><span class="line">  <span class="comment">//触发计算的最大数量</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">var</span> maxCount: <span class="type">Long</span> = _</span><br><span class="line">  <span class="comment">//定时触发间隔时长 (ms)</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">var</span> interval: <span class="type">Long</span> = <span class="number">60</span> * <span class="number">1000</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * @param maxCount 触发窗口计算的数据量</span></span><br><span class="line"><span class="comment">    * @param interval 触发窗口计算的时间间隔 单位秒</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">this</span></span>(maxCount: <span class="type">Long</span>,interval:<span class="type">Long</span>) {</span><br><span class="line">    <span class="keyword">this</span>()</span><br><span class="line">    <span class="keyword">this</span>.maxCount = maxCount</span><br><span class="line">    <span class="keyword">this</span>.interval = interval * <span class="number">1000</span></span><br><span class="line">  }</span><br><span class="line">  <span class="comment">// 记录当前数量的状态</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> countStateDescriptor:<span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>]  = <span class="keyword">new</span> <span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>](<span class="string">"counter"</span>, <span class="keyword">new</span> <span class="type">Sum</span>, classOf[<span class="type">Long</span>])</span><br><span class="line">  <span class="comment">// 记录 processTime 定时触发时间的状态</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> processTimerStateDescriptor: <span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>] = <span class="keyword">new</span> <span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>](<span class="string">"processTimer"</span>, <span class="keyword">new</span> <span class="type">Update</span>, classOf[<span class="type">Long</span>])</span><br><span class="line">  <span class="comment">// 记录 eventTime 定时触发时间的状态</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> eventTimerStateDescriptor: <span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>] = <span class="keyword">new</span> <span class="type">ReducingStateDescriptor</span>[<span class="type">Long</span>](<span class="string">"eventTimer"</span>, <span class="keyword">new</span> <span class="type">Update</span>, classOf[<span class="type">Long</span>])</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onElement</span></span>(element: <span class="type">Object</span>, timestamp: <span class="type">Long</span>, window: <span class="type">TimeWindow</span>, ctx: <span class="type">Trigger</span>.<span class="type">TriggerContext</span>): <span class="type">TriggerResult</span> = {</span><br><span class="line"></span><br><span class="line">    <span class="keyword">val</span> countState: <span class="type">ReducingState</span>[<span class="type">Long</span>] = ctx.getPartitionedState(countStateDescriptor)</span><br><span class="line">    countState.add(<span class="number">1</span>L) <span class="comment">//计数状态加1</span></span><br><span class="line"></span><br><span class="line">    println(<span class="string">s"当前数据量为：<span class="subst">${countState.get()}</span>"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (countState.get() &gt;= <span class="keyword">this</span>.maxCount) {</span><br><span class="line">      <span class="comment">//达到指定指定数量</span></span><br><span class="line">      clear(window,ctx)</span><br><span class="line">      println(<span class="string">s"数据量达到 <span class="subst">$maxCount</span> ， 触发计算"</span>)</span><br><span class="line">      <span class="comment">//触发计算</span></span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">FIRE_AND_PURGE</span></span><br><span class="line">    } <span class="keyword">else</span> <span class="keyword">if</span> (ctx.getPartitionedState(processTimerStateDescriptor).get() == <span class="number">0</span>L) {</span><br><span class="line"></span><br><span class="line">      <span class="keyword">val</span> nextFire = ctx.getCurrentProcessingTime + interval</span><br><span class="line">      println(<span class="string">s"未达到指定数量，设置下次触发计算的时间为：<span class="subst">${nextFire}</span>"</span>)</span><br><span class="line">      <span class="comment">//未达到指定数量，且没有指定定时器，需要指定定时器</span></span><br><span class="line">      <span class="comment">//当前定时器状态值加上间隔值</span></span><br><span class="line">      ctx.getPartitionedState(processTimerStateDescriptor).add(nextFire)</span><br><span class="line">      <span class="comment">//注册定执行时间定时器</span></span><br><span class="line">      ctx.registerProcessingTimeTimer(ctx.getPartitionedState(processTimerStateDescriptor).get())</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span></span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span></span><br><span class="line">    }</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ProcessingTime 定时器触发</span></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onProcessingTime</span></span>(time: <span class="type">Long</span>, window: <span class="type">TimeWindow</span>, ctx: <span class="type">Trigger</span>.<span class="type">TriggerContext</span>): <span class="type">TriggerResult</span> = {</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(<span class="number">0</span> == ctx.getPartitionedState(processTimerStateDescriptor).get()){</span><br><span class="line">      println(<span class="string">"还没有指定下次触发窗口计算的时间"</span>)</span><br><span class="line">    }<span class="keyword">else</span>{</span><br><span class="line">      println(<span class="string">s"距离触发下次窗口计算还有（ <span class="subst">${ctx.getPartitionedState(processTimerStateDescriptor).get().-(time)/1000}</span> ）秒"</span>)</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果计数器数量大于0 并且 当前时间大于等于触发时间</span></span><br><span class="line">    <span class="keyword">if</span> (ctx.getPartitionedState(countStateDescriptor).get() &gt; <span class="number">0</span> &amp;&amp; (ctx.getPartitionedState(processTimerStateDescriptor).get() &lt;= time)) {</span><br><span class="line">      println(<span class="string">s"数据量未达到 <span class="subst">$maxCount</span> ,由执行时间触发器 <span class="subst">${ctx.getPartitionedState(processTimerStateDescriptor).get() }</span> 触发计算"</span>)</span><br><span class="line">      clear(window,ctx)</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">FIRE_AND_PURGE</span></span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">      <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span></span><br><span class="line">    }</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * 窗口结束时清空状态</span></span><br><span class="line"><span class="comment">    * @param window</span></span><br><span class="line"><span class="comment">    * @param ctx</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">clear</span></span>(window: <span class="type">TimeWindow</span>, ctx: <span class="type">Trigger</span>.<span class="type">TriggerContext</span>): <span class="type">Unit</span> = {</span><br><span class="line">    <span class="comment">// 清理数量状态</span></span><br><span class="line">    ctx.getPartitionedState(countStateDescriptor).clear()</span><br><span class="line">    <span class="comment">// 清理 processTimer 状态</span></span><br><span class="line">    ctx.getPartitionedState(processTimerStateDescriptor).clear()</span><br><span class="line">  }</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">onEventTime</span></span>(time: <span class="type">Long</span>, window: <span class="type">TimeWindow</span>, ctx: <span class="type">Trigger</span>.<span class="type">TriggerContext</span>): <span class="type">TriggerResult</span> = {</span><br><span class="line">    <span class="type">TriggerResult</span>.<span class="type">CONTINUE</span></span><br><span class="line">  }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">// 执行结果</span></span><br><span class="line"></span><br><span class="line">当前数据量为：<span class="number">1</span></span><br><span class="line">未达到指定数量，设置下次触发计算的时间为：<span class="number">1609850677798</span></span><br><span class="line"><span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br><span class="line">当前数据量为：<span class="number">2</span></span><br><span class="line"><span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br><span class="line">当前数据量为：<span class="number">3</span></span><br><span class="line"><span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br><span class="line">当前数据量为：<span class="number">4</span></span><br><span class="line"><span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br><span class="line">当前数据量为：<span class="number">5</span></span><br><span class="line">数据量达到 <span class="number">5</span> ， 触发计算</span><br><span class="line"><span class="number">6</span>&gt; <span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br><span class="line">还没有指定下次触发窗口计算的时间</span><br><span class="line">当前数据量为：<span class="number">1</span></span><br><span class="line">未达到指定数量，设置下次触发计算的时间为：<span class="number">1609850684226</span></span><br><span class="line">距离触发下次窗口计算还有（ <span class="number">0</span> ）秒</span><br><span class="line">数据量未达到 <span class="number">5</span> ,由执行时间触发器 <span class="number">1609850684226</span> 触发计算</span><br><span class="line"><span class="number">6</span>&gt; <span class="type">Obj1</span>(<span class="number">1</span>,小红,<span class="number">1598018543</span>)</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+<h2 id="3-移除器"><a href="#3-移除器" class="headerlink" title="3. 移除器"></a>3. 移除器</h2><ul>
+<li><p>Flink 窗口模式中可以使用别的算子Evictor（移除器），应用在 WindowAssigner 和 trigger 之间。通过 evictor() 方法使用。</p>
+</li>
+<li><p>Evictor 能够在 element 进入 Window 窗口聚合之前进行移除数据或者在进入Window窗口聚合后，Trigger触发计算操作之前移除数据。</p>
+</li>
+<li><p>Evictor接口有一下两个方法：</p>
+</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 在Window Function之前调用 移除窗口元素</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param elements 当前窗口中的元素</span></span><br><span class="line"><span class="comment"> * @param size 当前窗口中的元素数量</span></span><br><span class="line"><span class="comment"> * @param window 当前窗口</span></span><br><span class="line"><span class="comment"> * @param evictorContext evictor的上下文</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">void evictBefore(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> evictorContext);</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 在Window Function之后调用移除窗口元素</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param elements 当前窗口中的元素</span></span><br><span class="line"><span class="comment"> * @param size 当前窗口中的元素数量</span></span><br><span class="line"><span class="comment"> * @param window 当前窗口</span></span><br><span class="line"><span class="comment"> * @param evictorContext evictor的上下文</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">void evictAfter(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> evictorContext);</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p><img src="https://images.hnbian.cn/Fo0JKT4-9hTLlTMzPOpPoCN4GmEI?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="移除器相关类继承图"></p>
+<ul>
+<li>Flink为我们实现了3个Evictor：<ul>
+<li><strong>CountEvictor</strong>：保持窗口中用户指定数量的元素，并从窗口缓冲区的开头丢弃剩余的元素。</li>
+<li><strong>TimeEvictor</strong>：以interval毫秒为单位作为参数，对于给定窗口，它查找max_ts其元素的最大时间戳，并删除时间戳小于的所有元素max_ts-interval。</li>
+<li><strong>DeltaEvictor</strong>：取一个DeltaFunction和一个threshold，计算窗口缓冲区中最后一个元素与其余每个元素之间的差值，并删除Delta大于或等于阈值的值。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-1-CountEvictor"><a href="#3-1-CountEvictor" class="headerlink" title="3.1 CountEvictor"></a>3.1 CountEvictor</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public void evictBefore(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (!doEvictAfter) {</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public void evictAfter(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (doEvictAfter) {</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> void evict(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (size &lt;= maxCount) {</span><br><span class="line">			<span class="keyword">return</span>;</span><br><span class="line">		} <span class="keyword">else</span> {</span><br><span class="line">			int evictedCount = <span class="number">0</span>;</span><br><span class="line">			<span class="keyword">for</span> (<span class="type">Iterator</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; iterator = elements.iterator(); iterator.hasNext();){</span><br><span class="line">				iterator.next();</span><br><span class="line">				evictedCount++;</span><br><span class="line">				<span class="keyword">if</span> (evictedCount &gt; size - maxCount) {</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				} <span class="keyword">else</span> {</span><br><span class="line">					iterator.remove();</span><br><span class="line">				}</span><br><span class="line">			}</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.evictors.<span class="type">CountEvictor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestCountEvictor</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>)))</span><br><span class="line">    <span class="comment">// 使用 CountEvictor 移除器,设置在开窗之前移除数据</span></span><br><span class="line">    .evictor(<span class="type">CountEvictor</span>.of(<span class="number">10</span>L,<span class="literal">false</span>))</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print()</span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="3-2-TimeEvictor"><a href="#3-2-TimeEvictor" class="headerlink" title="3.2 TimeEvictor"></a>3.2 TimeEvictor</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">	public void evictBefore(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (!doEvictAfter) {</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	public void evictAfter(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (doEvictAfter) {</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> void evict(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; elements, int size, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">		<span class="keyword">if</span> (!hasTimestamp(elements)) {</span><br><span class="line">			<span class="keyword">return</span>;</span><br><span class="line">		}</span><br><span class="line"></span><br><span class="line">		long currentTime = getMaxTimestamp(elements); <span class="comment">// 获取最大时间</span></span><br><span class="line">		long evictCutoff = currentTime - windowSize; <span class="comment">// 确定移除数据时间范围</span></span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> (<span class="type">Iterator</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt;&gt; iterator = elements.iterator(); iterator.hasNext(); ) {</span><br><span class="line">			<span class="type">TimestampedValue</span>&lt;<span class="type">Object</span>&gt; record = iterator.next();</span><br><span class="line">			<span class="keyword">if</span> (record.getTimestamp() &lt;= evictCutoff) { <span class="comment">// 如果数据时间小于等于移除时间 则移除数据</span></span><br><span class="line">				iterator.remove();</span><br><span class="line">			}</span><br><span class="line">		}</span><br><span class="line">	}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.evictors.<span class="type">TimeEvictor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestTimeEvictor</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>)))</span><br><span class="line">    <span class="comment">// 使用 TimeEvictor 移除器,设置在开窗之前移除数据</span></span><br><span class="line">    .evictor(<span class="type">TimeEvictor</span>.of(<span class="type">Time</span>.seconds(<span class="number">3</span>),<span class="literal">false</span>))</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print()</span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="3-3-DeltaEvictor"><a href="#3-3-DeltaEvictor" class="headerlink" title="3.3 DeltaEvictor"></a>3.3 DeltaEvictor</h3><ul>
+<li>源码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line">public void evictBefore(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">	<span class="keyword">if</span> (!doEvictAfter) {</span><br><span class="line">		evict(elements, size, ctx);</span><br><span class="line">	}</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line">public void evictAfter(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; elements, int size, <span class="type">W</span> window, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">	<span class="keyword">if</span> (doEvictAfter) {</span><br><span class="line">		evict(elements, size, ctx);</span><br><span class="line">	}</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> void evict(<span class="type">Iterable</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; elements, int size, <span class="type">EvictorContext</span> ctx) {</span><br><span class="line">	<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt; lastElement = <span class="type">Iterables</span>.getLast(elements);</span><br><span class="line">	<span class="keyword">for</span> (<span class="type">Iterator</span>&lt;<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt;&gt; iterator = elements.iterator(); iterator.hasNext();){</span><br><span class="line">		<span class="type">TimestampedValue</span>&lt;<span class="type">T</span>&gt; element = iterator.next();</span><br><span class="line">     <span class="comment">// 使用给定的delta 函数计算结果，如果结果大于等于设置的阈值则移除数据</span></span><br><span class="line">		<span class="keyword">if</span> (deltaFunction.getDelta(element.getValue(), lastElement.getValue()) &gt;= <span class="keyword">this</span>.threshold) {</span><br><span class="line">			iterator.remove();</span><br><span class="line">		}</span><br><span class="line">	}</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li>使用</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.windowing.delta.<span class="type">DeltaFunction</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingProcessingTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.evictors.<span class="type">DeltaEvictor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestDeltaEvictor</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> deltaFunction: <span class="type">DeltaFunction</span>[<span class="type">Obj1</span>] = <span class="keyword">new</span> <span class="type">DeltaFunction</span>[<span class="type">Obj1</span>] {</span><br><span class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">getDelta</span></span>(oldDataPoint: <span class="type">Obj1</span>, newDataPoint: <span class="type">Obj1</span>) = {</span><br><span class="line">      newDataPoint.time - oldDataPoint.time</span><br><span class="line">    }</span><br><span class="line">  }</span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingProcessingTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>)))</span><br><span class="line">    <span class="comment">// 使用 DeltaEvictor移除器,设置在开窗之前移除数据</span></span><br><span class="line">    .evictor(<span class="type">DeltaEvictor</span>.of(<span class="number">10</span>,deltaFunction,<span class="literal">false</span>))</span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line">    .print()</span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h2 id="4-延迟数据处理"><a href="#4-延迟数据处理" class="headerlink" title="4. 延迟数据处理"></a>4. 延迟数据处理</h2><ul>
+<li><p>当 WaterMark 到达以后并且已经出发了窗口计算，那么如果再有前一个窗口的数据到达时，这部分数据时会被丢掉的，那么如何避免这部分数据被丢掉呢？allowedLateness就是为了解决这个问题而产生的。</p>
+</li>
+<li><p>allowedLateness是针对 WaterMark 触发窗口计算之后，这个窗口还未到达的数据进行等待，之后对这部分数据再次处理的逻辑。</p>
+</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> com.hnbian.flink.common.{<span class="type">MinDataReduceFunction</span>, <span class="type">Obj1</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.api.scala.createTypeInformation</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.<span class="type">TimeCharacteristic</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.functions.timestamps.<span class="type">BoundedOutOfOrdernessTimestampExtractor</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.scala.{<span class="type">DataStream</span>, <span class="type">OutputTag</span>, <span class="type">StreamExecutionEnvironment</span>}</span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.assigners.<span class="type">TumblingEventTimeWindows</span></span><br><span class="line"><span class="keyword">import</span> org.apache.flink.streaming.api.windowing.time.<span class="type">Time</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">TestAllowedLateness</span> <span class="keyword">extends</span> <span class="title">App</span> </span>{</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> environment:<span class="type">StreamExecutionEnvironment</span> = <span class="type">StreamExecutionEnvironment</span>.getExecutionEnvironment</span><br><span class="line"></span><br><span class="line">  environment.setStreamTimeCharacteristic(<span class="type">TimeCharacteristic</span>.<span class="type">EventTime</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream1: <span class="type">DataStream</span>[<span class="type">String</span>] = environment.socketTextStream(<span class="string">"localhost"</span>,<span class="number">9999</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> stream2: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream1.map(data =&gt; {</span><br><span class="line">    <span class="keyword">val</span> arr = data.split(<span class="string">","</span>)</span><br><span class="line">    <span class="type">Obj1</span>(arr(<span class="number">0</span>), arr(<span class="number">1</span>), arr(<span class="number">2</span>).toInt)</span><br><span class="line">  }).assignTimestampsAndWatermarks(<span class="keyword">new</span> <span class="type">BoundedOutOfOrdernessTimestampExtractor</span>[<span class="type">Obj1</span>](<span class="type">Time</span>.seconds(<span class="number">3</span>)) {</span><br><span class="line">    <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">extractTimestamp</span></span>(element: <span class="type">Obj1</span>) = element.time * <span class="number">1000</span></span><br><span class="line">  })</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> outputTag = <span class="keyword">new</span> <span class="type">OutputTag</span>[<span class="type">Obj1</span>](<span class="string">"lastObj1"</span>)</span><br><span class="line">  <span class="comment">// 设置一个窗口时间是 10 秒的窗口</span></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> stream3: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream2.keyBy(<span class="number">0</span>)</span><br><span class="line">    .window(<span class="type">TumblingEventTimeWindows</span>.of(<span class="type">Time</span>.seconds(<span class="number">10</span>)))</span><br><span class="line">    .allowedLateness(<span class="type">Time</span>.seconds(<span class="number">5</span>)) <span class="comment">// 在设置允许数据延迟 5 秒</span></span><br><span class="line">    .sideOutputLateData(outputTag) <span class="comment">// 将延迟数据输出到侧输出流中</span></span><br><span class="line">    .reduce(<span class="keyword">new</span> <span class="type">MinDataReduceFunction</span>)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">private</span> <span class="keyword">val</span> lastObj1: <span class="type">DataStream</span>[<span class="type">Obj1</span>] = stream3.getSideOutput(outputTag)</span><br><span class="line"></span><br><span class="line">  lastObj1.print(<span class="string">"window 迟到数据"</span>)</span><br><span class="line">  stream3.print(<span class="string">"window 计算结果"</span>)</span><br><span class="line"></span><br><span class="line">  environment.execute()</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/a459ab50.html">https://www.hnbian.cn/posts/a459ab50.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/76ffd44a.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fowd39fSxvdYO5u74MS0AjVctaYi" class="responsive-img" alt="hexo博客中增加知识图谱页">
+                        
+                        <span class="card-title">hexo博客中增加知识图谱页</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-07-31
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/others/" class="post-category">
+                                    others
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hexo/">
+                        <span class="chip bg-color">hexo</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/dbaa157a.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FjTXirn_eeyScWgIXjeEjaf1m6HD" class="responsive-img" alt="Flink系列 8. 介绍Flink中的窗口类型与相关操作">
+                        
+                        <span class="card-title">Flink系列 8. 介绍Flink中的窗口类型与相关操作</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-07-20
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

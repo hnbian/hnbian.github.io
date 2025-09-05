@@ -1,0 +1,1466 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="SparkSQL通过SHC高效读写访问HBase, hnbian">
+    <meta name="description" content="一、概述Apache Spark 和Apache HBase 是两个使用比较广泛的大数据组件。很多场景需要使用Spark分析/查询Hbase中的数据，而目前Spark内置是支持很多数据源的，其中就包括了HBase，但是内置的读取数据源还是使">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>SparkSQL通过SHC高效读写访问HBase | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FugqSwYzaVE9odW1yrNuFE6T6te7')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">SparkSQL通过SHC高效读写访问HBase</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/hbase/">
+                                <span class="chip bg-color">hbase</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2019-11-27
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="一、概述"><a href="#一、概述" class="headerlink" title="一、概述"></a>一、概述</h2><p>Apache Spark 和Apache HBase 是两个使用比较广泛的大数据组件。很多场景需要使用Spark分析/查询Hbase中的数据，而目前Spark内置是支持很多数据源的，其中就包括了HBase，但是内置的读取数据源还是使用了TableInputFormat来读取HBase中的数据。这个TableInputFormat有一些缺点：</p>
+<ul>
+<li>一个Task里面只能启动一个Scan去Hbase中读取数据；</li>
+<li>TableInputFormat中不支持BulkGet；</li>
+<li>不能享受到SparkSQL内置catalyst引擎的优化；</li>
+</ul>
+<p>基于这些问题，来自Hortonworks的工程师们为我们带来了全新的Apache Spark – Apache HBase Connector( <a target="_blank" rel="noopener" href="https://github.com/hortonworks-spark/shc">https://github.com/hortonworks-spark/shc</a> )，下面简称SHC。通过这个类库，我们可以直接使用SparkSQL将DataFrame中的数据写入HBase中；而且我们也可以使用SparkSQL去查询HBase中的数据，在查询HBase的时候充分利用了catalyst引擎做了许多优化，比如分区修剪（partition pruning），列修剪（column pruning），谓词下推（predicate pushdown）和数据本地行（data locality）等等。因为有了这些优化，通过Spark查询HBase的速度有了很大的提升。<br>SHC同事还提供了将DataFrame中的数据直接写入到HBase中，但是整个代码并没有什么优化的地方，在此不会对其进行介绍，可以自己去其Github上相关代码。</p>
+<h2 id="二、SHC-是如何实现查询优化的呢？"><a href="#二、SHC-是如何实现查询优化的呢？" class="headerlink" title="二、SHC 是如何实现查询优化的呢？"></a>二、SHC 是如何实现查询优化的呢？</h2><p>SHC主要使用下面几种优化方式，使得Spark获取HBase的数据扫描范围得到减少，以提高数据读取的效率。为了方便下面讲解我们先定义一个HBase catalog结构如下：</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">val</span> <span class="variable">catalog</span> <span class="operator">=</span> s<span class="string">"""{</span></span><br><span class="line"><span class="string">  |"table":{"namespace":"default", "name":"shc", "tableCoder":"PrimitiveType"},</span></span><br><span class="line"><span class="string">  |"rowkey":"key",</span></span><br><span class="line"><span class="string">  |"columns":{</span></span><br><span class="line"><span class="string">    |"col0":{"cf":"rowkey", "col":"id", "type":"int"},</span></span><br><span class="line"><span class="string">    |"col1":{"cf":"cf1", "col":"col1", "type":"boolean"},</span></span><br><span class="line"><span class="string">    |"col2":{"cf":"cf2", "col":"col2", "type":"double"},</span></span><br><span class="line"><span class="string">    |"col3":{"cf":"cf3", "col":"col3", "type":"float"},</span></span><br><span class="line"><span class="string">    |"col4":{"cf":"cf4", "col":"col4", "type":"int"},</span></span><br><span class="line"><span class="string">    |"col5":{"cf":"cf5", "col":"col5", "type":"bigint"},</span></span><br><span class="line"><span class="string">    |"col6":{"cf":"cf6", "col":"col6", "type":"smallint"},</span></span><br><span class="line"><span class="string">    |"col7":{"cf":"cf7", "col":"col7", "type":"string"},</span></span><br><span class="line"><span class="string">    |"col8":{"cf":"cf8", "col":"col8", "type":"tinyint"}</span></span><br><span class="line"><span class="string">  |}</span></span><br><span class="line"><span class="string">|}"""</span>.stripMargin</span><br></pre></td></tr></tbody></table></figure>
+<h3 id="2-1-将使用RowKey的查询方式转换成Get方式查询"><a href="#2-1-将使用RowKey的查询方式转换成Get方式查询" class="headerlink" title="2.1 将使用RowKey的查询方式转换成Get方式查询"></a>2.1 将使用RowKey的查询方式转换成Get方式查询</h3><p>我们都知道，HBase中使用Get查询的效率是非常高的，所以如果查询的过滤条件是针对RowKey进行的，那么我们可以将它转换成Get查询。那么如果有类似下面的查询：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> df = withCatalog(catalog)</span><br><span class="line">df.createOrReplaceTempView(<span class="string">"iteblog_table"</span>)</span><br><span class="line">sqlContext.sql(<span class="string">"select * from iteblog_table where id = 1"</span>)</span><br><span class="line">sqlContext.sql(<span class="string">"select * from iteblog_table where id = 1 or id = 2"</span>)</span><br><span class="line">sqlContext.sql(<span class="string">"select * from iteblog_table where id in (1, 2)"</span>)</span><br></pre></td></tr></tbody></table></figure>
+<p>因为查询条件是针对RowKey进行的，所以这种情况下直接可以转换成Get或者BulkGet请求的。第一个SQL查询过程类似于下面的过程。<br><img src="https://images.hnbian.cn/Fiq4eFsFtCYm2mbLHXxou4r4JEIp?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="get方式1"></p>
+<p>后面两条SQL查询其实是等价的，实现上会把 key in (x1,x2,x3…) 转换成(key == x1) or (key == x2) or …的。整个查询流程如下：</p>
+<p><img src="https://images.hnbian.cn/FlytX520b699PyemliJyLtILK-sN?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="get方式2"></p>
+<p>如果我们的查询里面有RowKey还有其他列的过滤，比如下面的例子：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sqlContext.sql(<span class="string">"select id, col6, col8 from iteblog_table where id = 1 and col7 = 'xxx'"</span>)</span><br></pre></td></tr></tbody></table></figure>
+<p>那么上面的SQL就会翻译成下面的查询</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">val</span> <span class="variable">filter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SingleColumnValueFilter</span>(</span><br><span class="line">              Bytes.toBytes(<span class="string">"cf7"</span>), Bytes.toBytes(<span class="string">"col7 "</span>)</span><br><span class="line">              CompareOp.EQUAL,</span><br><span class="line">             Bytes.toBytes(<span class="string">"xxx"</span>))</span><br><span class="line"> </span><br><span class="line"><span class="type">val</span> <span class="variable">g</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Get</span>(Bytes.toBytes(<span class="number">1</span>))</span><br><span class="line">g.addColumn(Bytes.toBytes(<span class="string">"cf6"</span>), Bytes.toBytes(<span class="string">"col6"</span>))</span><br><span class="line">g.addColumn(Bytes.toBytes(<span class="string">"cf8"</span>), Bytes.toBytes(<span class="string">"col8"</span>))</span><br><span class="line">g.setFilter(filter)</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>如果有多个and 条件，都是使用SingleColumnValueFilter进行的过滤的。</p>
+<p>下面看一个使用or 进行过滤的例子，查询SQL如下：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sqlContext.sql(<span class="string">"select id, col6, col8 from iteblog_table where id = 1 or col7 = 'xxx'"</span>)</span><br></pre></td></tr></tbody></table></figure>
+<p>如果碰到这种非RoeKey的过滤，那么这种查询是需要扫描HBase的全表。上面的查询在SHC里面就是将HBase里面所有的数据拿到，然后传输到Spark，再通过Spark里面进行过滤的，可见SHC在这种情况下效率是很低下的。</p>
+<p>注意，上面的查询在SHC返回的结果是错误的。具体原因是在将 id = 1 or col7 = “xxx” 查询条件进行合并时，丢弃了所有的查询条件，相当于返回表的所有数据。</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">or</span></span>[<span class="type">T</span>](left: <span class="type">HRF</span>[<span class="type">T</span>],</span><br><span class="line">            right: <span class="type">HRF</span>[<span class="type">T</span>])(<span class="keyword">implicit</span> ordering: <span class="type">Ordering</span>[<span class="type">T</span>]): <span class="type">HRF</span>[<span class="type">T</span>] = {</span><br><span class="line">    <span class="keyword">val</span> ranges = <span class="type">ScanRange</span>.or(left.ranges, right.ranges)</span><br><span class="line">    <span class="keyword">val</span> typeFilter = <span class="type">TypedFilter</span>.or(left.tf, right.tf)</span><br><span class="line">    <span class="type">HRF</span>(ranges, typeFilter, left.handled &amp;&amp; right.handled)</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<p>同理，类似于下面的查询在SHC里面其实都是全表扫描，并且将所有的数据返回到Spark层面上再进行一次过滤。</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sqlContext.sql(<span class="string">"select id, col6, col8 from iteblog_table where id = 1 or col7 &lt;= 'xxx'"</span>)</span><br><span class="line">sqlContext.sql(<span class="string">"select id, col6, col8 from iteblog_table where id = 1 or col7 &gt;= 'xxx'"</span>)</span><br><span class="line">sqlContext.sql(<span class="string">"select id, col6, col8 from iteblog_table where col7 = 'xxx'"</span>)</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+<p>很显然，这种方式查询效率不高，一种可行的方案是将算子下推到HBase层面，在HBase层面通过SingleColumnValueFilter过滤一部分数据，然后再返回到Spark，这样可以节省很多数据的传输。</p>
+<h3 id="2-2-组合RowKey的查询优化"><a href="#2-2-组合RowKey的查询优化" class="headerlink" title="2.2 组合RowKey的查询优化"></a>2.2 组合RowKey的查询优化</h3><p>SHC还支持组合RowKey的方式来建表，具体如下：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">cat</span> </span>=</span><br><span class="line">  <span class="string">s""</span><span class="string">"{</span></span><br><span class="line"><span class="string">     |"</span><span class="string">table":{"</span><span class="string">namespace":"</span><span class="string">default", "</span><span class="string">name":"</span><span class="string">iteblog", "</span>tableC<span class="string">oder":"</span><span class="type">PrimitiveType</span><span class="string">"},</span></span><br><span class="line"><span class="string">     |"</span><span class="string">rowkey":"</span>key1:key2<span class="string">",</span></span><br><span class="line"><span class="string">     |"</span><span class="string">columns":{</span></span><br><span class="line"><span class="string">     |"</span>col00<span class="string">":{"</span><span class="string">cf":"</span><span class="string">rowkey", "</span><span class="string">col":"</span>key1<span class="string">", "</span><span class="string">type":"</span><span class="string">string", "</span><span class="string">length":"</span><span class="number">6</span><span class="string">"},</span></span><br><span class="line"><span class="string">     |"</span>col01<span class="string">":{"</span><span class="string">cf":"</span><span class="string">rowkey", "</span><span class="string">col":"</span>key2<span class="string">", "</span><span class="string">type":"</span><span class="string">int"},</span></span><br><span class="line"><span class="string">     |"</span>col1<span class="string">":{"</span><span class="string">cf":"</span>cf1<span class="string">", "</span><span class="string">col":"</span>col1<span class="string">", "</span><span class="string">type":"</span><span class="string">boolean"},</span></span><br><span class="line"><span class="string">     |"</span>col2<span class="string">":{"</span><span class="string">cf":"</span>cf2<span class="string">", "</span><span class="string">col":"</span>col2<span class="string">", "</span><span class="string">type":"</span><span class="string">double"},</span></span><br><span class="line"><span class="string">     |"</span>col3<span class="string">":{"</span><span class="string">cf":"</span>cf3<span class="string">", "</span><span class="string">col":"</span>col3<span class="string">", "</span><span class="string">type":"</span><span class="string">float"},</span></span><br><span class="line"><span class="string">     |"</span>col4<span class="string">":{"</span><span class="string">cf":"</span>cf4<span class="string">", "</span><span class="string">col":"</span>col4<span class="string">", "</span><span class="string">type":"</span><span class="string">int"},</span></span><br><span class="line"><span class="string">     |"</span>col5<span class="string">":{"</span><span class="string">cf":"</span>cf5<span class="string">", "</span><span class="string">col":"</span>col5<span class="string">", "</span><span class="string">type":"</span><span class="string">bigint"},</span></span><br><span class="line"><span class="string">     |"</span>col6<span class="string">":{"</span><span class="string">cf":"</span>cf6<span class="string">", "</span><span class="string">col":"</span>col6<span class="string">", "</span><span class="string">type":"</span><span class="string">smallint"},</span></span><br><span class="line"><span class="string">     |"</span>col7<span class="string">":{"</span><span class="string">cf":"</span>cf7<span class="string">", "</span><span class="string">col":"</span>col7<span class="string">", "</span><span class="string">type":"</span><span class="string">string"},</span></span><br><span class="line"><span class="string">     |"</span>col8<span class="string">":{"</span><span class="string">cf":"</span>cf8<span class="string">", "</span><span class="string">col":"</span>col8<span class="string">", "</span><span class="string">type":"</span><span class="string">tinyint"}</span></span><br><span class="line"><span class="string">     |}</span></span><br><span class="line"><span class="string">     |}"</span><span class="string">""</span>.stripMargin</span><br></pre></td></tr></tbody></table></figure>
+
+<p>上面的col00 和col01 两个列组合成一个RowKey ，并且col00排在前面，col01排在后面。比如col00 = ‘row001’,col01 = 2，那么组合的rowkey 为 row002\x00\x00\x00\x02。那么在组合RowKey的查询SHC都有哪些优化呢？现在我们有如下查询：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">df.sqlContext.sql(<span class="string">"select col00, col01, col1 from iteblog where col00 = 'row000' and col01 = 0"</span>).show()</span><br></pre></td></tr></tbody></table></figure>
+
+<p>根据上面的信息，RowKey其实是由 col00 和 col01 组合而成的，那么上面的查询其实可以将 col00 和 col01 进行拼接，然后组合成一个RowKey，然后上面的查询其实可以换成一个Get查询。但是在SCH里面，上面的查询是转换成一个Scan 和一个 Get 查询的。Scan 的 startRow为row000， endRow为 row000\xff\xff\xff\xff；get的rowkey为 row000\xff\xff\xff\xff，然后再将所有符合条件的数据返回，最后再在Spark层面上做一次过滤，得到最后查询的结果。因为SHC里面组合键查询的代码还没完善所以当前实现应该不是最终的。</p>
+<p>在SHC里面下面两条SQL查询下沉到HBase的逻辑一致</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">df.sqlContext.sql(<span class="string">"select col00, col01, col1 from iteblog where col00 = 'row000'"</span>).show()</span><br><span class="line">df.sqlContext.sql(<span class="string">"select col00, col01, col1 from iteblog where col00 = 'row000' and col01 = 0"</span>).show()</span><br></pre></td></tr></tbody></table></figure>
+
+<p>唯一的区别是Spark层面上的过滤。</p>
+<h3 id="2-3-Scan查询优化"><a href="#2-3-Scan查询优化" class="headerlink" title="2.3 Scan查询优化"></a>2.3 Scan查询优化</h3><p>如果我们的查询有 &lt; 或 &gt; 等查询过滤条件，比如下面的查询条件：</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">df.sqlContext.sql(<span class="string">"select col00, col01, col1 from iteblog where col00 &gt; 'row000' and col00 &lt; 'row005'"</span>).show()</span><br></pre></td></tr></tbody></table></figure>
+<p>这个在SHC里面转换成HBase的过滤为一条 Get 和一个 Scan，具体为get的RowKey为  row0005\xff\xff\xff\xff；Scan的startRow为row000，endRow 为 row005\xff\xff\xff\xff，然后将查询的结果返回到spark层面上进行过滤。</p>
+<p>总体来说SHC能在一定程度上对查询进行与哦话，避免了全表扫面，但经过测评那个，SHC其实还有很多不完善的地方，算子下称并没有下沉到HBase层面上进行。目前这个项目正在和HBase自带的connectors进行整合（ <a target="_blank" rel="noopener" href="https://github.com/apache/hbase-connectors">https://github.com/apache/hbase-connectors</a> ） ，相关 issue 参见 Enhance the current spark-hbase connector。</p>
+<h2 id="三、SHC-测试代码"><a href="#三、SHC-测试代码" class="headerlink" title="三、SHC 测试代码"></a>三、SHC 测试代码</h2><p>maven 依赖</p>
+<figure class="highlight xml"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.hortonworks<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>shc-core<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.1.1-2.1-s_2.11<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></tbody></table></figure>
+<p>如果jar包下载不下来可以手动下载到指定路径的文件夹下面然后手动注册一下</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mvn install:install-file -DgroupId=com.hortonworks -DartifactId=shc-core -Dversion=1.1.1-2.1-s_2.11 -Dpackaging=jar -Dfile=shc-core-1.1.1-2.1-s_2.11.jar</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.spark.sql.execution.datasources.hbase._</span><br><span class="line"><span class="keyword">import</span> org.apache.spark.sql.{<span class="type">DataFrame</span>, <span class="type">SparkSession</span>}</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">HBaseSource</span> </span>{</span><br><span class="line"> </span><br><span class="line">  <span class="keyword">val</span> cat = <span class="string">s""</span><span class="string">"{</span></span><br><span class="line"><span class="string">               |"</span><span class="string">table":{"</span><span class="string">namespace":default"</span>, <span class="string">"name"</span>:<span class="string">"test"</span>, <span class="string">"tableCoder"</span>:<span class="string">"PrimitiveType"</span>},</span><br><span class="line">               |<span class="string">"rowkey"</span>:<span class="string">"key"</span>,</span><br><span class="line">               |<span class="string">"columns"</span>:{</span><br><span class="line">               |<span class="string">"rk"</span>:{<span class="string">"cf"</span>:<span class="string">"rowkey"</span>, <span class="string">"col"</span>:<span class="string">"key"</span>, <span class="string">"type"</span>:<span class="string">"string"</span>},</span><br><span class="line">               |<span class="string">"deviceNo"</span>:{<span class="string">"cf"</span>:<span class="string">"info"</span>, <span class="string">"col"</span>:<span class="string">"deviceNo"</span>, <span class="string">"type"</span>:<span class="string">"string"</span>}</span><br><span class="line">               |}</span><br><span class="line">               |}<span class="string">""".stripMargin</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">  def main(args: Array[String]) {</span></span><br><span class="line"><span class="string">    System.setProperty("hadoop.home.dir", "D:\\ProgramFiles\\winutils-master\\hadoop-2.7.1")</span></span><br><span class="line"><span class="string">    val spark = SparkSession.builder()</span></span><br><span class="line"><span class="string">      .appName("HBaseSourceExample")</span></span><br><span class="line"><span class="string">      .master("local[4]")</span></span><br><span class="line"><span class="string">      .getOrCreate()</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">    val sc = spark.sparkContext</span></span><br><span class="line"><span class="string">    val sqlContext = spark.sqlContext</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">    import sqlContext.implicits._</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">    def withCatalog(cat: String): DataFrame = {</span></span><br><span class="line"><span class="string">      sqlContext</span></span><br><span class="line"><span class="string">        .read</span></span><br><span class="line"><span class="string">        .options(Map(HBaseTableCatalog.tableCatalog-&gt;cat))</span></span><br><span class="line"><span class="string">        .format("org.apache.spark.sql.execution.datasources.hbase")</span></span><br><span class="line"><span class="string">        .load()</span></span><br><span class="line"><span class="string">    }</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">    // 读取数据</span></span><br><span class="line"><span class="string">    val df = withCatalog(cat)</span></span><br><span class="line"><span class="string">    df.show(false)</span></span><br><span class="line"><span class="string">    df.createTempView("test")</span></span><br><span class="line"><span class="string">    sqlContext.sql("select deviceNo from test").show()</span></span><br><span class="line"><span class="string">    df.filter($"deviceNo" &lt;= "row005")</span></span><br><span class="line"><span class="string">      .select($"deviceNo", $"deviceNo").show</span></span><br><span class="line"><span class="string">      </span></span><br><span class="line"><span class="string">    //保存数据</span></span><br><span class="line"><span class="string">    df.write.options(</span></span><br><span class="line"><span class="string">       Map(HBaseTableCatalog.tableCatalog -&gt; cat, HBaseTableCatalog.newTable -&gt; "5"))</span></span><br><span class="line"><span class="string">       .format("org.apache.spark.sql.execution.datasources.hbase")</span></span><br><span class="line"><span class="string">       .save()</span></span><br><span class="line"><span class="string">    spark.stop()</span></span><br><span class="line"><span class="string">  }</span></span><br><span class="line"><span class="string">}</span></span><br></pre></td></tr></tbody></table></figure>
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/8dc03be4.html">https://www.hnbian.cn/posts/8dc03be4.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/hbase/">
+                                    <span class="chip bg-color">hbase</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/f2bc4737.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FkjtJLO514LV1y15Csa91Wc1faOr" class="responsive-img" alt="HBase节点时间不同步导致的异常">
+                        
+                        <span class="card-title">HBase节点时间不同步导致的异常</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2019-11-28
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hbase/" class="post-category">
+                                    hbase
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                    <a href="/tags/hbase/">
+                        <span class="chip bg-color">hbase</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/67b855b9.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FrNvNKmxh_tVKREySRtc1fwZHsra" class="responsive-img" alt="hbase创建表提示表已经存在而list显示无该表的处理">
+                        
+                        <span class="card-title">hbase创建表提示表已经存在而list显示无该表的处理</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2019-11-20
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hbase/" class="post-category">
+                                    hbase
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                    <a href="/tags/hbase/">
+                        <span class="chip bg-color">hbase</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

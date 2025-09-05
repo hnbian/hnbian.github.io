@@ -1,0 +1,1495 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="GreenPlum 数据存储介绍, hnbian">
+    <meta name="description" content="1. 数据存储分布式数据存储基本原理相对简单，实现比较容易，很多数据库中间件也可以做到基本的分布式数据存储。Greenplum 在这方面不单单做到了基本的分布式数据存储，还提供了很多更高级灵活的特性，譬如多级分区、多态存储。Greenplu">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>GreenPlum 数据存储介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fq6FsDKbBLcYmoWTZpQgN-mkLk8j')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">GreenPlum 数据存储介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/greenplum/">
+                                <span class="chip bg-color">greenplum</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/greenplum/" class="post-category">
+                                greenplum
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-05-06
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-数据存储"><a href="#1-数据存储" class="headerlink" title="1. 数据存储"></a>1. 数据存储</h2><p>分布式数据存储基本原理相对简单，实现比较容易，很多数据库中间件也可以做到基本的分布式数据存储。Greenplum 在这方面不单单做到了基本的分布式数据存储，还提供了很多更高级灵活的特性，譬如多级分区、多态存储。Greenplum 6 进一步增强了这一领域，实现了一致性哈希和复制表，并允许用户根据应用干预数据分布方法。<br>如下图所示，用户看到的是一个逻辑数据库，每个数据库有系统表（例如 pg_catalog 下面的 pg_class, pg_proc 等）和用户表（下例中为 sales 表和 customers 表）。在物理层面，它有很多个独立的数据库组成。每个数据库都有它自己的一份系统表和用户表。</p>
+<p><img src="https://images.hnbian.cn/FqRNCRtxeiGI5DTqa_psQ2BATCZC?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>master 数据库仅仅包含元数据而不保存用户数据。master 上仍然有用户数据表，这些用户数据表都是空表，没有数据。优化器需要使用这些空表进行查询优化和计划生成。segment 数据库上绝大多数系统表（除了少数表，例如统计信息相关表）和 master 上的系统表内容一样，每个 segment 都保存用户数据表的一部分。</p>
+<p>在 Greenplum 中，用户数据按照某种策略分散到不同节点的不同 segment 实例中。每个实例都有自己独立的数据目录，以磁盘文件的方式保存用户数据。使用标准的 INSERT SQL 语句可以将数据自动按照用户定义的策略分布到合适的节点，然而 INSERT 性能较低，仅适合插入少量数据。Greenplum 提供了专门的并行化数据加载工具以实现高效数据导入，详情可以参考 gpfdist 和 gpload 的官方文档。此外 Greenplum 还支持并行 COPY，如果数据已经保存在每个 segment 上，这是最快的数据加载方法。下图形象的展示了用户的 sales 表数据被分布到不同的 segment 实例上。</p>
+<h2 id="2-分区表"><a href="#2-分区表" class="headerlink" title="2. 分区表"></a>2. 分区表</h2><p>分区表就是将一个大表在物理上分割成若干小表，并且整个过程对用户是透明的，也就是用户的所有操作仍然是作用在大表上，不需要关心数据实际上落在哪张小表里面。Greenplum中分区表的原理和PostgreSQL一样，都是通过表继承和约束实现的。<br>Greenplum官方给出的分区表示例如下：</p>
+<p><img src="https://images.hnbian.cn/Fk3r0LlsPli1uoLjH-7yE8a2xIA1?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h3 id="2-1-分区与分布的区别"><a href="#2-1-分区与分布的区别" class="headerlink" title="2.1 分区与分布的区别"></a>2.1 分区与分布的区别</h3><p>分布：DISTRIBUTED<br>分区：PARTITION<br>数据分布是在物理上拆分表数据，将数据打散到各个节点，使数据可以并行计算，这在Greenplum中是必须的。<br>表分区是在逻辑上拆分大表的数据提高查询性能，也有利于数据生命周期的管理，这在Greenplum中是可选的。<br>无论是分区表还是非分区表，在Greenplum中，数据都是分散到各个节点上的。分区不会影响数据在各个节点上的分布情况。</p>
+<h3 id="2-2范围分区"><a href="#2-2范围分区" class="headerlink" title="2.2	范围分区"></a>2.2	范围分区</h3><p>根据某个列的时间范围或者数值范围对数据分区。譬如以下 SQL 将创建一个分区表，该表按天分区，从 2019-01-01 到 2020-01-01 把全部一年的数据按天分成了 366 个分区</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> sales (id <span class="type">int</span>, <span class="type">date</span> <span class="type">date</span>, amt <span class="type">decimal</span>(<span class="number">10</span>,<span class="number">2</span>))</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> (id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (<span class="type">date</span>)</span><br><span class="line">( <span class="keyword">START</span> (<span class="type">date</span> <span class="string">'2019-01-01'</span>) INCLUSIVE</span><br><span class="line"><span class="keyword">END</span> (<span class="type">date</span> <span class="string">'2020-01-01'</span>) EXCLUSIVE</span><br><span class="line"><span class="keyword">EVERY</span> (<span class="type">INTERVAL</span> <span class="string">'1 day'</span>) );</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<h3 id="2-3-列表分区"><a href="#2-3-列表分区" class="headerlink" title="2.3 列表分区"></a>2.3 列表分区</h3><p>按照某个列的数据值列表，将数据分不到不同的分区。譬如以下 SQL 根据性别创建一个分区表，该表有三个分区：一个分区存储女士数据，一个分区存储男士数据，对于其他值譬如 NULL，则存储在单独 other 分区。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">CREATE TABLE</span> <span class="built_in">rank</span> (id <span class="type">int</span>, rank <span class="type">int</span>, <span class="keyword">year</span> <span class="type">int</span>, gender <span class="type">char</span>(<span class="number">1</span>), count <span class="type">int</span> ) </span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> (id)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> LIST (gender)</span><br><span class="line">( <span class="keyword">PARTITION</span> girls <span class="keyword">VALUES</span> (<span class="string">'F'</span>), </span><br><span class="line"><span class="keyword">PARTITION</span> boys <span class="keyword">VALUES</span> (<span class="string">'M'</span>), </span><br><span class="line"><span class="keyword">DEFAULT</span> <span class="keyword">PARTITION</span> other );</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>下图展示了用户的 sales 表首先被分布到两个节点，然后每个节点又按照某个标准进行了分区。分区的主要目的是实现分区裁剪以通过降低数据访问量来提高性能。分区裁剪指根据查询条件，优化器自动把不需要访问的分区过滤掉，以降低查询执行时的数据扫描量。PostgreSQL 支持静态条件分区裁剪，Greenplum 通过 ORCA 优化器实现了动态分区裁剪。动态分区裁剪可以提升十几倍至数百倍性能。<br><img src="https://images.hnbian.cn/FgufIZTo8t_GXGv-xfk6JaxqWwxP?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h2 id="3-2存储格式"><a href="#3-2存储格式" class="headerlink" title="3.2	存储格式"></a>3.2	存储格式</h2><h3 id="3-2-1存储格式介绍"><a href="#3-2-1存储格式介绍" class="headerlink" title="3.2.1	存储格式介绍"></a>3.2.1	存储格式介绍</h3><p>Greenplum（以下简称GP）有2种存储格式，Heap表和AO表（AORO表，AOCO表） 。<br>Heap表：这种存储格式是从PostgreSQL继承而来的，目前是GP默认的表存储格式，只支持行存储。<br>AO表： AO表最初设计是只支持append的 （就是只能insert）， 因此全称是Append-Only，在4.3之后进行了优化，目前已经可以update和delete了，全称也改为Append-Optimized。AO支持行存储（AORO）和列存储（AOCO）。</p>
+<h3 id="3-2-2Heap表"><a href="#3-2-2Heap表" class="headerlink" title="3.2.2	Heap表"></a>3.2.2	Heap表</h3><p>Heap表是从PostgreSQL继承而来，使用MVCC来实现一致性。如果你在创建表的时候没有指定任何存储格式，那么GP就会使用Heap表。<br>Heap表支持分区表，只支持行存，不支持列存和压缩。需要注意的是在处理update和delete的时候，Heap表并没有真正删除数据，而只是依靠version信息屏蔽老的数据，因此如果你的表有大量的update或者delete，表占用的物理空间会不断增大，这个时候需要依靠vacuum来清理老数据。<br>Heap表不支持逻辑增量备份，因此如果要对Heap表做快照，每次都需要导出全量数据。<br>建表语句</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> heap(</span><br><span class="line">a <span class="type">int</span>, </span><br><span class="line">b <span class="type">varchar</span>(<span class="number">32</span>)</span><br><span class="line">) DISTRIBUTED <span class="keyword">BY</span> (a);</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>最佳实践：<br>如果该表是一张小表，比如数仓中的维度表，或者数据量在百万以下，推荐使用Heap表。<br>如果该表的使用场景是OLTP的，比如有较多的update和delete，查询多是带索引的点查询等，推荐使用Heap表。</p>
+<h3 id="3-2-3AO表"><a href="#3-2-3AO表" class="headerlink" title="3.2.3	AO表"></a>3.2.3	AO表</h3><p>AO表是GP特有的，设计的目的就是为了数仓中大型的事实表。AO表支持行存和列存，并且也支持对数据进行压缩。<br>AO表无论是在表的逻辑结构还是物理结构上，都与Heap表有很大的不同。比如上文所述Heap表使用MVCC控制update和delete之后数据的可见性，而AO表则使用一个附加的bitmap表来实现，这个表的的内容就是表示AO表中哪些数据是可见的。<br>对于有大量update和delete的AO表，同样需要vacuum进行维护，不过在AO表中，vacuum需要对bitmap进行重置并压缩物理文件，因此通常比Heap的vacuum要慢。</p>
+<h3 id="3-2-4AORO表"><a href="#3-2-4AORO表" class="headerlink" title="3.2.4	AORO表"></a>3.2.4	AORO表</h3><p>AORO就是行存的AO表，同时行存也是AO表的默认存储方式。<br>AORO支持表级别的压缩，不支持列级别的压缩。</p>
+<h4 id="3-2-4-1建表语句"><a href="#3-2-4-1建表语句" class="headerlink" title="3.2.4.1	建表语句"></a>3.2.4.1	建表语句</h4><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">CREATE TABLE</span> aoro(</span><br><span class="line">	a <span class="type">int</span>,</span><br><span class="line">	b <span class="type">int</span>,</span><br><span class="line">	c <span class="type">varchar</span>(<span class="number">32</span>),</span><br><span class="line">	d <span class="type">varchar</span>(<span class="number">32</span>)</span><br><span class="line">)</span><br><span class="line"><span class="keyword">WITH</span> (appendonly<span class="operator">=</span><span class="literal">true</span>, orientation<span class="operator">=</span><span class="type">row</span>, compresstype<span class="operator">=</span>zlib, compresslevel<span class="operator">=</span><span class="number">4</span>)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> (a)</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>重点是with后的appendonly=true，由于AO表默认是行存，因此orientation=row也可以不要，后面的compresstype=zlib, compresslevel=4都是压缩相关选项。</p>
+<h4 id="3-2-4-2压缩选项"><a href="#3-2-4-2压缩选项" class="headerlink" title="3.2.4.2	压缩选项"></a>3.2.4.2	压缩选项</h4><p>compresstype ：压缩格式，开源版本的AORO表只支持zlib。<br>compresslevel ：压缩级别，从1-9，简单说来，级别越低（1最低），压缩比越低，但是压缩与解压消耗的cpu资源就越少。默认压缩级别是1。</p>
+<h4 id="3-2-4-3最佳实践"><a href="#3-2-4-3最佳实践" class="headerlink" title="3.2.4.3	最佳实践"></a>3.2.4.3	最佳实践</h4><p>AO表主要是针对大表，比如数仓中的事实表。<br>AO表支持逻辑增量备份，对于比较大的表，如果需要定期做快照，建议使用AO表，否则每次都要导出全量数据。<br>如果该表是大表，使用场景偏OLTP并且update和delete频率不高，可以考虑使用AORO表。<br>如果该表是大表，并且查询通常都需要扫描大多数列比如查询明细（最典型的就是SELECT * FROM），可以考虑使用AORO表。<br>在设置压缩级别的时候，通常对于Snova用户，设置到4或者5是比较折中的一个选择。</p>
+<h3 id="3-2-5AOCO表"><a href="#3-2-5AOCO表" class="headerlink" title="3.2.5	AOCO表"></a>3.2.5	AOCO表</h3><p>AOCO表就是列存的AO表。<br>AOCO不仅支持表级别的压缩，同时也支持列级别的压缩。</p>
+<h4 id="3-2-5-1建表语句"><a href="#3-2-5-1建表语句" class="headerlink" title="3.2.5.1	建表语句"></a>3.2.5.1	建表语句</h4><figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> aoco(</span><br><span class="line">	a <span class="type">int</span>  ENCODING (compresstype<span class="operator">=</span>zlib, compresslevel<span class="operator">=</span><span class="number">5</span>),</span><br><span class="line">	b <span class="type">int</span>  ENCODING (compresstype<span class="operator">=</span><span class="keyword">none</span>),</span><br><span class="line">	c <span class="type">varchar</span>(<span class="number">32</span>) ENCODING (compresstype<span class="operator">=</span>RLE_TYPE, blocksize<span class="operator">=</span><span class="number">32768</span>),</span><br><span class="line">	d <span class="type">varchar</span>(<span class="number">32</span>),</span><br><span class="line">	fdate <span class="type">date</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">WITH</span> (appendonly<span class="operator">=</span><span class="literal">true</span>, orientation<span class="operator">=</span><span class="keyword">column</span>, compresstype<span class="operator">=</span>zlib, compresslevel<span class="operator">=</span><span class="number">6</span>, blocksize<span class="operator">=</span><span class="number">65536</span>)</span><br><span class="line">DISTRIBUTED <span class="keyword">BY</span> (a)</span><br><span class="line"><span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span>(fdate) </span><br><span class="line">(</span><br><span class="line">	<span class="keyword">PARTITION</span> pn <span class="keyword">START</span> (<span class="string">'2018-11-01'</span>::<span class="type">date</span>) <span class="keyword">END</span> (<span class="string">'2018-11-10'</span>::<span class="type">date</span>) <span class="keyword">EVERY</span> (<span class="string">'1 day'</span>::<span class="type">interval</span>),</span><br><span class="line">	<span class="keyword">DEFAULT</span> <span class="keyword">PARTITION</span> pdefault</span><br><span class="line">);</span><br></pre></td></tr></tbody></table></figure>
+
+<h4 id="3-2-5-2压缩选项"><a href="#3-2-5-2压缩选项" class="headerlink" title="3.2.5.2	压缩选项"></a>3.2.5.2	压缩选项</h4><p>compresstype：支持2种压缩格式，zlib和RLE_TYPE，其中RLE_TYPE（Run-length Encoding）对于有较多重复值的列压缩比很高，因为它会将多个重复值存储为一个值，从而大大降低存储量，比如日期，性别，年龄等字段。<br>compresslevel：compresstype如果是zlib，compresslevel在1-9，compresstype如果是RLE_TYPE，compresslevel在1-4。<br>列压缩与表压缩：AOCO表除了支持表级别的压缩外，还支持列级别的压缩，列级别的压缩配置会覆盖表级别的压缩配置，比如上述语法中4个字段，每个字段都采用了不用的压缩方式，d列没有定义，则会默认使用表级别的压缩方式。<br>分区压缩：在使用分区表的时候，每个分区表也可以设置不同的压缩配置，这个常用于对数据进行冷热分离，比如对于非常老的数据，由于访问频率较低，可以考虑采用较大的压缩比，减少存储量。</p>
+<h4 id="3-2-5-3BLOCKSIZE"><a href="#3-2-5-3BLOCKSIZE" class="headerlink" title="3.2.5.3	BLOCKSIZE"></a>3.2.5.3	BLOCKSIZE</h4><p>表的存储块大小，通常表数据对应的物理文件就是按blocksize的粒度增加，也就是初始就是blocksize大，并且保持blocksize的倍数。在AOCO表中，每一列也可以设置自己的blocksize，列的配置会覆盖表的配置。<br>blocksize大小在8192和2097152之间，必须是8192的倍数，默认是32768。</p>
+<h4 id="3-2-5-4物理文件"><a href="#3-2-5-4物理文件" class="headerlink" title="3.2.5.4	物理文件"></a>3.2.5.4	物理文件</h4><p>AOCO表之所以能够按照列来设置压缩等参数，本质原因在于AOCO表中每一列的数据都会单独存储在一个文件中。因此不同文件之间可以按不同的参数进行存储，互不影响。<br>对于AOCO表，如果使用了分区，那么对于每一个分区的每一列都会有一个文件，如果一个表的分区很多，又是一张大宽表，那么产生的文件就会很多，也会对性能有一些影响。</p>
+<h4 id="3-2-5-5最佳实践"><a href="#3-2-5-5最佳实践" class="headerlink" title="3.2.5.5	最佳实践"></a>3.2.5.5	最佳实践</h4><p>AOCO表通常用于数仓中的核心事实表，这种表字段多，数据量大，主要是用于OLAP场景，也就是查询的过程不会SELECT * FROM，而是对其中部分字段进行读取和聚合。<br>由于AOCO表一般用于大表，因此经常搭配压缩和分区，以减少表的实际存储量来提升性能。<br>一般情况下，压缩格式选择zlib，压缩级别可以采用折中的4或者5，但是对于有大量重复值的字段，记得要采用RLE_TYPE压缩格式。<br>blocksize不要设置过大，特别是对于分区表，GP对于每个分区的每个字段都会维护一个buffer，blocksize过大，会导致消耗的内存过大，通常就采用默认值32768即可。</p>
+<h3 id="3-2-6外部表"><a href="#3-2-6外部表" class="headerlink" title="3.2.6	外部表"></a>3.2.6	外部表</h3><p>外部表的数据存储在外部（数据不被 Greenplum 管理），Greenplum 中只有外部表的元数据信息。Greenplum 支持很多外部数据源譬如 S3、HDFS、文件、Gemfire、各种关系数据库等和多种数据格式譬如 Text、CSV、Avro、Parquet 等。</p>
+<h3 id="3-2-7修改表结构"><a href="#3-2-7修改表结构" class="headerlink" title="3.2.7	修改表结构"></a>3.2.7	修改表结构</h3><p>Heap、AORO和AOCO这3种表在修改表结构时表现是不一样的，对于不同的表类型，同样的修改语法耗时可能会差异很多，主要原因在于对于有些修改操作会导致表重写，而表重写的时间就取决于表本身的数据量。<br>以下列出了不同的表结构，在不同的ALTER语法下的行为，其中YES代表需要重写表，NO代表不需要重写表。</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>Heap</th>
+<th>AORO</th>
+<th>AOCO</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ADD COLUMN</td>
+<td>NO</td>
+<td>YES</td>
+<td>NO</td>
+</tr>
+<tr>
+<td>DROP COLUMN</td>
+<td>NO</td>
+<td>NO</td>
+<td>NO</td>
+</tr>
+<tr>
+<td>ALTER COLUMN TYPE</td>
+<td>YES</td>
+<td>YES</td>
+<td>YES</td>
+</tr>
+<tr>
+<td>ADD COLUMN DEFAULT NULL</td>
+<td>YES</td>
+<td>YES</td>
+<td>NO</td>
+</tr>
+<tr>
+<td>ADD COLUMN DEFAULT VALUE</td>
+<td>YES</td>
+<td>YES</td>
+<td>NO</td>
+</tr>
+</tbody></table>
+<p>可以看出AOCO表由于每个列都是单独一个文件，因此在修改列结构时影响最小，这也是AOCO表的一个优势。</p>
+<h3 id="3-2-8对比测试"><a href="#3-2-8对比测试" class="headerlink" title="3.2.8	对比测试"></a>3.2.8	对比测试</h3><h4 id="3-2-8-1各类型表占用空间比较"><a href="#3-2-8-1各类型表占用空间比较" class="headerlink" title="3.2.8.1	各类型表占用空间比较"></a>3.2.8.1	各类型表占用空间比较</h4><p>选取Heap，AORO，AOCO三种表，分别采用压缩和不压缩2种方式（Heap表不支持压缩，AO表压缩采用zlib格式，压缩级别设置为6），插入5亿条随机数据，然后使用</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> pg_size_pretty(pg_relation_size(<span class="string">'{tablename}'</span>));</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>查看表所占大小，结果如下：</p>
+<p> 图表待补充</p>
+<p> 可以看出Heap表占用空间更大，即使AO表不采用压缩。AOCO表由于是按列进行存储，所以相比行存的AORO表压缩比更大。当然这三者的差距取决于数据的实际情况，一般生产环境中Heap表不会和AO表有如此大的差距。</p>
+<h3 id="3-2-8-2各级别压缩率比较"><a href="#3-2-8-2各级别压缩率比较" class="headerlink" title="3.2.8.2	各级别压缩率比较"></a>3.2.8.2	各级别压缩率比较</h3><p> 使用AOCO表，zlib压缩格式，选取不同的压缩级别，比较数据写入时间和表所占大小，由于zlib支持9个级别，这里选取1,6,9 三个级别进行比较，体现出趋势即可，结果如下：<br>图表待补充<br>实际生产环境中不同压缩级别的数据，压缩比的差距可能会更大。但可以看出，越高的压缩级别，在插入的时候越耗时，其它SQL，类似SELECT，UPDATE等也都是一样。</p>
+<h2 id="3-3分布策略"><a href="#3-3分布策略" class="headerlink" title="3.3	分布策略"></a>3.3	分布策略</h2><p>数据分布是任何 MPP 数据库的基础，也是 MPP 数据库是否高效的关键之一。通过把海量数据分散到多个节点上，一方面大大降低了单个节点处理的数据量，另一方面也为处理并行化奠定了基础，两者结合起来可以极大的提高整个系统的性能。譬如在一百个节点的集群上，每个节点仅保存总数据量的百分之一，一百个节点同时并行处理，性能会是单个配置更强节点的几十倍。如果数据分布不均匀出现数据倾斜，受短板效应制约，整个系统的性能将会和最慢的节点相同。因而数据分布是否合理对 Greenplum 整体性能影响很大。<br>Greenplum中每个表都需要有一个分布键，如果你建表的时候没有显示使用语法DISTRIBUTED BY (column) 指定一个分布键，系统也会默认为你指定一个。分布目的是把数据打散到每个节点，打散的规则是hash或者random。这样在计算时可以充分利用每个节点的资源进行并行计算。</p>
+<h3 id="3-3-1哈希-Hash-分布"><a href="#3-3-1哈希-Hash-分布" class="headerlink" title="3.3.1	哈希( Hash )分布"></a>3.3.1	哈希( Hash )分布</h3><p>哈希分布是 Greenlum 最常用的数据分布方式。根据预定义的分布键计算用户数据的哈希值，然后把哈希值映射到某个 segment 上。 分布键可以包含多个字段。分布键选择是否恰当是 Greenplum 能否发挥性能的主要因素。好的分布键将数据均匀分布到各个 segment 上，避免数据倾斜。<br>Greenplum 计算分布键哈希值的代码在 cdbhash.c 中。结构体 CdbHash 是处理分布键哈希的主要数据结构。 计算分布键哈希值的逻辑为：<br>使用 makeCdbHash(int segnum) 创建一个 CdbHash 结构体<br>然后对每个 tuple 执行下面操作，计算该 tuple 对应的哈希值，并确定该 tuple 应该分布到哪个 segment 上：<br>1） cdbhashinit()：执行初始化操作<br>2） cdbhash(), 这个函数会调用 hashDatum() 针对不同类型做不同的预处理，最后 addToCdbHash() 将处理后的列值添加到哈希计算中<br>3） cdbhashreduce() 映射哈希值到某个 segment</p>
+<h3 id="3-3-2随机-Random-分布"><a href="#3-3-2随机-Random-分布" class="headerlink" title="3.3.2	随机( Random )分布"></a>3.3.2	随机( Random )分布</h3><p>使用 Random 分布方式，表中的数据将均匀地打散到各个子节点上，并且随着数据地进入顺序循环 地打散到各个子节点上，表上相同的值并不一定颁布在同一个节点上，官方认为选择 Hash 分区方式在性能上占有优势。<br>create table t1 (id int) DISTRIBUTED RANDOMLY;</p>
+<p>如果不能确定一张表的哈希分布键或者不存在合理的避免数据倾斜的分布键，则可以使用随机分布。随机分布会采用循环的方式将一次插入的数据存储到不同的节点上。随机性只在单个 SQL 中有效，不考虑跨 SQL 的情况。譬如如果每次插入一行数据到随机分布表中，最终的数据会全部保存在第一个节点上。<br>有些工具使用随机分布实现数据管理，譬如扩容工具 gpexpand 在增加节点后需要对数据进行重分布。在初始化的时候，gpexpand 会把所有表都标记为随机分布，然后执行重新分布操作，这样重分布操作不影响业务的正常运行。（Greenplum 6 重新设计了 gpexpand，不再需要修改分布策略为随机分布）</p>
+<h3 id="3-3-3复制表（Replicated-Table）"><a href="#3-3-3复制表（Replicated-Table）" class="headerlink" title="3.3.3	复制表（Replicated Table）"></a>3.3.3	复制表（Replicated Table）</h3><p>Greenplum 6 支持一种新的分布策略：复制表，即整张表在每个节点上都有一个完整的拷贝。</p>
+<p>CREATE TABLE t2 (id int) DISTRIBUTED REPLICATED;<br>复制表解决了两个问题：</p>
+<ol>
+<li>UDF 在 segment 上不能访问任何表。由于 MPP 的特性，任何 segment 仅仅包含部分数据，因而在 segment 执行的 UDF 不能访问任何表，否则数据计算错误。</li>
+<li>避免分布式执行计划：如果一张表的数据在各个 segment 上都有拷贝，那么就可以生成本地连接计划，而避免数据在集群的不同节点间移动。如果用复制表存储数据量比较小的表（譬如数千行），那么性能有明显的提升。 数据量大的表不适合使用复制表模式。<br>复制表有很多应用场景，譬如 PostGIS 的 spatial_ref_sys （PostGIS 有大量的 UDF 需要访问这张表）和 PLR 中的 plr_modules 都可以采用复制表方式。在支持这个特性之前，Greenplum 只能通过一些小技巧来支持诸如 spatial_ref_sys 之类的表。</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/2138505f.html">https://www.hnbian.cn/posts/2138505f.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/greenplum/">
+                                    <span class="chip bg-color">greenplum</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/1412106c.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FvAk-MeXHTPDm6ktvR-yGJAK5VlI" class="responsive-img" alt="GreenPlum 权限管理">
+                        
+                        <span class="card-title">GreenPlum 权限管理</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-05-15
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/greenplum/" class="post-category">
+                                    greenplum
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/greenplum/">
+                        <span class="chip bg-color">greenplum</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/46aa150e.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fj__Qz4nhH4B_T8C2UXlUn8nNUVA" class="responsive-img" alt="Flink系列 4. 架构与组件介绍">
+                        
+                        <span class="card-title">Flink系列 4. 架构与组件介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-05-05
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/flink/" class="post-category">
+                                    flink
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

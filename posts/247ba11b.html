@@ -1,0 +1,1525 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Spark SQL 自适应执行实践, hnbian">
+    <meta name="description" content="本文作者是 ：王愈舟、俞育才、郭晨钊、程浩（英特尔）、李元健（百度）
+1. Spark SQL 介绍Spark SQL 是 Apache Spark 最广泛使用的一个组件，它提供了非常友好的接口来分布式处理结构化数据，在很多应用领域都有成功">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Spark SQL 自适应执行实践 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FrN4vbzEBFOBMcrYy2Bf6m1fzizs')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Spark SQL 自适应执行实践</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/spark-sql/">
+                                <span class="chip bg-color">spark sql</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2018-05-20
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p><strong>本文作者是 ：王愈舟、俞育才、郭晨钊、程浩（英特尔）、李元健（百度）</strong></p>
+<h2 id="1-Spark-SQL-介绍"><a href="#1-Spark-SQL-介绍" class="headerlink" title="1. Spark SQL 介绍"></a>1. Spark SQL 介绍</h2><p>Spark SQL 是 Apache Spark 最广泛使用的一个组件，它提供了非常友好的接口来分布式处理结构化数据，在很多应用领域都有成功的生产实践，但是在超大规模集群和数据集上，Spark SQL 仍然遇到不少易用性和可扩展性的挑战。为了应对这些挑战，英特尔大数据技术团队和百度大数据基础架构部工程师在Spark 社区版本的基础上，改进并实现了自适应执行引擎。</p>
+<p>本文首先讨论 Spark SQL 在大规模数据集上遇到的挑战，然后介绍自适应执行的背景和基本架构，以及自适应执行如何应对 Spark SQL 这些问题，最后我们将比较自适应执行和现有的社区版本 Spark SQL 在 100 TB 规模TPC-DS基准测试碰到的挑战和性能差异，以及自适应执行在Baidu Big SQL平台的使用情况。</p>
+<h2 id="2-抛出挑战"><a href="#2-抛出挑战" class="headerlink" title="2. 抛出挑战"></a>2. 抛出挑战</h2><h3 id="2-1-挑战1：关于shuffle-partition数"><a href="#2-1-挑战1：关于shuffle-partition数" class="headerlink" title="2.1 挑战1：关于shuffle partition数"></a>2.1 挑战1：关于shuffle partition数</h3><p>在 Spark SQL 中， shufflepartition 数可以通过参数 <code>spark.sql.shuffle.partition</code> 来设置，默认值是 200。这个参数决定了SQL作业每个 reduce 阶段任务数量，对整个查询性能有很大影响。</p>
+<p>假设一个查询运行前申请了 E 个 Executor，每个 Executor 包含 C 个core（并发执行线程数），那么该作业在运行时可以并行执行的任务数就等于 <code>E x C</code> 个，或者说该作业的并发数是 <code>E x C</code> 。假设 shuffle partition 个数为 P ，除了 map stage 的任务数和原始数据的文件数量以及大小相关之外，后续的每个 reduce stage 的任务数都是 P。</p>
+<p>由于 Spark 作业调度是抢占式的，<code>E x C</code> 个并发任务执行单元会抢占执行 P 个任务，“能者多劳”，直至所有任务完成，则进入到下一个Stage。但这个过程中，如果有任务因为处理数据量过大（例如：数据倾斜导致大量数据被划分到同一个 reducer partition ）或者其它原因造成该任务执行时间过长，一方面会导致整个 stage 执行时间变长，另一方面 <code>E x C</code> 个并发执行单元大部分可能都处于空闲等待状态，集群资源整体利用率急剧下降。</p>
+<p><strong>那么 <code>spark.sql.shuffle.partition</code> 参数究竟是多少比较合适？</strong></p>
+<p>如果 <code>shuffle partition</code> 设置过小，分配给每一个 reduce 任务处理的数据量就越多，在内存大小有限的情况下，不得不溢写（spill）到计算节点本地磁盘上。Spill 会导致额外的磁盘读写，影响整个SQL查询的性能，更差的情况还可能导致严重的 GC 问题甚至是 OOM。</p>
+<p>如果 <code>shuffle partition</code> 设置过大：</p>
+<ol>
+<li><p>每一个 reduce 任务处理的数据量很小并且很快结束，进而导致Spark任务调度负担变大。</p>
+</li>
+<li><p>每一个 mapper 任务必须把自己的 shuffle 输出数据分成 P 个 hash bucket，即确定数据属于哪一个 reduce partition，当shuffle partition数量太多时，hash bucket 里数据量会很小，在作业并发数很大时，reduce 任务 shuffle 拉取数据会造成一定程度的随机小数据读操作，当使用机械硬盘作为 shuffle 数据临时存取的时候性能下降会更加明显。</p>
+</li>
+<li><p>当最后一个 stage 保存数据时会写出 P 个文件，也可能会造成 HDFS 文件系统中大量的小文件。</p>
+</li>
+</ol>
+<p>从上，shuffle partition 的设置既不能太小也不能太大。为了达到最佳的性能，往往需要经多次试验才能确定某个 SQL 查询最佳的shuffle partition 值。然而在生产环境中，往往 SQL 以定时作业的方式处理不同时间段的数据，数据量大小可能变化很大，我们也无法为每一个SQL查询去做耗时的人工调优，这也意味这些 SQL 作业很难以最佳的性能方式运行。</p>
+<p>Shuffle partition 的另外一个问题是，同一个 shuffle partition 数设置将应用到所有的 stage 。Spark在执行一个SQL作业时，会划分成多个 stage 。通常情况下，每个 stage 的数据分布和大小可能都不太一样，全局的 shuffle partition 设置最多只能对某个或者某些 stage最优，没有办法做到全局所有的stage设置最优。</p>
+<p>这一系列关于 shufflepartition 的性能和易用性挑战，促使我们思考新的方法：我们能否根据运行时获取的 shuffle 数据量信息，例如数据块大小，记录行数等等，自动为每一个 stage 设置合适的 shuffle partition 值？</p>
+<h3 id="2-2-挑战2：Spark-SQL最佳执行计划"><a href="#2-2-挑战2：Spark-SQL最佳执行计划" class="headerlink" title="2.2 挑战2：Spark SQL最佳执行计划"></a>2.2 挑战2：Spark SQL最佳执行计划</h3><p>Spark SQL 在执行 SQL 之前，会将 SQL 或者 Dataset 程序解析成逻辑计划，然后经历一系列的优化，最后确定一个可执行的物理计划。最终选择的物理计划的不同对性能有很大的影响。如何选择最佳的执行计划，这便是 Spark SQL 的 Catalyst 优化器的核心工作。Catalyst 早期主要是基于规则的优化器（RBO），在Spark 2.2中又加入了基于代价的优化（CBO）。目前执行计划的确定是在计划阶段，一旦确认以后便不再改变。然而在运行期间，当我们获取到更多运行时信息时，我们将有可能得到一个更佳的执行计划。</p>
+<p>以 join 操作为例，在 Spark 中最常见的策略是 <code>BroadcastHashJoin</code> 和 <code>SortMergeJoin</code>。</p>
+<ul>
+<li><code>BroadcastHashJoin</code> 属于 map side join，其原理是当其中一张表存储空间大小小于 broadcast 阈值时，Spark选择将这张小表广播到每一个 Executor 上，然后在 map 阶段，每一个 mapper 读取大表的一个分片，并且和整张小表进行 join ，整个过程中避免了把大表的数据在集群中进行 shuffle 。</li>
+<li><code>SortMergeJoin</code> 在 map 阶段 2 张数据表都按相同的分区方式进行 shuffle 写，reduce 阶段每个 reducer 将两张表属于对应partition 的数据拉取到同一个任务中做 join。</li>
+</ul>
+<p>RBO 根据数据的大小，尽可能把 join 操作优化成 BroadcastHashJoin。Spark中使用参数 <code>spark.sql.autoBroadcastJoinThreshold</code> 来控制选择 BroadcastHashJoin 的阈值，默认是10MB。然而对于复杂的 SQL 查询，它可能使用中间结果来作为 join 的输入，在计划阶段，Spark 并不能精确地知道 join 中两表的大小或者会错误地估计它们的大小，以致于错失了使用 BroadcastHashJoin 策略来优化 join 执行的机会。但是在运行时，通过从 shuffle 写得到的信息，我们可以动态地选用 BroadcastHashJoin。以下是一个例子，join 一边的输入大小只有600K，但Spark仍然规划成 SortMergeJoin。</p>
+<img src="https://images.hnbian.cn/image-20210908110123027.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 1" style="zoom:50%;">
+
+<p>这促使我们思考第二个问题：我们能否通过运行时收集到的信息，来动态地调整执行计划？</p>
+<h3 id="2-3-挑战3：数据倾斜"><a href="#2-3-挑战3：数据倾斜" class="headerlink" title="2.3 挑战3：数据倾斜"></a>2.3 挑战3：数据倾斜</h3><p>数据倾斜是常见的导致 Spark SQL 性能变差的问题。数据倾斜是指某一个 partition 的数据量远远大于其它 partition 的数据，导致个别任务的运行时间远远大于其它任务，因此拖累了整个 SQL 的运行时间。</p>
+<p>在实际SQL作业中，数据倾斜很常见，join key 对应的 hash bucket 总是会出现记录数不太平均的情况，在极端情况下，相同 join key 对应的记录数特别多，大量的数据必然被分到同一个 partition 因而造成数据严重倾斜。如图2，可以看到大部分任务3秒左右就完成了，而最慢的任务却花了4分钟，它处理的数据量却是其它任务的若干倍。</p>
+<p><img src="https://images.hnbian.cn/image-20210908111745800.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 2"></p>
+<p>目前，处理 join 时数据倾斜的一些常见手段有： </p>
+<ol>
+<li><p>增加 shuffle partition 数量，期望原本分在同一个 partition 中的数据可以被分散到多个 partition 中，但是对于同 key 的数据没有作用。</p>
+</li>
+<li><p>调大 BroadcastHashJoin 的阈值，在某些场景下可以把 SortMergeJoin 转化成 BroadcastHashJoin 而避免 shuffle 产生的数据倾斜。</p>
+</li>
+<li><p>手动过滤倾斜的 key，并且对这些数据加入随机的前缀，在另一张表中这些 key 对应的数据也相应的膨胀处理，然后再做join。</p>
+</li>
+</ol>
+<p>综上，这些手段都有各自的局限性并且涉及很多的人为处理。</p>
+<p>基于此，我们思考了第三个问题：Spark能否在运行时自动地处理join中的数据倾斜？</p>
+<h2 id="3-自适应性执行框架介绍"><a href="#3-自适应性执行框架介绍" class="headerlink" title="3. 自适应性执行框架介绍"></a>3. 自适应性执行框架介绍</h2><h3 id="3-1-自适应执行背景和简介"><a href="#3-1-自适应执行背景和简介" class="headerlink" title="3.1 自适应执行背景和简介"></a>3.1 自适应执行背景和简介</h3><p>早在 2015 年，Spark 社区就提出了自适应执行的基本想法，在 Spark 的 DAGScheduler 中增加了提交单个 map stage 的接口，并且在实现运行时调整 shuffle partition 数量上做了尝试。但目前该实现有一定的局限性，在某些场景下会引入更多的 shuffle ，即更多的stage，对于三表在同一个 stage 中做 join 等情况也无法很好的处理。所以该功能一直处于实验阶段，配置参数也没有在官方文档中提及。</p>
+<p>基于这些社区的工作，英特尔大数据技术团队对自适应执行做了重新的设计，实现了一个更为灵活的自适性执行框架。在这个框架下面，我们可以添加额外的规则，来实现更多的功能。目前，已实现的特性包括：自动设置 shuffle partition 数，动态调整执行计划，动态处理数据倾斜等等。</p>
+<h3 id="3-2-自适应执行架构"><a href="#3-2-自适应执行架构" class="headerlink" title="3.2 自适应执行架构"></a>3.2 自适应执行架构</h3><p>在 Spark SQL 中，当 Spark 确定最后的物理执行计划后，根据每一个 operator 对 RDD 的转换定义，它会生成一个 RDD 的 DAG 图。之后 Spark 基于 DAG 图静态划分 stage 并且提交执行，所以一旦执行计划确定后，在运行阶段无法再更新。自适应执行的基本思路是在执行计划中事先划分好 stage，然后按 stage 提交执行，在运行时收集当前 stage 的 shuffle 统计信息，以此来优化下一个 stage 的执行计划，然后再提交执行后续的 stage。</p>
+<p><img src="https://images.hnbian.cn/image-20210908112448885.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 3"></p>
+<p>从 图 3 中我们可以看出自适应执行的工作方法，</p>
+<ul>
+<li>以 Exchange 节点作为分界将执行计划这棵树划分成多个 QueryStage（Exchange节点在 Spark SQL 中代表 shuffle）。</li>
+<li>每一个 QueryStage 都是一棵独立的子树，也是一个独立的执行单元。在加入 QueryStage 的同时，我们也加入一个 QueryStageInput 的叶子节点，作为父亲 QueryStage 的输入。例如对于图中两表 join 的执行计划来说我们会创建3个 QueryStage。最后一个 QueryStage 中的执行计划是 join 本身，它有 2 个 QueryStageInput 代表它的输入，分别指向2个孩子的QueryStage。</li>
+<li>在执行 QueryStage 时，我们首先提交它的孩子 stage，并且收集这些 stage 运行时的信息。当这些孩子 stage 运行完毕后，我们可以知道它们的大小等信息，以此来判断 QueryStage 中的计划是否可以优化更新。例如当我们获知某一张表的大小是 5M，它小于 broadcast 的阈值时，我们可以将 SortMergeJoin 转化成 BroadcastHashJoin 来优化当前的执行计划。我们也可以根据孩子stage产生的 shuffle 数据量，来动态地调整该stage的reducer个数。</li>
+<li>在完成一系列的优化处理后，最终我们为该 QueryStage 生成 RDD 的 DAG 图，并且提交给 DAG Scheduler 来执行。</li>
+</ul>
+<h3 id="3-3-自动设置reducer个数"><a href="#3-3-自动设置reducer个数" class="headerlink" title="3.3 自动设置reducer个数"></a>3.3 自动设置reducer个数</h3><p>假设我们设置的 shufflepartition 个数为5，在 map stage 结束之后，我们知道每一个 partition 的大小分别是 70MB，30MB，20MB，10MB 和 50MB。假设我们设置每一个reducer处理的目标数据量是64MB，那么在运行时，我们可以实际使用 3 个 reducer。第一个reducer处理partition 0 (70MB)，第二个reducer处理连续的partition 1 到3，共60MB，第三个reducer处理partition 4 (50MB)，如图4所示。</p>
+<p><img src="https://images.hnbian.cn/image-20210908114115301.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 4"></p>
+<p>在自适应执行的框架中，因为每个 QueryStage 都知道自己所有的孩子 stage，因此在调整 reducer 个数时，可以考虑到所有的 stage 输入。另外，我们也可以将记录条数作为一个 reducer 处理的目标值。因为 shuffle 的数据往往都是经过压缩的，有时 partition 的数据量并不大，但解压后记录条数确远远大于其它 partition，造成数据不均。所以同时考虑数据大小和记录条数可以更好地决定 reducer 的个数。</p>
+<h3 id="3-4-动态调整执行计划"><a href="#3-4-动态调整执行计划" class="headerlink" title="3.4 动态调整执行计划"></a>3.4 动态调整执行计划</h3><p>目前我们支持在运行时动态调整 join 的策略，在满足条件的情况下，即一张表小于 Broadcast 阈值，可以将 <code>SortMergeJoin</code> 转化成 <code>BroadcastHashJoin</code>。由于 <code>SortMergeJoin</code> 和 <code>BroadcastHashJoin</code> 输出的 partition 情况并不相同，随意转换可能在下一个stage引入额外的shuffle操作。因此我们在动态调整 join 策略时，遵循一个规则，即在不引入额外 shuffle 的前提下才进行转换。</p>
+<p><strong>将 <code>SortMergeJoin</code> 转化成 <code>BroadcastHashJoin</code> 有哪些好处呢？</strong></p>
+<p>因为数据已经shuffle写到磁盘上，我们仍然需要 shuffle 读取这些数据。我们可以看看 图5 的例子，假设A表和B表join，map阶段2张表各有2个map任务，并且shuffle partition个数为5。</p>
+<p>如果做 <code>SortMergeJoin</code>，在reduce阶段需要启动 5 个reducer，每个reducer通过网络shuffle读取属于自己的数据。然而，当我们在运行时发现B表可以broadcast，并且将其转换成 <code>BroadcastHashJoin</code> 之后，我们只需要启动 2 个reducer，每一个 reducer 读取一个mapper 的整个 shuffle output 文件。当我们调度这 2 个 reducer 任务时，可以优先将其调度在运行 mapper 的 Executor 上，因此整个shuffle 读变成了本地读取，没有数据通过网络传输。并且读取一个文件这样的顺序读，相比原先 shuffle 时随机的小文件读，效率也更胜一筹。另外， <code>SortMergeJoin</code> 过程中往往会出现不同程度的数据倾斜问题，拖慢整体的运行时间。而转换成 <code>BroadcastHashJoin</code>后，数据量一般比较均匀，也就避免了倾斜，我们可以在下文实验结果中看到更具体的信息。</p>
+<p><img src="https://images.hnbian.cn/image-20210908115459791.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 5"></p>
+<h3 id="3-5-动态处理数据倾斜"><a href="#3-5-动态处理数据倾斜" class="headerlink" title="3.5 动态处理数据倾斜"></a>3.5 动态处理数据倾斜</h3><p>在自适应执行的框架下，我们可以在运行时很容易地检测出有数据倾斜的 partition。当执行某个stage时，我们收集该 stage 每个mapper 的 shuffle 数据大小和记录条数。如果某一个 partition 的数据量或者记录条数超过中位数的 N 倍，并且大于某个预先配置的阈值，我们就认为这是一个数据倾斜的 partition，需要进行特殊的处理。</p>
+<p><img src="https://images.hnbian.cn/image-20210908115809182.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 6"></p>
+<p>假设我们A表和B表做 inner join ，并且A表中第0个partition是一个倾斜的 partition 。</p>
+<p>一般情况下，A表和B表中partition 0的数据都会 shuffle 到同一个reducer中进行处理，由于这个 reducer 需要通过网络拉取大量的数据并且进行处理，它会成为一个最慢的任务拖慢整体的性能。</p>
+<p>在自适应执行框架下，一旦我们发现A表的 partition 0 发生倾斜，我们随后使用 N 个任务去处理该 partition。每个任务只读取若干个mappe r的 shuffle 输出文件，然后读取B表 partition 0 的数据做 join。最后，我们将 N 个任务 join 的结果通过 Union 操作合并起来。为了实现这样的处理，我们对 shuffle read 的接口也做了改变，允许它只读取部分 mapper 中某一个 partition 的数据。在这样的处理中，B表的 partition 0 会被读取 N 次，虽然这增加了一定的额外代价，但是通过 N 个任务处理倾斜数据带来的收益仍然大于这样的代价。如果B表中 partition 0 也发生倾斜，对于inner join来说我们也可以将B表的 partition 0 分成若干块，分别与A表的 partition 0 进行join，最终 union 起来。但对于其它的 join 类型例如 Left Semi Join 我们暂时不支持将B表的 partition 0 拆分。</p>
+<h2 id="4-自适应执行框架测试"><a href="#4-自适应执行框架测试" class="headerlink" title="4. 自适应执行框架测试"></a>4. 自适应执行框架测试</h2><h3 id="4-1-自适应执行和Spark-SQL在100TB上的性能比较"><a href="#4-1-自适应执行和Spark-SQL在100TB上的性能比较" class="headerlink" title="4.1 自适应执行和Spark SQL在100TB上的性能比较"></a>4.1 自适应执行和Spark SQL在100TB上的性能比较</h3><p>我们使用99台机器搭建了一个集群，使用 Spark2.2 在 TPC-DS 100TB 的数据集进行了实验，比较原版Spark和自适应执行的性能。以下是集群的详细信息：</p>
+<p><img src="https://images.hnbian.cn/image-20210908120136835.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 7"></p>
+<p>实验结果显示，在自适应执行模式下，103 条 SQL 中有 92 条都得到了明显的性能提升，其中 47 条 SQL 的性能提升超过10%，最大的性能提升达到了 3.8 倍，并且没有出现性能下降的情况。另外在原版Spark中，有 5 条 SQL 因为 OOM 等原因无法顺利运行，在自适应模式下我们也对这些问题做了优化，使得103条SQL在TPC-DS 100TB数据集上全部成功运行。以下是具体的性能提升比例和性能提升最明显的几条SQL。</p>
+<p><img src="https://images.hnbian.cn/image-20210908120249598.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 8"></p>
+<p><img src="https://images.hnbian.cn/image-20210908120314247.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="图 9"></p>
+<p>通过仔细分析了这些性能提升的 SQL ，我们可以看到自适应执行带来的好处。首先是自动设置 reducer 个数，原版 Spark 使用 10976 作为 shuffle partition 数，在自适应执行时，以下 SQL 的 reducer 个数自动调整为 1064 和 1079 ，可以明显看到执行时间上也提升了很多。这正是因为减少了调度的负担和任务启动的时间，以及减少了磁盘IO请求。</p>
+<ul>
+<li>原版Spark：</li>
+</ul>
+<p><img src="https://images.hnbian.cn/image-20210908120553951.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<ul>
+<li>自适应执行：</li>
+</ul>
+<p><img src="https://images.hnbian.cn/image-20210908120553950.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>在运行时动态调整执行计划，将 <code>SortMergeJoin</code> 转化成 <code>BroadcastHashJoin</code> 在某些 SQL 中也带来了很大的提升。例如在以下的例子中，原本使用 SortMergeJoin 因为数据倾斜等问题花费了2.5分钟。在自适应执行时，因为其中一张表的大小只有2.5k所以在运行时转化成了BroadcastHashJoin，执行时间缩短为10秒。</p>
+<ul>
+<li>原版Spark：</li>
+</ul>
+<p><img src="https://images.hnbian.cn/image-20210908120725661.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<ul>
+<li>自适应执行：</li>
+</ul>
+<p><img src="https://images.hnbian.cn/image-20210908120740307.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h3 id="4-2-100-TB的挑战及优化"><a href="#4-2-100-TB的挑战及优化" class="headerlink" title="4.2 100 TB的挑战及优化"></a>4.2 100 TB的挑战及优化</h3><p>成功运行 TPC-DS 100 TB数据集中的所有SQL，对于Apache Spark来说也是一大挑战。虽然SparkSQL官方表示支持TPC-DS所有的SQL，但这是基于小数据集。在100TB这个量级上，Spark暴露出了一些问题导致有些SQL执行效率不高，甚至无法顺利执行。在做实验的过程中，我们在自适应执行框架的基础上，对 Spark 也做了其它的优化改进，来确保所有 SQL 在 100TB 数据集上可以成功运行。以下是一些典型的问题。</p>
+<h4 id="4-2-1-统计map端输出数据时driver单点瓶颈的优化（SPARK-22537）"><a href="#4-2-1-统计map端输出数据时driver单点瓶颈的优化（SPARK-22537）" class="headerlink" title="4.2.1 统计map端输出数据时driver单点瓶颈的优化（SPARK-22537）"></a>4.2.1 统计map端输出数据时driver单点瓶颈的优化（SPARK-22537）</h4><p>在每个map任务结束后，会有一个表示每个 partition 大小的数据结构（即下面提到的 CompressedMapStatus 或HighlyCompressedMapStatus）返回给driver。而在自适应执行中，当一次 shuffle 的 map stage 结束后，driver 会聚合每个 mapper给出的 partition 大小信息，得到在各个 partition 上所有 mapper 输出的数据总大小。该统计由单线程完成，如果 mapper 的数量是M，shuffle partition 的数量为 S，那么统计的时间复杂度在 O(M x S) ~ O (M x S x log(M x S))  之间，当 CompressedMapStatus 被使用时，复杂度为这个区间的下限，当 HighlyCompressedMapStatus 被使用时，空间有所节省，时间会更长，在几乎所有的 partition 数据都为空时，复杂度会接近该区间的上限。</p>
+<p>在 M x S 增大时，我们会遇到 driver 上的单点瓶颈，一个明显的表现是 UI 上 map stage 和 reduce stage 之间的停顿。为了解决这个单点瓶颈，我们将任务尽量均匀地划分给多个线程，线程之间不相交地为 scala Array 中的不同元素赋聚合值。</p>
+<p>在这项优化中，新的 spark.shuffle.mapOutput.parallelAggregationThreshold（简称threshold）被引入，用于配置使用多线程聚合的阈值，聚合的并行度由 JVM 中可用 core 数和 M * S / threshold + 1 中的小值决定。</p>
+<h4 id="4-2-2-Shuffle读取连续partition时的优化-（SPARK-9853）"><a href="#4-2-2-Shuffle读取连续partition时的优化-（SPARK-9853）" class="headerlink" title="4.2.2 Shuffle读取连续partition时的优化 （SPARK-9853）"></a>4.2.2 Shuffle读取连续partition时的优化 （SPARK-9853）</h4><p>在自适应执行的模式下，一个 reducer 可能会从一个 mapoutput 文件中读取诺干个连续的数据块。目前的实现中，它需要拆分成许多独立的 getBlockData 调用，每次调用分别从硬盘读取一小块数据，这样就需要很多的磁盘 IO。我们对这样的场景做了优化，使得Spark可以一次性地把这些连续数据块都读上来，这样就大大减少了磁盘的 IO。在小的基准测试程序中，我们发现 shuffle read 的性能可以提升3倍。</p>
+<h4 id="4-2-3-BroadcastHashJoin中避免不必要的partition读的优化"><a href="#4-2-3-BroadcastHashJoin中避免不必要的partition读的优化" class="headerlink" title="4.2.3 BroadcastHashJoin中避免不必要的partition读的优化"></a>4.2.3 BroadcastHashJoin中避免不必要的partition读的优化</h4><p>自适应执行可以为现有的 operator 提供更多优化的可能。在 SortMergeJoin 中有一个基本的设计：每个 reducetask 会先读取左表中的记录，如果左表的 partition 为空，则右表中的数据我们无需关注（对于非 anti join 的情况），这样的设计在左表有一些 partition 为空时可以节省不必要的右表读取，在 SortMergeJoin 中这样的实现很自然。</p>
+<p><code>BroadcastHashJoin</code> 中不存在按照 join key 分区的过程，所以缺失了这项优化。然而在自适应执行的一些情况中，利用 stage 间的精确统计信息，我们可以找回这项优化：如果 <code>SortMergeJoin</code> 在运行时被转换成了 <code>BroadcastHashJoin</code>  ，且我们能得到各个 partition key 对应partition 的精确大小，则新转换成的 <code>BroadcastHashJoin</code>  将被告知：无需去读那些小表中为空的 partition ，因为不会 join 出任何结果。</p>
+<h3 id="4-3-Baidu真实产品线试用情况"><a href="#4-3-Baidu真实产品线试用情况" class="headerlink" title="4.3 Baidu真实产品线试用情况"></a>4.3 Baidu真实产品线试用情况</h3><p>我们将自适应执行优化应用在 Baidu 内部基于 Spark SQL 的即席查询服务 BaiduBig SQL 之上，做了进一步的落地验证，通过选取单日全天真实用户查询，按照原有执行顺序回放重跑和分析，得到如下几点结论：</p>
+<ul>
+<li>对于秒级的简单查询，自适应版本的性能提升并不明显，这主要是因为它们的瓶颈和主要耗时集中在了 IO 上面，而这不是自适应执行的优化点。</li>
+<li>按照查询复杂度维度考量测试结果发现：查询中迭代次数越多，多表 join 场景越复杂的情况下自适应执行效果越好。我们简单按照group by、 sor、 join、子查询等操作个数来将查询分类，如上关键词大于 3 的查询有明显的性能提升，优化比从50%~200%不等，主要优化点来源于 shuffle 的动态并发数调整及 join 优化。</li>
+<li>从业务使用角度来分析，前文所述 <code>SortMergeJoin</code> 转 <code>BroadcastHashJoin</code> 的优化在Big     SQL场景中命中了多种典型的业务SQL模板，试考虑如下计算需求：用户期望从两张不同维度的计费信息中捞取感兴趣的user列表在两个维度的整体计费。收入信息原表大小在百T级别，用户列表只包含对应用户的元信息，大小在10M以内。两张计费信息表字段基本一致，所以我们将两张表与用户列表做inner  join 后 union 做进一步分析，SQL表达如下：</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">    t.c1,t.id,t.c2,t.c3,t.c4,<span class="built_in">sum</span>(t.num1),<span class="built_in">sum</span>(t.num2),<span class="built_in">sum</span>(t.num3) </span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> </span><br><span class="line">	      c1,t1.id <span class="keyword">AS</span> id,c2,c3,c4,<span class="built_in">sum</span>(num1s) <span class="keyword">AS</span> num1,<span class="built_in">sum</span>(num2) <span class="keyword">AS</span> num2,<span class="built_in">sum</span>(num3) <span class="keyword">AS</span> num3 </span><br><span class="line">    <span class="keyword">FROM</span> basedata.shitu_a t1 </span><br><span class="line">	  <span class="keyword">INNER</span> <span class="keyword">JOIN</span> basedata.user_82_1512023432000 t2 </span><br><span class="line">	  <span class="keyword">ON</span> (t1.id<span class="operator">=</span>t2.id) </span><br><span class="line">  	<span class="keyword">WHERE</span> (event_day<span class="operator">=</span><span class="number">20171107</span>) <span class="keyword">AND</span> flag <span class="operator">!=</span><span class="string">'true'</span> </span><br><span class="line">	  <span class="keyword">GROUP</span> <span class="keyword">BY</span> c1,t1.id,c2,c3,c4 </span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span> </span><br><span class="line">    <span class="keyword">SELECT</span> </span><br><span class="line">	      c1,t1.id <span class="keyword">AS</span> id,c2,c3,c4,<span class="built_in">sum</span>(num1s) <span class="keyword">AS</span> num1,<span class="built_in">sum</span>(num2) <span class="keyword">AS</span> num2,<span class="built_in">sum</span>(num3) <span class="keyword">AS</span> num3 </span><br><span class="line">  	<span class="keyword">FROM</span> basedata.shitu_b t1 </span><br><span class="line">  	<span class="keyword">INNER</span> <span class="keyword">JOIN</span> basedata.user_82_1512023432000 t2 </span><br><span class="line">  	<span class="keyword">ON</span> (t1.id<span class="operator">=</span>t2.id) </span><br><span class="line">  	<span class="keyword">WHERE</span> (event_day<span class="operator">=</span><span class="number">20171107</span>) <span class="keyword">AND</span> flag <span class="operator">!=</span><span class="string">'true'</span> </span><br><span class="line">  	<span class="keyword">GROUP</span> <span class="keyword">BY</span> c1,t1.id,c2,c3,c4</span><br><span class="line">) t </span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> t.c1,t.id,t.c2,t.c3,c4</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>对应的原版Spark执行计划如下：</li>
+</ul>
+<img src="https://images.hnbian.cn/image-20210908122056015.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt=" " style="zoom:50%;">
+
+
+
+<p>针对于此类用户场景，可以全部命中自适应执行的 join 优化逻辑，执行过程中多次 <code>SortMergeJoin</code> 转为 <code>BroadcastHashJoin</code> ，减少了中间内存消耗及多轮 sort，得到了近200%的性能提升。</p>
+<p>结合上述3点，下一步自适应执行在 Baidu 内部的优化落地工作将进一步集中在大数据量、复杂查询的例行批量作业之上，并考虑与用户查询复杂度关联进行动态的开关控制。对于数千台的大规模集群上运行的复杂查询，自适应执行可以动态调整计算过程中的并行度，可以帮助大幅提升集群的资源利用率。另外，自适应执行可以获取到多轮 stage 之间更完整的统计信息，下一步我们也考虑将对应数据及Strategy 接口开放给 Baidu Spark 平台上层用户，针对特殊作业进行进一步的定制化 Strategy 策略编写。</p>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>随着 Spark SQL 广泛的使用以及业务规模的不断增长，在大规模数据集上遇到的易用性和性能方面的挑战将日益明显。本文讨论了三个典型的问题，包括调整 shuffle partition 数量，选择最佳执行计划和数据倾斜。这些问题在现有的框架下并不容易解决，而自适应执行可以很好地应对这些问题。</p>
+<p>我们介绍了自适应执行的基本架构以及解决这些问题的具体方法。最后我们在 TPC-DS 100TB 数据集上验证了自适应执行的优势，相比较原版Spark SQL，103个SQL查询中，90%的查询都得到了明显的性能提升，最大的提升达到3.8倍，并且原先失败的5个查询在自适应执行下也顺利完成。</p>
+<p>我们在百度的Big SQL平台也做了进一步的验证，对于复杂的真实查询可以达到2倍的性能提升。总之，自适应执行解决了Spark SQL在大数据规模上遇到的很多挑战，并且很大程度上改善了 Spark SQL 的易用性和性能，提高了超大集群中多租户多并发作业情况下集群的资源利用率。将来，我们考虑在自适应执行的框架之下，提供更多运行时可以优化的策略，并且将我们的工作贡献回馈给社区，也希望有更多的朋友可以参与进来，将其进一步完善。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/247ba11b.html">https://www.hnbian.cn/posts/247ba11b.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/spark-sql/">
+                                    <span class="chip bg-color">spark sql</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/b05123af.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FrN4vbzEBFOBMcrYy2Bf6m1fzizs" class="responsive-img" alt="Spark SQL 1. 常见概念与基本操作">
+                        
+                        <span class="card-title">Spark SQL 1. 常见概念与基本操作</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2018-05-21
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/spark-sql/">
+                        <span class="chip bg-color">spark sql</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/3282c0d4.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FqHngy294hlaOHb71U_0KL9ErggW" class="responsive-img" alt="构建数据仓库的分层设计">
+                        
+                        <span class="card-title">构建数据仓库的分层设计</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2018-05-03
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/others/" class="post-category">
+                                    others
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

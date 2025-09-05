@@ -1,0 +1,1605 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="关于 HDFS 中小文件的处理方式, hnbian">
+    <meta name="description" content="1. 介绍在Hadoop应用过程中，处理小文件问题是一项常见的挑战。由于HDFS主要针对大型数据集（M字节以上）设计，大量小文件的出现可能导致Namenode内存使用效率下降、RPC调用速度减慢、block扫描处理速度降低，从而影响整个应用">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>关于 HDFS 中小文件的处理方式 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FhK6REtGozfXT8wwTbIz2p6LGZX0')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">关于 HDFS 中小文件的处理方式</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/hdfs/">
+                                <span class="chip bg-color">hdfs</span>
+                            </a>
+                        
+                            <a href="/tags/hadoop/">
+                                <span class="chip bg-color">hadoop</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hdfs/" class="post-category">
+                                hdfs
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2021-11-14
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-介绍"><a href="#1-介绍" class="headerlink" title="1. 介绍"></a>1. 介绍</h2><p>在Hadoop应用过程中，处理小文件问题是一项常见的挑战。由于HDFS主要针对大型数据集（M字节以上）设计，大量小文件的出现可能导致Namenode内存使用效率下降、RPC调用速度减慢、block扫描处理速度降低，从而影响整个应用层的性能。本文旨在阐明小文件存储问题的定义，并探讨解决小文件问题的方法和策略。</p>
+<h2 id="2-什么是小文件"><a href="#2-什么是小文件" class="headerlink" title="2. 什么是小文件"></a>2. 什么是小文件</h2><p>小文件是指比 HDFS 默认的 block 大小（默认配置为 128MB）明显小的文件。需要注意的是，在 HDFS 上有一些小文件是不可避免的。这些文件如库 jars、XML 配置文件、临时暂存文件等。但当小文件变的大量，以至于集群中小文件成为主流，此时就需要对小文件进行治理，治理的目标是让文件大小尽可能接近 HDFS block 大小，或HDFS block 大小的倍数。</p>
+<p>Hadoop 的存储层和应用层的设计并不是为了在大量小文件的情况下高效运行。在说到这个问题的意义之前，我们先来回顾一下 HDFS 是如何存储文件的。</p>
+<p>在 HDFS 中数据和元数据是独立的实体。文件被分割成 block，这些 block 被存储在 DataNode 的本地文件系统中，并在整个集群中复制。HDFS 命名空间树和相关的元数据作为对象保存在 NameNode 的内存中（会持久化到磁盘上），每个对象一般占用大约 150 个字节。</p>
+<p>下面的两个方案说明了小文件的问题。</p>
+<ul>
+<li>方案 1（1 个 192M 的大文件）</li>
+</ul>
+<p><img src="https://images.hnbian.cn/202305012353981.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="方案一"></p>
+<p>其中 inode（索引节点）是文件系统中的一个重要概念，用于存储关于文件或目录的元数据。在HDFS（Hadoop分布式文件系统）中，每个文件都有一个对应的inode。一个文件的inode包含了关于该文件的一些重要信息，如文件大小、权限、创建时间、修改时间、所有者等。</p>
+<p>当我们在文件系统中创建、修改或访问一个文件时，操作系统会使用inode来查找和管理这个文件。在HDFS中，1个文件的inode表示的是该文件所对应的inode，用于存储和管理文件的元数据。</p>
+<ul>
+<li>方案 2（192 个小文件，每个 1M 的小文件）。</li>
+</ul>
+<p><img src="https://images.hnbian.cn/202305020007152.png?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>从上面的图示中可以看到， 同样是 192M 的文件，一个大文件与一堆小文件相比，在 Namenode 堆上需要的内存相差 100 倍以上。</p>
+<h2 id="3-对存储层的影响"><a href="#3-对存储层的影响" class="headerlink" title="3. 对存储层的影响"></a>3. 对存储层的影响</h2><p>当 NameNode 重启时，它必须将文件系统元数据从本地磁盘加载到内存中。这意味着，如果 NameNode 的元数据很大，重启速度会非常慢。NameNode 还必须跟踪集群上的 block 位置的变化，太多的小文件也会导致 NameNode 在 DataNode 耗尽磁盘上的数据空间之前，就先耗尽内存中的元数据空间。DataNode 还会通过网络向 NameNode 报告块的变化；更多的 block 意味着要通过网络发送更多的元数据变更。</p>
+<p>更多的文件意味着更多的读取请求需要请求 NameNode，这可能最终会堵塞 NameNode 的容量，增加 RPC 队列和处理延迟，进而导致性能和响应能力下降。按照经验，RPC 工作负载接近 40K~50K 的 RPCs/s 是比较高的。</p>
+<h2 id="4-对应用层的影响"><a href="#4-对应用层的影响" class="headerlink" title="4. 对应用层的影响"></a>4. 对应用层的影响</h2><p>一般来说，在通过 Impala 这样的 Ad HOC SQL 引擎或 MapReduce 或 Spark 这样的应用框架运行计算时，拥有大量的小文件会产生更多的磁盘请求。</p>
+<h3 id="4-1-MapReduce-Spark"><a href="#4-1-MapReduce-Spark" class="headerlink" title="4.1 MapReduce / Spark"></a>4.1 MapReduce / Spark</h3><p>在 Hadoop 中，block 是可以进行计算的最细粒度的数据单位。因此，它影响着一个应用的吞吐量。在 MapReduce 中，每读取一个 block 都需要 1 个 Map Container。因此，小文件会降低性能，增加应用开销，因为每个任务都需要自己的 JVM 进程。</p>
+<p>对于 Spark 来说，小文件也是类似的，在 Spark 中，每个“map”相当于 Spark 任务在执行器中每次读取和处理一个分区。每个分区默认情况下是一个 block。这意味着，如果你有很多小文件，每个文件都在不同的分区中读取，这将导致大量的任务开销。</p>
+<p>另外，MapReduce 作业也会创建空间文件，如_SUCCESS 和 _FAILURE，用于标记 MapReduce 任务的 finish 状态。这些文件仍然会在 Namenode 中注册为一个 inode item，如前文所述，每个 使用 150 个字节。清除这些文件的一个简单有效的方法是使用下面的 HDFS 命令：</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs dfs -<span class="built_in">ls</span> -R | awk <span class="string">'$1 !~ /^d/ &amp;&amp; $5 == "0" { print $8 }'</span> | xargs -n100 hdfs dfs –<span class="built_in">rm</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>命令说明：</p>
+<p><code>hdfs dfs -ls -R</code>：这个命令用于递归地列出HDFS中的所有文件和目录，包括子目录下的文件。<code>-ls</code>表示列出文件和目录的信息，<code>-R</code>表示递归地进行操作。</p>
+<p><code>|</code>：这是管道操作符，用于将上一个命令的输出作为下一个命令的输入。</p>
+<p><code>awk '$1 !~ /^d/ &amp;&amp; $5 == "0" { print $8 }'</code>：这个命令使用Awk工具对<code>hdfs dfs -ls -R</code>的输出进行处理。它通过匹配条件来筛选出不是目录（即文件）且文件大小为0的行，并提取第8个字段（即文件路径）进行输出。</p>
+<p><code>|</code>：再次使用管道操作符将上一个命令的输出作为下一个命令的输入。</p>
+<p><code>xargs -n100 hdfs dfs –rm</code>：这个命令使用xargs工具将前面命令的输出作为参数，并对每100个文件执行<code>hdfs dfs -rm</code>命令，即删除这些文件。</p>
+<p><code>xargs -n100</code>：指定每次传递给下一个命令的参数数量为100。</p>
+<p><code>hdfs dfs -rm</code>：删除HDFS中指定的文件。</p>
+<p>这个命令的功能是在HDFS中递归地列出所有文件，并找到文件大小为0的文件。然后，通过批量处理的方式，每次删除100个大小为0的文件。这个命令对于清理HDFS中的空文件非常有用。</p>
+<p>注意：</p>
+<ol>
+<li><p>这个命令将把这些文件移动到.Trash 位置（HDFS 回收站开启的情况下），一旦 Trash 清理策略生效，这些文件也将随之删除。</p>
+</li>
+<li><p>如果有应用程序对这些文件有依赖性，删除这些文件可能会导致应用程序失败。</p>
+</li>
+</ol>
+<h2 id="5-小文件是如何产生的"><a href="#5-小文件是如何产生的" class="headerlink" title="5. 小文件是如何产生的"></a>5. 小文件是如何产生的</h2><h3 id="5-1-流式数据处理"><a href="#5-1-流式数据处理" class="headerlink" title="5.1 流式数据处理"></a>5.1 流式数据处理</h3><p>spark streaming/flink 等流式计算框架或者 bacth 的数据计算，最终可能会一段时间内产生大量的小文件。对于流式数据的近乎实时的要求，小的 timewindow（每隔几分钟或几个小时）数量较小，就会生产很多小文件。</p>
+<h3 id="5-2-拥有大量-map-reduce-的任务"><a href="#5-2-拥有大量-map-reduce-的任务" class="headerlink" title="5.2 拥有大量 map/reduce 的任务"></a>5.2 拥有大量 map/reduce 的任务</h3><p>MapReduce 任务，如果有大量的 map 和 reduce task，在 HDFS 上生成的文件基本上与 map 数量（对于 Map-Only 作业）或 reduce 数量（对于 MapReduce 作业）成正比。大量的 reducer 没有足够的数据被写到 HDFS 上，会把结果集稀释成很小的文件，因为每个 reducer 只写一个文件。按照同样的思路，数据倾斜也会产生类似的效果，即大部分数据被路由到一个或几个 reduce，让其他的 reduce 写的数据很少，导致文件变小。</p>
+<h3 id="5-3-过度分区表"><a href="#5-3-过度分区表" class="headerlink" title="5.3 过度分区表"></a>5.3 过度分区表</h3><p>过度分区表是指每个分区的数据量很小（&lt;256 MB）的 Hive 表。Hive Metastore Server (HMS) API 调用开销会随着表拥有的分区数量而增加。这反过来会导致性能下降。在这种情况下，应该考虑表的分区设计并减少分区粒度。 </p>
+<h3 id="5-4-Spark-过度并行化"><a href="#5-4-Spark-过度并行化" class="headerlink" title="5.4 Spark 过度并行化"></a>5.4 Spark 过度并行化</h3><p>在 Spark 作业中，根据写任务中提到的分区数量，每个分区会写一个新文件。这类似于 MapReduce 框架中的每个 reduce 任务都会创建一个新文件。Spark 分区越多，写入的文件就越多。控制分区的数量来减少小文件的生成。</p>
+<h3 id="5-5-文件格式和压缩"><a href="#5-5-文件格式和压缩" class="headerlink" title="5.5 文件格式和压缩"></a>5.5 文件格式和压缩</h3><p>出于小文件治理的目的，我们更推荐使用非 TexFile 的序列化存储方法。</p>
+<h2 id="6-如何识别出小文件"><a href="#6-如何识别出小文件" class="headerlink" title="6. 如何识别出小文件"></a>6. 如何识别出小文件</h2><h3 id="6-1-fsImage"><a href="#6-1-fsImage" class="headerlink" title="6.1 fsImage"></a>6.1 fsImage</h3><p>因为 NameNode 存储了所有与文件相关的元数据，所以它将整个命名空间保存在内存中，而 fsimage 是 NameNode 的本地本机文件系统中的持久化记录。因此，我们可以通过分析 fsimage 来找出文件的元信息。</p>
+<ul>
+<li>fsimage 中可用的字段有：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>字段名</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Path</td>
+<td>文件或目录在文件系统中的位置</td>
+</tr>
+<tr>
+<td>Replication</td>
+<td>文件在HDFS中的副本数量</td>
+</tr>
+<tr>
+<td>ModificationTime</td>
+<td>文件或目录的最后修改时间</td>
+</tr>
+<tr>
+<td>AccessTime</td>
+<td>文件或目录的最后访问时间</td>
+</tr>
+<tr>
+<td>PreferredBlockSize</td>
+<td>文件在HDFS中的数据块的大小</td>
+</tr>
+<tr>
+<td>BlocksCount</td>
+<td>文件所包含的数据块数量</td>
+</tr>
+<tr>
+<td>FileSize</td>
+<td>文件的大小</td>
+</tr>
+<tr>
+<td>NSQUOTA</td>
+<td>目录中文件和目录的最大数量限制</td>
+</tr>
+<tr>
+<td>DSQUOTA</td>
+<td>目录中文件和目录的总大小限制</td>
+</tr>
+<tr>
+<td>Permission</td>
+<td>文件或目录的访问权限</td>
+</tr>
+<tr>
+<td>UserName</td>
+<td>文件或目录的所有者用户名</td>
+</tr>
+<tr>
+<td>GroupName</td>
+<td>文件或目录所属的用户组名</td>
+</tr>
+</tbody></table>
+<p>通常可以采用以下方法来解析 fsimage</p>
+<p>拷贝 Namenode 数据目录下的 fsimage 文件到其他目录，然后执行：</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs oiv -p Delimited -delimiter <span class="string">"|"</span> -t /tmp/tmpdir/ -i fsimage_copy -o fsimage.out</span><br></pre></td></tr></tbody></table></figure>
+
+
+<p>这个命令是HDFS中的 “oiv” 命令，用于从 fsimage 文件中提取元数据信息并以指定的格式进行输出。下面是对该命令的解释：</p>
+<ul>
+<li><code>hdfs oiv</code>: 这是用于运行HDFS Offline Image Viewer（离线镜像查看器）的HDFS命令。</li>
+<li><code>-p Delimited</code>: 这是 -oiv 命令的一个选项，指定输出格式为分隔符分隔的格式，以便将元数据字段以自定义的分隔符进行分隔。</li>
+<li><code>-delimiter "|"</code>: 这是指定分隔符的参数，该示例中使用竖线（|）作为分隔符。</li>
+<li><code>-t /tmp/tmpdir/</code>: 这是指定临时目录的参数，用于存储临时文件。</li>
+<li><code>-i fsimage_copy</code>: 这是指定输入的fsimage文件的参数，即要处理的fsimage文件的路径和名称。</li>
+<li><code>-o fsimage.out</code>: 这是指定输出文件的参数，即处理后的元数据将写入的输出文件的路径和名称。</li>
+</ul>
+<p>综合起来，这个命令的作用是从指定的fsimage文件中提取元数据信息，并将元数据以分隔符分隔的格式输出到指定的输出文件中（使用竖线作为分隔符）。输出文件的路径和名称是”fsimage.out”，临时文件将存储在”/tmp/tmpdir/“目录中。</p>
+<p>请注意，此命令需要在Hadoop集群的环境中运行，并且需要适当的权限才能访问和处理HDFS的元数据。</p>
+<p>通过上面的命令可以将 hdfs 中的元数据信息输出到一个文件上, 我们还需要对元数据进行分析, 来找出小文件, 比如像找出小于 100M 的文件: </p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">awk -F<span class="string">'|'</span> <span class="string">'{if ($5 &lt; 100000000) print $0}'</span> fsimage.out &gt; small_files_list.txt</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+
+
+<h3 id="6-2-fsck"><a href="#6-2-fsck" class="headerlink" title="6.2 fsck"></a>6.2 fsck</h3><p>使用 fsck 命令扫描当前的 HDFS 目录并保存扫描后的信息可以查看当前 HDFS 中的小文件</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs fsck / -files -blocks -locations &gt; fsck_output.txt</span><br></pre></td></tr></tbody></table></figure>
+
+<p> <code>/</code> 是要扫描的HDFS目录的路径，这里使用根目录 <code>/</code> 作为示例，您可以根据实际情况替换为其他目录路径。<br><code>-files</code> 参数用于打印文件的详细信息。<br><code>-blocks</code> 参数用于打印数据块的详细信息。<br><code>-locations</code> 参数用于打印数据块的位置信息。<br><code>fsck_output.txt</code> 是保存扫描结果的输出文件名，您可以根据需要自定义输出文件的路径和名称。</p>
+<p>执行完命令后，<code>fsck</code>命令将扫描指定的HDFS目录，并将扫描结果保存到指定的输出文件中。</p>
+<p>可以使用文本编辑器或命令行查看保存的输出文件来检查扫描后的信息。</p>
+<p>请注意，执行<code>fsck</code>命令需要适当的权限来访问和扫描HDFS目录。此外，<code>fsck</code>命令可能会执行较长时间，具体取决于HDFS集群的规模和文件系统的大小。在大型集群中，考虑生产环境的稳定性，不建议使用 fsck 命令，因为它会带来额外的开销。</p>
+<h2 id="7-如何处理小文件"><a href="#7-如何处理小文件" class="headerlink" title="7. 如何处理小文件"></a>7. 如何处理小文件</h2><h3 id="7-1-流式写入"><a href="#7-1-流式写入" class="headerlink" title="7.1 流式写入"></a>7.1 流式写入</h3><p>调整流式写入的时间窗口是一个不错的选择，如果业务对实时性要求很高，那么可以根据数据类型（非结构化 vs 结构化）、append/update 频率和数据使用模式（随机读取 vs 聚合），HBase 和 Kudu 是存储层的更好选择。对于已经存在的小文件，也可以设置定期的 Job 对这些文件进行压缩、合并，以减少文件量和文件数量。</p>
+<h3 id="7-2-过度分区表"><a href="#7-2-过度分区表" class="headerlink" title="7.2 过度分区表"></a>7.2 过度分区表</h3><p>在决定分区的粒度时，要考虑到每个分区的数据量。为有大文件的分区做计划（用 Parquet 的话，约 256MB 或更大），即使这意味着有较少的粒度分区，例如每月而不是每天的分区。对于数据量小的表（几百 MB），可以考虑创建一个非分区表。</p>
+<h3 id="7-3-Spark-过度并行化"><a href="#7-3-Spark-过度并行化" class="headerlink" title="7.3 Spark 过度并行化"></a>7.3 Spark 过度并行化</h3><p>在 Spark 中向 HDFS 写入数据时，在向磁盘写入数据前要重新分区或聚合分区。这些语句中定义的分区数量将决定输出文件的数量。强烈建议检查 Spark 作业的输出，并验证创建的文件数量和实现的吞吐量。</p>
+<h3 id="7-4-使用merge-命令压缩"><a href="#7-4-使用merge-命令压缩" class="headerlink" title="7.4 使用merge 命令压缩"></a>7.4 使用merge 命令压缩</h3><p>hadoop 本身提供 merge 命令，当然用户也可以自行编写工具实现。</p>
+<p>Hadoop提供的<code>merge</code>命令用于合并多个小文件为一个或多个更大的文件。这对于减少小文件数量和提高文件系统性能非常有用。下面是对<code>merge</code>命令的介绍：</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -getmerge &lt;src&gt; &lt;localdst&gt; [addnl]</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>参数说明：</p>
+<ul>
+<li><code>&lt;src&gt;</code>：指定要合并的源目录或文件的路径。它可以是HDFS中的目录或文件。</li>
+<li><code>&lt;localdst&gt;</code>：指定合并后的文件的本地目标路径，即保存合并后文件的本地文件系统路径。</li>
+<li><code>[addnl]</code>：可选参数，当指定该参数时，将追加源文件名作为每个合并后的文件的一部分，以在合并后的文件中保留原始文件的边界。</li>
+</ul>
+<p>注意事项：</p>
+<ul>
+<li><code>&lt;src&gt;</code>参数可以指定一个目录，此时会递归地合并目录下的所有文件。</li>
+<li><code>&lt;src&gt;</code>参数也可以指定多个文件，以空格分隔，这样可以将这些文件合并成一个更大的文件。</li>
+<li>如果<code>&lt;localdst&gt;</code>指定的本地文件已存在，将会覆盖该文件。</li>
+</ul>
+<p>使用示例：</p>
+<ol>
+<li>合并HDFS中的多个文件到本地文件：</li>
+</ol>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -getmerge /user/hadoop/input /home/user/mergedfile</span><br></pre></td></tr></tbody></table></figure>
+
+<p>上述命令将HDFS中<code>/user/hadoop/input</code>目录下的所有文件合并为一个文件，并保存到本地文件系统的<code>/home/user/mergedfile</code>路径下。</p>
+<ol start="2">
+<li>合并HDFS目录下的多个文件到本地文件，并保留源文件名：</li>
+</ol>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -getmerge /user/hadoop/input /home/user/mergedfile <span class="literal">true</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>该命令将目录<code>/user/hadoop/input</code>下的所有文件合并为一个文件，并在合并后的文件中保留源文件的边界。</p>
+<p>使用<code>merge</code>命令可以方便地将多个小文件合并成一个更大的文件，有助于提高Hadoop文件系统的性能和效率。</p>
+<h2 id="8-Hive-中的小文件"><a href="#8-Hive-中的小文件" class="headerlink" title="8.  Hive 中的小文件"></a>8.  Hive 中的小文件</h2><p>如果你有一个现有的 Hive 表有大量的小文件，那么可以通过以下设置来重写这个表（parquet 格式）。</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 启用对输出结果进行压缩。当查询产生输出结果时，将使用压缩算法对结果进行压缩，以减少存储空间。</span></span><br><span class="line"><span class="built_in">set</span> hive.exec.compress.output=<span class="literal">true</span>;</span><br><span class="line"><span class="comment"># 设置Parquet文件的压缩算法为Snappy。Parquet是一种列式存储格式，该参数指定使用Snappy算法对Parquet文件进行压缩。</span></span><br><span class="line"><span class="built_in">set</span> parquet.compression=snappy;</span><br><span class="line"><span class="comment"># 启用Map端文件合并。当执行Hive查询时，Map任务在输出文件到HDFS时，会尝试将多个小文件合并成更大的文件，以减少存储和IO开销。</span></span><br><span class="line"><span class="built_in">set</span> hive.merge.mapfiles=<span class="literal">true</span>;</span><br><span class="line"><span class="comment"># 启用MapReduce端文件合并。类似于上一个参数，但这个参数控制在MapReduce任务的输出阶段进行文件合并。</span></span><br><span class="line"><span class="built_in">set</span> hive.merge.mapredfiles=<span class="literal">true</span>;</span><br><span class="line"><span class="comment"># 设置合并小文件的平均大小。当启用文件合并时，Hive将尝试合并小于该大小的文件。在这个例子中，平均大小为128MB。</span></span><br><span class="line"><span class="built_in">set</span> hive.merge.smallfiles.avgsize=134217728;</span><br><span class="line"><span class="comment"># 设置每个任务执行合并操作的最大数据大小。当合并操作发生时，Hive将尝试合并小于该大小的文件。</span></span><br><span class="line"><span class="built_in">set</span> hive.merge.size.per.task = 268435456;</span><br><span class="line"><span class="comment"># 启用动态分区排序优化。当对分区表进行查询时，启用此参数可以提高性能，通过对查询结果进行排序来优化分区读取。</span></span><br><span class="line"><span class="built_in">set</span> hive.optiming.sort.dynamic.partition = <span class="literal">true</span>;</span><br><span class="line"><span class="comment"># 设置Parquet文件的块大小。Parquet文件由多个块组成，该参数指定每个块的大小。在这个例子中，块大小为256MB。</span></span><br><span class="line"><span class="built_in">set</span> parquet.blocksize= 268435456;</span><br><span class="line"><span class="comment"># 设置HDFS文件系统的块大小。HDFS将数据划分为多个块进行存储，该参数指定每个块的大小。在这个例子中，块大小为256MB。</span></span><br><span class="line"><span class="built_in">set</span> dfs.block.size=268435456;</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>关于 Hive 配置属性的详细信息可以在 Apache Hive 官方页面上找到，这里再提供一些重新数据的方法。</p>
+<p>CREATE TABLE AS SELECT（CTAS）对于一个非分区表会比较方便。</p>
+<p>你也可以先运行 CREATE TABLE LIKE (CTL)来复制一个表结构，然后使用 INSERT OVERWRITE SELECT 语句将数据从源表加载数据到目标表。</p>
+<p>注意：如果在没有定义静态分区名的情况下插入数据，需要在 Hive 中启用非严格的动态分区模式，可以通过设置</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">set</span> hive.exec.dynamic.partition.mode=non-strict</span><br><span class="line"><span class="comment"># 用于设置动态分区模式的行为。动态分区是指在将数据加载到分区表时，根据数据中的某个列的值自动创建分区。</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>分区列必须是选择语句中的最后一列，这样动态分区才能在这种情况下工作。此外，也可以直接使用 mapred.reduce.tasks 设置来配置 reduce 的数量。创建的文件数量将等于使用的减速器数量。设置一个最佳的减速器值取决于写入的数据量。</p>
+<h2 id="8-总结"><a href="#8-总结" class="headerlink" title="8. 总结"></a>8. 总结</h2><p>提前规避要好于事后补救，在任务开发以及表设计的前期尽可能考虑小文件问题尤为重要，因为事后修改任务或者修改表带来业务失败的概率会大得多。此外，小文件治理也是一个长期的过程，对于一个生产集群，定期的进行小文件治理是必要的。</p>
+<p>数据资产中心将小文件数量或比例转化成指数关联到库，表，目录上。用户可以根据库，表，目录等信息发现小文件产生的任务，对小文件的产生进行追本溯源，然后通过调整任务参数等手段从源头进行治理。</p>
+<p>追本溯源可以从源头切断小文件的产生，但是这个是比较理想化的情况，现实中存在很多场景无法在源头进行调整。网易数据资产中心也提供了定期触发的小文件合并策略，在策略识别到小文件过多的表或者目录上进行小文件合并。对于已经产生了很多小文件的表或目录提供主动合并的手段将小文件进行合并。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/cbaf5de7.html">https://www.hnbian.cn/posts/cbaf5de7.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/hdfs/">
+                                    <span class="chip bg-color">hdfs</span>
+                                </a>
+                            
+                                <a href="/tags/hadoop/">
+                                    <span class="chip bg-color">hadoop</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/5960127a.html">
+                    <div class="card-image">
+                        
+                        <img src="http://images.hnbian.cn//Fu0xY_sT94Yeg-ZZ_yCMe6WEROgh" class="responsive-img" alt="ClickHouse 使用中遇见的异常">
+                        
+                        <span class="card-title">ClickHouse 使用中遇见的异常</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2021-12-07
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e581a712.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fuck8cdXABo5-SH23y2VY78OhIJG" class="responsive-img" alt="Atlas web UI 使用介绍">
+                        
+                        <span class="card-title">Atlas web UI 使用介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2021-10-25
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/ambari/" class="post-category">
+                                    ambari
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/atlas/">
+                        <span class="chip bg-color">atlas</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

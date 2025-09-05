@@ -1,0 +1,2244 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Phoenix on HBase 性能测试, hnbian">
+    <meta name="description" content="1. 目的测试 phoenix 引擎在 hbase 上的数据查询与数据写入的性能，探索 phoenix 的特性和限制。
+2. 软件版本phoenix-4.8.0-HBase-1.1
+HBase-1.1.6
+3. 硬件环境四台配置相同的PC机">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Phoenix on HBase 性能测试 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('http://images.hnbian.cn//FtpQ50WSj5lvWatKWQVyi-D_TmdI')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Phoenix on HBase 性能测试</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/hbase/">
+                                <span class="chip bg-color">hbase</span>
+                            </a>
+                        
+                            <a href="/tags/phoenix/">
+                                <span class="chip bg-color">phoenix</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/phoenix/" class="post-category">
+                                phoenix
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2017-07-20
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-目的"><a href="#1-目的" class="headerlink" title="1. 目的"></a>1. 目的</h2><p>测试 phoenix 引擎在 hbase 上的数据查询与数据写入的性能，探索 phoenix 的特性和限制。</p>
+<h2 id="2-软件版本"><a href="#2-软件版本" class="headerlink" title="2. 软件版本"></a>2. 软件版本</h2><p>phoenix-4.8.0-HBase-1.1</p>
+<p>HBase-1.1.6</p>
+<h2 id="3-硬件环境"><a href="#3-硬件环境" class="headerlink" title="3. 硬件环境"></a>3. 硬件环境</h2><p>四台配置相同的PC机搭建HBase集群环境，其中一台做HMaster，另外三台做Region</p>
+<table>
+<thead>
+<tr>
+<th><strong>部件</strong></th>
+<th><strong>规格</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CPU</td>
+<td>Intel(R)  Core(TM) i7-4820K CPU @ 3.70GHz  1U * 4Core</td>
+</tr>
+<tr>
+<td>MEM</td>
+<td>64G</td>
+</tr>
+</tbody></table>
+<h2 id="4-测试工具"><a href="#4-测试工具" class="headerlink" title="4. 测试工具"></a>4. 测试工具</h2><p>squirrel-sql-3.5.3</p>
+<p>apache-jmeter-3.0</p>
+<h2 id="5-测试说明"><a href="#5-测试说明" class="headerlink" title="5. 测试说明"></a>5. 测试说明</h2><p>使用基于 jdbc 连接的 squirrel-sql-3.5.3 进行单用户下的sql性能测试</p>
+<p>使用基于 jdbc 连接的 apache-jmeter-3.0 进行多线程并发测试</p>
+<h2 id="6-测试数据"><a href="#6-测试数据" class="headerlink" title="6. 测试数据"></a>6. 测试数据</h2><p>应用场景：仅用于存放测点的档案信息，用于查询范围的条件检索过滤时使用</p>
+<table>
+<thead>
+<tr>
+<th>Reinfo</th>
+<th>测点基础信息表</th>
+<th>测试数据规模：5千</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>列名</strong></td>
+<td><strong>类型</strong></td>
+<td><strong>注释</strong></td>
+<td><strong>是否主键</strong></td>
+</tr>
+<tr>
+<td>Data_id</td>
+<td>bigint</td>
+<td>测点ID</td>
+<td>PK</td>
+</tr>
+<tr>
+<td>DataName</td>
+<td>varchar(300)</td>
+<td>测点名</td>
+<td></td>
+</tr>
+<tr>
+<td>DataType</td>
+<td>varchar(100)</td>
+<td>测点的数据类型  （电压、电流、有功、无功等）</td>
+<td></td>
+</tr>
+<tr>
+<td>byzid</td>
+<td>varchar(300)</td>
+<td>变电站编号</td>
+<td></td>
+</tr>
+<tr>
+<td>orgid</td>
+<td>varchar(300)</td>
+<td>组织机构编号</td>
+<td></td>
+</tr>
+</tbody></table>
+<p> 应用场景：按测点编号进行查询，每次通常查询1个测点的数据，但有时也会查询几个测点的数据</p>
+<table>
+<thead>
+<tr>
+<th>CurrData</th>
+<th>当日数据表</th>
+<th>测试数据规模：7百万</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>列名</strong></td>
+<td><strong>类型</strong></td>
+<td><strong>注释</strong></td>
+<td><strong>是否主键</strong></td>
+</tr>
+<tr>
+<td>Data_id</td>
+<td>bigint</td>
+<td>测点ID</td>
+<td>PK</td>
+</tr>
+<tr>
+<td>date_time</td>
+<td>DATE</td>
+<td>时点  （2016-09-19  00:00，2016-09-19 00:01 … 2016-09-19 23:59）</td>
+<td>PK</td>
+</tr>
+<tr>
+<td>data</td>
+<td>float</td>
+<td>测试值</td>
+<td></td>
+</tr>
+<tr>
+<td>name</td>
+<td>varchar(300)</td>
+<td>测点名（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>DataType</td>
+<td>varchar(100)</td>
+<td>测点的数据类型  （电压、电流、有功、无功等）（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>byzid</td>
+<td>varchar(300)</td>
+<td>变电站编号（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>orgid</td>
+<td>varchar(300)</td>
+<td>组织机构编号（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>应用场景：按测点编号进行查询，每次通常查询1个测点的数据，但有时也会查询几个测点的数据</p>
+<table>
+<thead>
+<tr>
+<th>HisData</th>
+<th>历史数据表</th>
+<th>测试数据规模：5千万</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>列名</strong></td>
+<td><strong>类型</strong></td>
+<td><strong>注释</strong></td>
+<td><strong>是否主键</strong></td>
+</tr>
+<tr>
+<td>Data_id</td>
+<td>bigint</td>
+<td>测点ID</td>
+<td>PK</td>
+</tr>
+<tr>
+<td>date_time</td>
+<td>DATE</td>
+<td>时点:（2016-09-19 00:00 - —   2016-09-19 23:59）</td>
+<td>PK</td>
+</tr>
+<tr>
+<td>data</td>
+<td>float</td>
+<td>测试值</td>
+<td></td>
+</tr>
+<tr>
+<td>name</td>
+<td>varchar(300)</td>
+<td>测点名（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>DataType</td>
+<td>varchar(100)</td>
+<td>测点的数据类型（电压、电流、有功、无功等）（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>byzid</td>
+<td>varchar(300)</td>
+<td>变电站编号（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+<tr>
+<td>orgid</td>
+<td>varchar(300)</td>
+<td>组织机构编号（根据reinfo冗余字段）</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2 id="7-数据写入测试"><a href="#7-数据写入测试" class="headerlink" title="7. 数据写入测试"></a>7. 数据写入测试</h2><p>评估数据写入的性能，分别对数据导入和数据插入两种方式评测。</p>
+<p>数据导入：将文本文件数据装载至目标表。</p>
+<p>数据插入：使用dml插入数据至目标表。</p>
+<p>评估并发写的效率</p>
+<h3 id="7-1-测试条件"><a href="#7-1-测试条件" class="headerlink" title="7.1 测试条件"></a>7.1 测试条件</h3><ul>
+<li>数据导入</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./psql.py hostname-2 -t CURRDATA /home/currdata1.csv</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>数据插入</li>
+</ul>
+<p>currdata1与currdata结构一致</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">upsert into currdata <span class="keyword">select</span> * from currdata1;</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="7-2-测试结果"><a href="#7-2-测试结果" class="headerlink" title="7.2 测试结果"></a>7.2 测试结果</h3><ul>
+<li>写入时长：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><strong>记录行</strong></th>
+<th><strong>720w*1</strong></th>
+<th><strong>720w*2</strong></th>
+<th><strong>720w*4</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据文件大小</td>
+<td>350mb*1</td>
+<td>350mb*2</td>
+<td>350mb*4</td>
+</tr>
+<tr>
+<td>并行度（进程数）</td>
+<td>1</td>
+<td>2</td>
+<td>4</td>
+</tr>
+<tr>
+<td>CASE 1：数据导入</td>
+<td>201s</td>
+<td>247s</td>
+<td>282s</td>
+</tr>
+<tr>
+<td>CASE 2：数据插入</td>
+<td>92s</td>
+<td>132s</td>
+<td>158s</td>
+</tr>
+</tbody></table>
+<ul>
+<li>写入效率：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><strong>记录行</strong></th>
+<th><strong>720w*1</strong></th>
+<th><strong>720w*2</strong></th>
+<th><strong>720w*4</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据文件大小</td>
+<td>350mb*1</td>
+<td>350mb*2</td>
+<td>350mb*4</td>
+</tr>
+<tr>
+<td>并行度（进程数）</td>
+<td>1</td>
+<td>2</td>
+<td>4</td>
+</tr>
+<tr>
+<td>CASE 1：数据导入</td>
+<td>1.74mb/s</td>
+<td>2.83mb/s</td>
+<td>4.96mb/s</td>
+</tr>
+<tr>
+<td>CASE 2：数据插入</td>
+<td>3.8mb/s</td>
+<td>5.3mb/s</td>
+<td>8.8mb/s</td>
+</tr>
+</tbody></table>
+<h3 id="7-3-结果分析"><a href="#7-3-结果分析" class="headerlink" title="7.3 结果分析"></a>7.3 结果分析</h3><p>HBase 是一个写很快的系统，并行度越高，写性能越好，经过测试发现，使用四个并行任务的情况下，集群cpu资源使用率不超过30%，磁盘繁忙程度大致在 70%~90%，所以只要条件允许，建议配置高速磁盘，尽可能地通过并行方式写入数据，最大化 Hbase 的效率。</p>
+<h2 id="8-K-V-RowKey-查询测试"><a href="#8-K-V-RowKey-查询测试" class="headerlink" title="8. K-V(RowKey)查询测试"></a>8. K-V(RowKey)查询测试</h2><p>根据表的主键（PK）进行K-V查询，场景主要有：单测点单日，单测点多日，多测点单日，多测点多日</p>
+<p>根据电力客户提供的需求，选用720w的数据量作为测试用例，电力客户拥有 5000 个测点，每分钟一条记录，保留一天的数据，即：5000<em>60</em>24=7200000，5kw 即一周的数据</p>
+<h3 id="8-1-测试示例"><a href="#8-1-测试示例" class="headerlink" title="8.1 测试示例"></a>8.1 测试示例</h3><ul>
+<li>单测点单日</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>单测点多日</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>多测点单日</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">&gt;=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> data_id <span class="operator">&lt;=</span> <span class="number">104708704221266931</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-17'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-17'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>多测点多日</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">&gt;=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> data_id <span class="operator">&lt;=</span> <span class="number">104708704221266930</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-21'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time</span><br></pre></td></tr></tbody></table></figure>
+
+<h3 id="8-2-测试结果"><a href="#8-2-测试结果" class="headerlink" title="8.2 测试结果"></a>8.2 测试结果</h3><table>
+<thead>
+<tr>
+<th><strong>数据量</strong></th>
+<th><strong>720w</strong></th>
+<th><strong>5kw</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1：单测点单日</td>
+<td>20ms</td>
+<td>40ms</td>
+</tr>
+<tr>
+<td>2：单测点多日</td>
+<td>30ms</td>
+<td>50ms</td>
+</tr>
+<tr>
+<td>3：多测点单日</td>
+<td>30ms</td>
+<td>40ms</td>
+</tr>
+<tr>
+<td>4：多测点多日</td>
+<td>120ms</td>
+<td>290ms</td>
+</tr>
+</tbody></table>
+<h3 id="8-3-结果分析"><a href="#8-3-结果分析" class="headerlink" title="8.3  结果分析"></a>8.3  结果分析</h3><p>基于 rowkey 的查询效率比较高，这也符合 HBase 的 Key-Value 特性，数据量越大，查询效率越好，数据量从 720w 到 5kw 增长了 6X，但查询耗时仅增加了 30%~100%。</p>
+<p>但是，返回的结果集应尽量控制在 10w 以内，返回的记录行越少，响应时间越快。以 多测点多日   为例，修改sql示例中的过滤条件使其分别返回 1w，10w，100w 结果集，测试结果如下：</p>
+<table>
+<thead>
+<tr>
+<th><strong>结果集行数</strong></th>
+<th><strong>查询响应时间</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1w</td>
+<td>120ms</td>
+</tr>
+<tr>
+<td>10w</td>
+<td>990ms</td>
+</tr>
+<tr>
+<td>100w</td>
+<td>9.7s</td>
+</tr>
+</tbody></table>
+<h2 id="9-即席查询测试"><a href="#9-即席查询测试" class="headerlink" title="9. 即席查询测试"></a>9. 即席查询测试</h2><blockquote>
+<p>即席查询的意思是即兴或临时查询。是在需要时进行的查询或搜索，而不是预先计划或准备好的查询。即席查询通常用于解决突发问题或获取即时信息。</p>
+</blockquote>
+<p>模拟OLAP环境下的ad hoc查询，包括聚集查询，连接查询，明细查询等，即席查询主要针对非K-V方式的查询场景，同样也分为720w和5kw测试</p>
+<h3 id="9-1-测试示例"><a href="#9-1-测试示例" class="headerlink" title="9.1 测试示例"></a>9.1 测试示例</h3><ul>
+<li>带过滤条件和排序操作的明细查询</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> byzid <span class="operator">=</span> <span class="string">'0001303'</span> </span><br><span class="line">  <span class="keyword">and</span> orgid <span class="operator">=</span> <span class="string">'8000041'</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>全表聚合查询</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  <span class="built_in">count</span>(<span class="operator">*</span>) </span><br><span class="line"><span class="keyword">from</span> hisdata</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>关联查询</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  <span class="built_in">count</span>(<span class="operator">*</span>) </span><br><span class="line"><span class="keyword">from</span> hisDATA c,REINFO r </span><br><span class="line"><span class="keyword">where</span> c.data_id <span class="operator">=</span> r.data_id</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>带过滤条件的聚合查询</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  byzid</span><br><span class="line">  ,orgid</span><br><span class="line">  ,<span class="built_in">max</span>(data)</span><br><span class="line">  ,<span class="built_in">min</span>(data)</span><br><span class="line">  ,<span class="built_in">avg</span>(data) </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> DATATYPE <span class="operator">=</span> <span class="string">'无功'</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">group</span> <span class="keyword">by</span> byzid,orgid;</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="9-2-测试结果"><a href="#9-2-测试结果" class="headerlink" title="9.2 测试结果"></a>9.2 测试结果</h3><table>
+<thead>
+<tr>
+<th>数据量</th>
+<th><strong>720w</strong></th>
+<th><strong>5kw</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>带过滤条件和排序操作的明细查询</td>
+<td>1.8s</td>
+<td>13.3s</td>
+</tr>
+<tr>
+<td>全表聚合查询</td>
+<td>1.7s</td>
+<td>11.4s</td>
+</tr>
+<tr>
+<td>关联查询</td>
+<td>3.3s</td>
+<td>18.3s</td>
+</tr>
+<tr>
+<td>带过滤条件的聚合查询</td>
+<td>2s</td>
+<td>16.1s</td>
+</tr>
+</tbody></table>
+<h3 id="9-3-结果分析"><a href="#9-3-结果分析" class="headerlink" title="9.3 结果分析"></a>9.3 结果分析</h3><p>HBase 不适合做 BI 应用中常见的 即席查询，Phoenix 进行非 K-V 类的即席查询时，是将所有的目标数据先填入内存，在内存中计算，这样的话效率主要依赖其 CBO（查询优化器）和 执行计划。测试用例采用的比较简单的查询 sql，而生产环境中的统计查询 sql 比上述用例复杂的多得多，所以，HBase 只适合 K-V 方式访问数据。</p>
+<h2 id="10-并发查询"><a href="#10-并发查询" class="headerlink" title="10. 并发查询"></a>10. 并发查询</h2><p>根据 HBase 的特点，仅针对 KV 方式的查询进行并发测试，为更好地评估软件的性能，将采用 5kw 的历史数据表（Hisdata）作为测试素材。以下是单用户、10用户、50用户、100用户、200用户的性能测试结果</p>
+<h3 id="10-1-测试示例"><a href="#10-1-测试示例" class="headerlink" title="10.1 测试示例"></a>10.1 测试示例</h3><ul>
+<li>单测点单日（短查询）</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>单测点多日（短查询）</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-20'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>多测点单日（短查询）</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">&gt;=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> data_id <span class="operator">&lt;=</span> <span class="number">104708704221266931</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-17'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-17'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>多测点多日（长查询）</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> </span><br><span class="line">  data_id</span><br><span class="line">  ,date_time</span><br><span class="line">  ,data </span><br><span class="line"><span class="keyword">from</span> hisdata </span><br><span class="line"><span class="keyword">where</span> data_id <span class="operator">&gt;=</span> <span class="number">104708704221266921</span> </span><br><span class="line">  <span class="keyword">and</span> data_id <span class="operator">&lt;=</span> <span class="number">104708704221266930</span> </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&lt;=</span> TO_DATE(<span class="string">'2016-09-21'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line">  <span class="keyword">and</span> date_time <span class="operator">&gt;=</span> TO_DATE(<span class="string">'2016-09-18'</span>, <span class="string">'yyyy-MM-dd'</span>) </span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> data_id,date_time</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="10-2-测试结果"><a href="#10-2-测试结果" class="headerlink" title="10.2 测试结果"></a>10.2 测试结果</h3><h4 id="10-2-1-单用户查询结果"><a href="#10-2-1-单用户查询结果" class="headerlink" title="10.2.1 单用户查询结果"></a>10.2.1 单用户查询结果</h4><table>
+<thead>
+<tr>
+<th>单位：ms</th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单测点单日</td>
+<td>13</td>
+<td>7</td>
+<td>9</td>
+<td>13</td>
+<td>222</td>
+<td>6</td>
+<td>238</td>
+</tr>
+<tr>
+<td>单测点多日</td>
+<td>35</td>
+<td>25</td>
+<td>37</td>
+<td>44</td>
+<td>379</td>
+<td>22</td>
+<td>430</td>
+</tr>
+<tr>
+<td>多测点单日</td>
+<td>22</td>
+<td>14</td>
+<td>29</td>
+<td>45</td>
+<td>197</td>
+<td>11</td>
+<td>261</td>
+</tr>
+<tr>
+<td>多测点多日</td>
+<td>292</td>
+<td>277</td>
+<td>292</td>
+<td>312</td>
+<td>498</td>
+<td>263</td>
+<td>1325</td>
+</tr>
+</tbody></table>
+<p>多测点多日与另外三个示例相比，响应时长要高一个量级，因此，单测点单日、单测点多日、多测点单日归为短查询的并发测试场景，多测点多日归为长查询的并发测试场景</p>
+<h4 id="10-2-2-10用户并发查询结果（短查询）"><a href="#10-2-2-10用户并发查询结果（短查询）" class="headerlink" title="10.2.2 10用户并发查询结果（短查询）"></a>10.2.2 10用户并发查询结果（短查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单测点单日</td>
+<td>98</td>
+<td>36</td>
+<td>147</td>
+<td>456</td>
+<td>459</td>
+<td>14</td>
+<td>459</td>
+<td>3.144456</td>
+</tr>
+<tr>
+<td>单测点多日</td>
+<td>250</td>
+<td>196</td>
+<td>260</td>
+<td>746</td>
+<td>806</td>
+<td>131</td>
+<td>858</td>
+<td>3.171985</td>
+</tr>
+<tr>
+<td>多测点单日</td>
+<td>119</td>
+<td>83</td>
+<td>126</td>
+<td>483</td>
+<td>508</td>
+<td>33</td>
+<td>510</td>
+<td>3.24823</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>156</td>
+<td>115</td>
+<td>260</td>
+<td>483</td>
+<td>759</td>
+<td>14</td>
+<td>858</td>
+<td>8.798686</td>
+</tr>
+</tbody></table>
+<h4 id="10-2-3-10用户并发查询结果（长查询）"><a href="#10-2-3-10用户并发查询结果（长查询）" class="headerlink" title="10.2.3 10用户并发查询结果（长查询）"></a>10.2.3 10用户并发查询结果（长查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>多测点多日</td>
+<td>2355</td>
+<td>2323</td>
+<td>2733</td>
+<td>2785</td>
+<td>2869</td>
+<td>1136</td>
+<td>2871</td>
+<td>1.895303</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>2355</td>
+<td>2323</td>
+<td>2733</td>
+<td>2785</td>
+<td>2869</td>
+<td>1136</td>
+<td>2871</td>
+<td>1.895303</td>
+</tr>
+</tbody></table>
+<p>在 10 用户并发下，长查询的 tps 只有 1.9 不到，而短查询约为 8.8。不仅如此，并发情况下，单个查询的响应时间明显增加，例如：单用户下测试单测点单日的查询响应时间均值是 13ms，10用户并发下达到了 98ms，而多测点多日的查询响应时间则由 292ms 升至 2.4s 左右。</p>
+<h4 id="10-2-4-50用户并发查询结果（短查询）"><a href="#10-2-4-50用户并发查询结果（短查询）" class="headerlink" title="10.2.4 50用户并发查询结果（短查询）"></a>10.2.4 50用户并发查询结果（短查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单测点单日</td>
+<td>139</td>
+<td>72</td>
+<td>248</td>
+<td>631</td>
+<td>639</td>
+<td>15</td>
+<td>644</td>
+<td>12.71294</td>
+</tr>
+<tr>
+<td>单测点多日</td>
+<td>789</td>
+<td>778</td>
+<td>971</td>
+<td>1155</td>
+<td>1238</td>
+<td>38</td>
+<td>1258</td>
+<td>12.64191</td>
+</tr>
+<tr>
+<td>多测点单日</td>
+<td>231</td>
+<td>154</td>
+<td>380</td>
+<td>785</td>
+<td>790</td>
+<td>53</td>
+<td>793</td>
+<td>13.00187</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>386</td>
+<td>174</td>
+<td>827</td>
+<td>903</td>
+<td>1180</td>
+<td>15</td>
+<td>1258</td>
+<td>35.42164</td>
+</tr>
+</tbody></table>
+<h4 id="10-2-5-50用户并发查询结果（长查询）"><a href="#10-2-5-50用户并发查询结果（长查询）" class="headerlink" title="10.2.5 50用户并发查询结果（长查询）"></a>10.2.5 50用户并发查询结果（长查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>多测点多日</td>
+<td>19501</td>
+<td>8001</td>
+<td>39897</td>
+<td>118340</td>
+<td>125156</td>
+<td>2366</td>
+<td>126657</td>
+<td>1.86617</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>19501</td>
+<td>8001</td>
+<td>39897</td>
+<td>118340</td>
+<td>125156</td>
+<td>2366</td>
+<td>126657</td>
+<td>1.86617</td>
+</tr>
+</tbody></table>
+<p>50 用户并发下长查询的 tps 仍然只有 1.9 不到，而响应时间均值却达到 19.5s，远远超过可接受范围，由此可见，基于测试环境的软硬件配置，长查询的并发数在 10 个左右比较适宜，最大不应超过 20。</p>
+<p>短查询在 50 并发下，均值仍在 1s 以内，tps 升至 35，说明短查询场景还可以承受更大的并发数。</p>
+<h4 id="10-2-6-100用户并发（短查询）"><a href="#10-2-6-100用户并发（短查询）" class="headerlink" title="10.2.6 100用户并发（短查询）"></a>10.2.6 100用户并发（短查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单测点单日</td>
+<td>141</td>
+<td>69</td>
+<td>364</td>
+<td>601</td>
+<td>630</td>
+<td>11</td>
+<td>669</td>
+<td>20.56767</td>
+</tr>
+<tr>
+<td>单测点多日</td>
+<td>1603</td>
+<td>1571</td>
+<td>2003</td>
+<td>2098</td>
+<td>2174</td>
+<td>69</td>
+<td>2209</td>
+<td>20.08153</td>
+</tr>
+<tr>
+<td>多测点单日</td>
+<td>370</td>
+<td>311</td>
+<td>443</td>
+<td>982</td>
+<td>988</td>
+<td>42</td>
+<td>989</td>
+<td>20.82119</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>704</td>
+<td>328</td>
+<td>1676</td>
+<td>1907</td>
+<td>2129</td>
+<td>11</td>
+<td>2209</td>
+<td>56.69684</td>
+</tr>
+</tbody></table>
+<h4 id="10-2-7-200用户并发（短查询）"><a href="#10-2-7-200用户并发（短查询）" class="headerlink" title="10.2.7 200用户并发（短查询）"></a>10.2.7 200用户并发（短查询）</h4><table>
+<thead>
+<tr>
+<th></th>
+<th>avg</th>
+<th>中位数</th>
+<th>90%  Line</th>
+<th>95%  Line</th>
+<th>99%  Line</th>
+<th>min</th>
+<th>max</th>
+<th>tps</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单测点单日</td>
+<td>189</td>
+<td>76</td>
+<td>244</td>
+<td>1075</td>
+<td>1114</td>
+<td>22</td>
+<td>1124</td>
+<td>30.12956</td>
+</tr>
+<tr>
+<td>单测点多日</td>
+<td>3156</td>
+<td>3099</td>
+<td>3742</td>
+<td>3967</td>
+<td>4228</td>
+<td>258</td>
+<td>4264</td>
+<td>29.18898</td>
+</tr>
+<tr>
+<td>多测点单日</td>
+<td>519</td>
+<td>431</td>
+<td>648</td>
+<td>1149</td>
+<td>1159</td>
+<td>56</td>
+<td>1163</td>
+<td>30.91716</td>
+</tr>
+<tr>
+<td>总体</td>
+<td>1288</td>
+<td>445</td>
+<td>3273</td>
+<td>3603</td>
+<td>4095</td>
+<td>22</td>
+<td>4264</td>
+<td>83.22006</td>
+</tr>
+</tbody></table>
+<p>在 200 用户并发下，只有单测点多日的均值超过 3s，另外两个用例的均值仍在 1s 以内，tps 达到 83。理论上讲，假如生产环境中的多日查询的频率远低于单日查询，那么此并发数还可以继续增大，限于时间和篇幅，此处不再做进一步的测试。</p>
+<h3 id="10-3-结果分析"><a href="#10-3-结果分析" class="headerlink" title="10.3 结果分析"></a>10.3 结果分析</h3><p>对于短查询，Phoenix + HBase在 4 个节点环境下可以承受 200 个并发的压力，平均每秒能响应 83 个请求。而长查询，并发数控制在 10个左右较为合适，每秒最多响应1.9个请求。</p>
+<h2 id="11-结论"><a href="#11-结论" class="headerlink" title="11. 结论"></a>11. 结论</h2><ol>
+<li>HBase 是一个写很快的系统，并行写/分布式写能充分发挥集群的计算资源；</li>
+<li>HBase 的 Key-Value 特性决定了基于 rowkey 或 主键 查询的效率很高；</li>
+<li>返回的结果集越小，响应时间越快，一般建议在一万行以内；</li>
+<li>HBase 不适合做多维查询，Sql on HBase 只适合 主键 / RowKey 方式查询；</li>
+<li>短查询和长查询的 TPS 差别巨大，优化数据模型，尽可能地优化应用中的查询为短查询。</li>
+</ol>
+<h2 id="12-使用建议"><a href="#12-使用建议" class="headerlink" title="12. 使用建议"></a>12. 使用建议</h2><ol>
+<li>在Phoenix中建表时，可以使用 SALT_BUCKETS 参数把数据分布到不同的 region 上，这样有利于 phoenix 并发的读写操作，示例：</li>
+</ol>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">CREATE  TABLE TEST (HOST VARCHAR NOT NULL PRIMARY KEY, DESCRIPTION VARCHAR)  SALT_BUCKETS = 16 </span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="2">
+<li>Phoenix 默认采用 hash  join 进行多表关联，编辑 sql 时需要将最小的表放在最后，否则查询效率十分低下，未来会根据 statistics 自动优化  </li>
+<li>若无法确定关联操作中表的大小时，可以使用hint调整 join 方式，如：<code>SELECT  /*+ USE_SORT_MERGE_JOIN*/ ... </code> 或者调大 <code>phoenix.query.maxServerCacheBytes</code> 参数使其能容纳大表的中间结果  </li>
+<li>主键索引要按创建时的顺序引用。如 <code>primary  key(id,name,add)</code>，那么会隐式的创建 <code>(id),(id,name),(id,name,add)</code> 三个索引，在 where 中用这三个条件时会用到索引，而其他组合则无法使用索引 </li>
+<li>对于二级索引，除了要按创建时的顺序引用外，如果 <code>select</code> 中的任意列不在索引中则无法使用索引</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/e6e5c712.html">https://www.hnbian.cn/posts/e6e5c712.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/hbase/">
+                                    <span class="chip bg-color">hbase</span>
+                                </a>
+                            
+                                <a href="/tags/phoenix/">
+                                    <span class="chip bg-color">phoenix</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/7e5f32e5.html">
+                    <div class="card-image">
+                        
+                        <img src="http://images.hnbian.cn//FpMEdWa0WFQXFhL4qKkXKI_XG9Vp" class="responsive-img" alt="使用Java通过JDBC连接 Phoenix">
+                        
+                        <span class="card-title">使用Java通过JDBC连接 Phoenix</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2017-07-20
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/phoenix/" class="post-category">
+                                    phoenix
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hbase/">
+                        <span class="chip bg-color">hbase</span>
+                    </a>
+                    
+                    <a href="/tags/phoenix/">
+                        <span class="chip bg-color">phoenix</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/a418485c.html">
+                    <div class="card-image">
+                        
+                        <img src="http://images.hnbian.cn//FtTirX2xBEF7p-zyigMKZ4gOOKLO" class="responsive-img" alt="Apache Phoenix的Join操作和优化">
+                        
+                        <span class="card-title">Apache Phoenix的Join操作和优化</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2017-06-10
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/phoenix/" class="post-category">
+                                    phoenix
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hbase/">
+                        <span class="chip bg-color">hbase</span>
+                    </a>
+                    
+                    <a href="/tags/phoenix/">
+                        <span class="chip bg-color">phoenix</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

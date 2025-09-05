@@ -1,0 +1,1735 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="ClickHouse 11.副本与分片 1. 副本, hnbian">
+    <meta name="description" content="1. 介绍
+集群是副本和分片的基础，它将 clickhouse 的服务拓扑由单节点延伸到多个节点。
+clickhouse 集群配置很灵活，既可以将所有节点组成一个单一的大集群，也可以按照业务需求，把节点划分为多个小集群。
+在每个小集群区域之">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>ClickHouse 11.副本与分片 1. 副本 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FvwN_3uJnRvZiwxPftnIQm1ymOYg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">ClickHouse 11.副本与分片 1. 副本</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/olap/">
+                                <span class="chip bg-color">olap</span>
+                            </a>
+                        
+                            <a href="/tags/clickhouse/">
+                                <span class="chip bg-color">clickhouse</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/clickhouse/" class="post-category">
+                                clickhouse
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2021-07-20
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-介绍"><a href="#1-介绍" class="headerlink" title="1. 介绍"></a>1. 介绍</h2><ul>
+<li>集群是副本和分片的基础，它将 clickhouse 的服务拓扑由单节点延伸到多个节点。</li>
+<li>clickhouse 集群配置很灵活，既可以将所有节点组成一个单一的大集群，也可以按照业务需求，把节点划分为多个小集群。</li>
+<li>在每个小集群区域之间，它们的节点、分区和副本数量可以各不相同。</li>
+</ul>
+<img src="https://images.hnbian.cn/FtkZY5XGyXOrJ-PZXf9KQXkDE1SH" style="zoom:50%;">
+
+<p>clickhouse 集群的工作更多是针对逻辑层面，集群定义了多个节点的拓扑关系，这些节点在后续服务过程中很可能会协同工作，在执行层面的具体工作则交给了副本和分片来执行。</p>
+<ul>
+<li>副本与分片的区别：</li>
+</ul>
+<ol>
+<li>从数据层面上区分，假设 clickhouse 有 N 个节点，在集群的各个节点上都有一张结构相同的数据表 Y , 如果 N1,N2 两个节点的数据完全相同，则互为副本，如果数据完全不同则互为分片。</li>
+<li>从功能层面上看，副本的主要目的是为了防止数据丢失，而数据分片是为了实现数据的水平切分</li>
+</ol>
+<img src="https://images.hnbian.cn/FmKqEWf4xjP_c4X0FY-fPXYcbAcg" style="zoom:50%;">
+
+
+
+<h2 id="2-数据副本"><a href="#2-数据副本" class="headerlink" title="2. 数据副本"></a>2. 数据副本</h2><p>如果在 MergeTree 表引擎前面加上 Replicated 前缀，就能够组合成一个新的引擎即 Replicated-mergeTree 复制表。</p>
+<img src="https://images.hnbian.cn/FuPHnfrNOkOjzawIJoGjw9SLBemc" alt="从 1 分片 0 副本发展到多分片多副本" style="zoom:50%;">
+
+
+
+<p>只有使用了 ReplicatedMergeTree 系列复制表引擎才能使用副本。ReplicatedMergeTree是 MergeTree 的派生表引擎，在 MergeTree 的基础上加入了分布式协同能力。</p>
+<img src="https://images.hnbian.cn/FiN5lXuDDVdZ1G9EgXF64bvvNDo0" alt="Replicated 表引擎命名规则" style="zoom:50%;">
+
+
+
+<img src="https://images.hnbian.cn/FnpczbK4GqQx0UCIj61B5UKzymef" alt="ReplicatedMergeTree 与 MergeTree 的关系" style="zoom:50%;">
+
+
+
+<p>在 MergeTree 中，一个分区由开始创建到全部完成会经历两个存储区域</p>
+<ol>
+<li>内存：数据首先会被写入内存缓存区</li>
+<li>本地磁盘：数据接着会被写入到tmp 临时目录分区，待全部完成后，再将临时目录重命名为正式分区</li>
+</ol>
+<p>ReplicatedMergeTree 在上述基础上增加了 zookeeper 的部分，它会进一步在 zookeeper 内部创建一系列的监听节点，并以此实现多个实例之间的通信，在整个通信过程中 zookeeper 并不会设计数据的传输。</p>
+<h3 id="2-1-数据副本的特点"><a href="#2-1-数据副本的特点" class="headerlink" title="2.1 数据副本的特点"></a>2.1 数据副本的特点</h3><ul>
+<li>依赖 zookeeper：在执行 insert 和 alert 查询的时候，ReplicatedMergeTree 需要借助 zookeeper 的分布式协调能力，以实现多个副本之间的数据同步，但是在查询的时候，并不需要使用 zookeeper。</li>
+<li>表级别的副本：副本是在表级别定义的，所以每张表的副本配置都可以按照它的实际需求进行个性化，包括副本数量，以及副本在集群内的分布式位置等。</li>
+<li>多主架构（Multi Master）：可以在任意一个副本上执行 insert 和 alter 查询，他们的效果是相同的，这些操作会借助 zookeeper 的协调能力被分发至每个副本以本地形式执行。</li>
+<li>Block 数据块：在执行 insert 命令时，会依据 max_insert_block_size 的大小（默认 1048576 行）将数据切分成若干个 Block 数据块。所以数据块是数据写入的基本单元，并且具有写入的原子性和唯一性。</li>
+<li>原子性：在数据写入时，一个 Block 块内的数据要么全部写入成功，要么全部失败。</li>
+<li>唯一性：在写入一个 Block 数据块的时候，会按照当前的 Block 数据块的数据顺序、数据行和数据大小等指标计算 Hash 信息摘要记录。在此之后，如果某个待写入的 Block 数据块与先前已被写入的 Block 数据块拥有相同的 Hash 摘要，则该 Block 数据块会被忽略，这个设计可以预防由于异常原因引起的 Block 数据块重复写入的问题。</li>
+</ul>
+<h3 id="2-2-zookeeper-的配置方式"><a href="#2-2-zookeeper-的配置方式" class="headerlink" title="2.2 zookeeper 的配置方式"></a>2.2 zookeeper 的配置方式</h3><ul>
+<li><p>在配置 zookeeper 之前需要先安装 zookeeper，zookeeper 的安装方式可以查看文档： <a href="https://www.hnbian.cn/posts/3f857bc8.html#toc-heading-11">zookeeper 安装</a></p>
+</li>
+<li><p>clickhouse 使用量一组 zookeeper 标签定义了相关配置，在默认情况下，在全局配置 config.xml 中定义即可，但是为了方便在多个节点中复制，通常会把配置文件抽离出来，独立使用一个文件保存。</p>
+</li>
+<li><p>编写 zookeeper 配置文件</p>
+</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. /etc/clickhouse-server/config.xml 修改如下配置</span></span><br><span class="line"></span><br><span class="line">vim metrika.xml</span><br><span class="line"></span><br><span class="line">&lt;zookeeper&gt;</span><br><span class="line">  &lt;node&gt;</span><br><span class="line">    &lt;host&gt;node2&lt;/host&gt;</span><br><span class="line">    &lt;port&gt;2181&lt;/port&gt;</span><br><span class="line">  &lt;/node&gt;</span><br><span class="line">&lt;/zookeeper&gt;</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>clickhouse 提供了一张名为 zookeeper 的代理表，可以使用 SQL 查询 zookeeper 中的数据。</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查询 zookeeper 中的数据，必须指定 path 条件</span></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    name,</span><br><span class="line">    <span class="keyword">value</span>,</span><br><span class="line">    ctime</span><br><span class="line"><span class="keyword">FROM</span> system.zookeeper</span><br><span class="line"><span class="keyword">WHERE</span> path <span class="operator">=</span> <span class="string">'/'</span></span><br><span class="line"></span><br><span class="line">┌─name───────┬─<span class="keyword">value</span>─┬───────────────ctime─┐</span><br><span class="line">│ zookeeper  │       │ <span class="number">1970</span><span class="number">-01</span><span class="number">-01</span> <span class="number">08</span>:<span class="number">00</span>:<span class="number">00</span> │</span><br><span class="line">│ clickhouse │       │ <span class="number">2021</span><span class="number">-07</span><span class="number">-21</span> <span class="number">11</span>:<span class="number">29</span>:<span class="number">59</span> │</span><br><span class="line">└────────────┴───────┴─────────────────────┘</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-3-副本的定义形式"><a href="#2-3-副本的定义形式" class="headerlink" title="2.3 副本的定义形式"></a>2.3 副本的定义形式</h3><ul>
+<li>使用副本可以增加数据的冗余，降低数据的丢失风险</li>
+<li>副本才用了多主架构，每个副本示例都可以作为数据读写的入口，分摊了节点的负载</li>
+<li>使用 ReplicatedMergeTree 定义副本</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> [IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span>] [db_name.]table_name(</span><br><span class="line">  name1 [type] [<span class="keyword">DEFAULT</span><span class="operator">|</span>MATERIALIZED<span class="operator">|</span>ALIAS expr],</span><br><span class="line">  name2 [type] [<span class="keyword">DEFAULT</span><span class="operator">|</span>MATERIALIZED<span class="operator">|</span>ALIAS expr],</span><br><span class="line">  ...</span><br><span class="line">) ENGINE <span class="operator">=</span> ReplicatedMergeTree(<span class="string">'zk_path'</span>,<span class="string">'replica_name'</span>)</span><br><span class="line">[<span class="keyword">PARTITION</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">ORDER</span> <span class="keyword">BY</span> expr]</span><br><span class="line">[<span class="keyword">PRIMARY KEY</span> expr]</span><br><span class="line">[SAMPLE <span class="keyword">BY</span> expr]</span><br><span class="line">[SETTINGS name<span class="operator">=</span><span class="keyword">value</span>, ...]</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li><p>zk_path：用于指定 zookeeper 中创建的表的路径，值可自定义，但是 clickhouse 建议设置的值为 /clickhouse/tables/{shard}/table_name</p>
+<ul>
+<li>/clickhouse/tables：固定路径前缀，表示存放表的根路径</li>
+<li>{shard}：表示分片编号，通常使用数值代替，一张表可以有多个分片，每个分片都拥有自己的副本</li>
+<li>table_name：表名，为了方便维护，通常与表的物理名称相同。</li>
+</ul>
+</li>
+<li><p>replica_name：定义在 zookeeper 中创建的副本名称，该名称是区分不同副本实例的唯一标识，约定的方式是使用服务器的域名</p>
+</li>
+<li><p>示例：</p>
+</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1 个分片，1 个副本</span></span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node3'</span>)</span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node4'</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 多 个分片，1 个副本</span></span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node3'</span>)</span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node4'</span>)</span><br><span class="line"></span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/02/t_replicated'</span>,<span class="string">'node3'</span>)</span><br><span class="line">ReplicatedMergeTree(<span class="string">'/clickhouse/tables/03/t_replicated'</span>,<span class="string">'node4'</span>)</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h2 id="3-ReplicatedMergeTree-原理解析"><a href="#3-ReplicatedMergeTree-原理解析" class="headerlink" title="3. ReplicatedMergeTree 原理解析"></a>3. ReplicatedMergeTree 原理解析</h2><h3 id="3-1-数据结构"><a href="#3-1-数据结构" class="headerlink" title="3.1 数据结构"></a>3.1 数据结构</h3><p>在 ReplicatedMergeTree 的核心逻辑大量使用量 zookeeper，以实现多个 ReplicatedMergeTree 副本实例之间的协同，包括副本选举、副本状态感知、操作分发日志、任务队列和 BlockID 去重判断等。</p>
+<p>在执行 insert 、merge 和 mutation 操作的时候，都会涉及与 zookeeper 的通信。</p>
+<p>在与 zookeeper通信时并不会涉及任何数据的传输，在查询数据的时候也不会访问 zookeeper，因此不必担心 zookeeper 承担太多压力。</p>
+<h4 id="3-1-1-zookeeper-内的节点结构"><a href="#3-1-1-zookeeper-内的节点结构" class="headerlink" title="3.1.1 zookeeper 内的节点结构"></a>3.1.1 zookeeper 内的节点结构</h4><p>ReplicatedMergeTree 需要依靠 zookeeper 的事件监听机制实现各个副本之间的协同，当ReplicatedMergeTree 表创建过程中会以 zk_path 为根路径，在 zookeeper 中为这张表创建一组监听节点，按照作用不同，监听节点可以分为如下几类：</p>
+<ol>
+<li><p>元数据：</p>
+<ul>
+<li>/metadata：保存元数据信息，包括主键、分区间、采样表达式等</li>
+<li>/columns：保存列字段信息，包括列名称和数据类型</li>
+<li>/replicas：保存副本名称，对应设置参数中的 replica_name</li>
+</ul>
+</li>
+<li><p>判断标识</p>
+<ul>
+<li>/leader_election：对于副本的选举工作，主副本会主导 Merge 和 mutation 操作（alter delete/和alter update），这些任务在主副本完成之后，借助 zookeeper 将消息时间分发至其他副本。</li>
+<li>/blocks：记录 Block 数据库的 Hash 摘要，以及对应的 partition id 。通过 Hash 摘要能够判断 Block 是否重复，通过 partition ID 能够找到需要同步的分区。</li>
+<li>/block_numbers：按照分区的写入顺序，以相同顺序记录 partition ID。各个副本在本地进行 Merge 时，都会依照相同的 block_numbers顺序进行。</li>
+<li>/quorum：记录 quorum 的数量，当至少有 quorum 数量的副本写入成功后，整个写操作才算成功，quorum 的数量有 insert_quorum 参数控制，默认为 0。</li>
+</ul>
+</li>
+<li><p>日志操作</p>
+<ul>
+<li>/log：常规日志节点（insert、Merge 和 drop table），它是整个工作机制中最为重要的一环，保存了副本需要执行的任务指令。log 使用了 zookeeper 的持久节点，每条指令以 <code>log-</code> 为前缀递增，每个副本实例都会监听 /log 节点，当有新的指令加入时，他们会把指令加入副本各自的任务队列，并执行任务。</li>
+<li>/mutatios：mutation操作(alter delete/和alter update)日志节点，节点命名没有前缀，其余逻辑与 /log 相同。</li>
+<li>/replicas/{replica_name}/*：每个副本各自的节点下的一组监听节点，用于指导副本在本地执行具体的任务指令，比较重要的有下面几个：</li>
+<li>/queue：任务队列节点，用于执行具体的操作任务从/log 或/mutations 节点监听到操作指令时，会将执行任务添加到该节点下，并给基于列执行。</li>
+<li>/log_pointer：log日志指针节点，记录了最后一次执行 log 日志下标信息。</li>
+<li>/mutation_pointer：mutation日志指针节点，记录了最后一次执行 mutation 日志下标信息。</li>
+</ul>
+</li>
+</ol>
+<h4 id="3-1-2-Entry日志对象的数据结构"><a href="#3-1-2-Entry日志对象的数据结构" class="headerlink" title="3.1.2 Entry日志对象的数据结构"></a>3.1.2 Entry日志对象的数据结构</h4><p>在 zookeeper 中的两个重要的节点 log和 mutation 在clickhouse 中被抽象成了两个 Entry 对象。</p>
+<ol>
+<li>LogEntry（封装 log 节点的信息）拥有以下核心属性</li>
+</ol>
+<ul>
+<li>source replica：发送这条 log 指令的来源，对应 replica_name</li>
+<li>type：操作指令类型，主要有 get、merge、mutate 三种，分别对应从远程副本下载分区，合并分区和 mutation 操作</li>
+<li>block_id：当前分区的 BlockID，对应/blocks 路径下的子节点名称。</li>
+<li>partition_name：当前分区目录的名称</li>
+</ul>
+<ol start="2">
+<li>MutationEntry（封装 mutation 接节点信息）</li>
+</ol>
+<ul>
+<li>source replica：发送这条 mutation 指令的来源，对应 replica_name</li>
+<li>commands：操作指令，alter delete/和alter update</li>
+<li>mutation_id：mutation 操作的版本号</li>
+<li>partition_id：当前分区目录 ID</li>
+</ul>
+<h3 id="3-2-副本操作流程"><a href="#3-2-副本操作流程" class="headerlink" title="3.2 副本操作流程"></a>3.2 副本操作流程</h3><ul>
+<li><p>副本操作一般有数据写入，分区合并，数据修改和元数据修改 4 部分</p>
+</li>
+<li><p>数据写入和元数据修改时分布式执行的，借助 zookeeper 的事件监听机制，多个副本之间会自动进行同步，但是这些操作不会使用 zookeeper 存储任何数据。</p>
+</li>
+<li><p>其他操作不支持分布式执行，如 select、create、drop、rename、attach 等</p>
+</li>
+</ul>
+<h4 id="3-2-1-insert-的执行流程"><a href="#3-2-1-insert-的执行流程" class="headerlink" title="3.2.1 insert 的执行流程"></a>3.2.1 insert 的执行流程</h4><ol>
+<li><strong>创建测试表，该表由一个分片 0 个副本构成</strong></li>
+</ol>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create table</span> t_replicated(</span><br><span class="line">  id UInt8,</span><br><span class="line">  name String,</span><br><span class="line">  <span class="type">date</span> DateTime</span><br><span class="line">)ENGINE<span class="operator">=</span>ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node3'</span>)</span><br><span class="line"><span class="keyword">partition</span> <span class="keyword">by</span> toYYYYMM(<span class="type">date</span>)</span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> id</span><br></pre></td></tr></tbody></table></figure>
+
+<p>在创建过程中 ReplicatedMergeTree 会进行如下操作：</p>
+<ul>
+<li><p>根据 zk_path 除吃华所有的 zookeeper 节点</p>
+</li>
+<li><p>在 /replicas/节点下注册自己的副本实例 node3</p>
+</li>
+<li><p>启动监听任务，监听 /log 日志节点</p>
+</li>
+<li><p>参与副本选举，选举出出副本，选举的方式是向/leader_election 插入子节点，第一个插入成功的副本就是主副本</p>
+</li>
+</ul>
+<img src="https://images.hnbian.cn/Fv3QAtYQVoPWc_BSD12fKHPw4cAK" alt="创建表之后 zookeeper 元数据q情况" style="zoom:50%;">
+
+<ul>
+<li>查看zookeeper 中节点数据相关命令</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">ls</span> /clickhouse</span><br><span class="line">get /clickhouse</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables</span><br><span class="line">get /clickhouse/tables</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01</span><br><span class="line">get /clickhouse/tables/01</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/metadata</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/metadata</span><br><span class="line">get /clickhouse/tables/01/t_replicated/temp</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/temp</span><br><span class="line">get /clickhouse/tables/01/t_replicated/mutations</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/mutations</span><br><span class="line">get /clickhouse/tables/01/t_replicated/log</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/log</span><br><span class="line">get /clickhouse/tables/01/t_replicated/leader_election</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/leader_election</span><br><span class="line"></span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/leader_election/leader_election-0000000001</span><br><span class="line">get /clickhouse/tables/01/t_replicated/leader_election/leader_election-0000000001</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/columns</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/columns</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/nonincrement_block_numbers</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/nonincrement_block_numbers</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node3</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node3</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/is_lost</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/is_lost</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/is_active</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/is_active</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/metadata</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/metadata</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/mutation_pointer</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/mutation_pointer</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/columns</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/columns</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/max_processed_insert_time</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/max_processed_insert_time</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/flags</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/flags</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/log_pointer</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/log_pointer</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/min_unprocessed_insert_time</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/min_unprocessed_insert_time</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/host</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/host</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/parts</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/parts</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/queue</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/queue</span><br><span class="line">get /clickhouse/tables/01/t_replicated/replicas/node2/metadata_version</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/replicas/node2/metadata_version</span><br><span class="line"></span><br><span class="line">get /clickhouse/tables/01/t_replicated/quorum</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/quorum</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/quorum/last_part</span><br><span class="line">get /clickhouse/tables/01/t_replicated/quorum/last_part</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/quorum/parallel</span><br><span class="line">get /clickhouse/tables/01/t_replicated/quorum/parallel</span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/quorum/failed_parts</span><br><span class="line">get /clickhouse/tables/01/t_replicated/quorum/failed_parts</span><br><span class="line"></span><br><span class="line"><span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/block_numbers</span><br><span class="line">get /clickhouse/tables/01/t_replicated/block_numbers</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="2">
+<li><strong>创建第二个副本实例</strong> 表的构成是 1 分片 1 副本</li>
+</ol>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create table</span> t_replicated(</span><br><span class="line">  id UInt8,</span><br><span class="line">  name String,</span><br><span class="line">  <span class="type">date</span> DateTime</span><br><span class="line">)ENGINE<span class="operator">=</span>ReplicatedMergeTree(<span class="string">'/clickhouse/tables/01/t_replicated'</span>,<span class="string">'node2'</span>)</span><br><span class="line"><span class="keyword">partition</span> <span class="keyword">by</span> toYYYYMM(<span class="type">date</span>)</span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> id;</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>在创建第二个副本实例的时候 </p>
+<ul>
+<li>会在/clickhouse/tables/01/t_replicated/replicas 节点下 注册自己的副本 node2</li>
+<li>启动监听任务，监听 /log 日志节点</li>
+<li>参与主副本选举</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FtUUSy_Hz4yQTyJwUZdR7tMC0pzD?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="1 分片，1 副本时，zookeeper 元数据情况"></p>
+<ol start="3">
+<li>向第一个副本写入数据</li>
+</ol>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert into</span> t_replicated <span class="keyword">values</span> (<span class="number">1</span>,<span class="string">'xiaoming'</span>,<span class="string">'2021-07-21 18:01:49'</span>) </span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 向 /blicks 节点写入该数据分区的 block_id</span></span><br><span class="line"></span><br><span class="line">db_merge.t_replicated (f43ce61c-6253-473c-a54d-4d9d6da57613) (Replicated OutputStream): Wrote block with ID <span class="string">'202107_8139788293933794752_9955392769311530712'</span>, 1 rows</span><br><span class="line"></span><br><span class="line"><span class="comment"># 向本地完成分区目录的写入</span></span><br><span class="line"></span><br><span class="line">&lt;Trace&gt; db_merge.t_replicated (f43ce61c-6253-473c-a54d-4d9d6da57613): Renaming temporary part tmp_insert_202107_1_1_0 to 202107_0_0_0.</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li>查看zookeeper 中 blocks 的元数据变化</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 2] <span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/blocks</span><br><span class="line">[202107_8139788293933794752_9955392769311530712] <span class="comment"># block_id 跟前面日志可以对应，该block_id 将作为后续去重操作的判断依据</span></span><br><span class="line">[zk: localhost:2181(CONNECTED) 3] get /clickhouse/tables/01/t_replicated/blocks/202107_8139788293933794752_9955392769311530712</span><br><span class="line">202107_0_0_0 <span class="comment"># 保存的值为数据所在分区</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>如果设置了 insert_quorum 参数，且 insert_quorum&gt;=2 则 node3会进一步监控已经写完操作的副本个数，只有写成功的副本数 大于等于 2 时，整个写操作才算成功。</p>
+<ol start="4">
+<li><strong>由第一个副本推送 log 日志</strong></li>
+</ol>
+<p>在上面执行完成之后，会继续由执行了 insert 的副本想 /log 节点推送操作日志。上面写入操作中，会由 node3 完成此操作</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 5] <span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/log</span><br><span class="line">[log-0000000000]</span><br><span class="line"></span><br><span class="line">[zk: localhost:2181(CONNECTED) 8] get /clickhouse/tables/01/t_replicated/log/log-0000000000</span><br><span class="line">format version: 4</span><br><span class="line">create_time: 2021-07-21 12:29:59</span><br><span class="line"><span class="built_in">source</span> replica: node3</span><br><span class="line">block_id: 202107_8139788293933794752_9955392769311530712</span><br><span class="line">get <span class="comment"># 操作类型为 get</span></span><br><span class="line">202107_0_0_0 <span class="comment"># 分区</span></span><br><span class="line">part_type: Compact</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="5">
+<li><strong>第二个副本拉取 log 日志</strong></li>
+</ol>
+<p>node3 会一直监听 /log 节点的变化，当 node3 推送了  log-0000000000 之后，node3 会触发日志拉取任务并更新 log_pointer 将其指向最新日志下标。</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 25] get /clickhouse/tables/01/t_replicated/replicas/node2/log_pointer</span><br><span class="line">1</span><br></pre></td></tr></tbody></table></figure>
+
+<p>在拉取了 logEntry 之后，并不会直接执行，而是将其转为任务对象放到队列，因为在复杂情况下，同一时间内可能收到多个 logEntry 使用队列形式消化任务是一种更为合理的方式。</p>
+<ol start="6">
+<li><strong>第二个副本实例向其他副本发起下载请求</strong></li>
+</ol>
+<p>node3基于/queue 队列开始执行任务，当看到 type 为 get 的时候，就会知道远端的副本已经成功写入数据分区，而自己需要同步这些数据，node3 同步数据流程大概如下：</p>
+<ul>
+<li>从 replicas 节点拿到所有的副本节点</li>
+<li>遍历副本，选取拥有最大的 log_pointerde 且/queue 子节点数量最少的副本，log_pointer 下标最大，意味着该副本执行的日志最多，数据更加完整，/queue 最小意味着该副本目前的任务执行负担较小。</li>
+<li>如果第一次请求失败，会再次请求，默认请求五次，由 max_fetch_partition_retries_count 参数控制。</li>
+</ul>
+<ol start="7">
+<li><strong>第一个副本响应数据下载</strong></li>
+</ol>
+<p>node3 的 DataPartsExchange 端口服务接收到调用请求，在得拉取数据请求后根据参数做出响应，将本地分区 202107_0_0_0基于 DataPartsExchange 的服务响应发送会 node2。</p>
+<ol start="8">
+<li><strong>第二个副本实例下载数据并完成本地写入</strong></li>
+</ol>
+<p>node2 在收到分区数据后先将其写到临时目录，等到数据全部接收完之后，将目录重命名，至此整个写入数据流程结束。</p>
+<p>在写入的整个过程中，zookeeper 不会进行实质性的数据传输。</p>
+<h4 id="3-2-2-merge-的执行流程"><a href="#3-2-2-merge-的执行流程" class="headerlink" title="3.2.2 merge 的执行流程"></a>3.2.2 merge 的执行流程</h4><p>当 ReplicatedMergeTree 触发合并分区，即进入了这部分的流程。</p>
+<p>无论 Merge 操作从哪个副本发起，其合并计划都会交给主副本来指定。整个流程从上至下按照时间顺序进行，大致分成 5 个步骤。</p>
+<ol>
+<li><strong>创建远程连接，尝试与主副本通信</strong></li>
+</ol>
+<p>如果在非主副本节点执行 optimize 操作，强制触发 merge 合并，这时该节点会通过 /replicas 找到主副本，并与其建立连接。</p>
+<ol start="2">
+<li><strong>主副本接收通信</strong></li>
+</ol>
+<p>主副本接收并建立与远端副本的连接</p>
+<ol start="3">
+<li><strong>主副本指定 merge 计划并推送 log</strong></li>
+</ol>
+<p>由主副本指定 merge 计划，并判断哪些分区需要被合并。选定之后将合并计划转为 log 日志对象推送到 log 日志，以通知所有副本开始合并，与此同时，主副本还会锁住执行线程，对日志的接收情况进行监听，监听行为由 replication_alter_partition_sync 参数控制，默认值为 1，当参数为 0 时，不做任何等待，当参数为 1 时，只等待主副本自身完成，当为 2 时，会等待所有副本拉取完成。</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 33] <span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/log</span><br><span class="line">[log-0000000001, log-0000000000]</span><br><span class="line">[zk: localhost:2181(CONNECTED) 34] get /clickhouse/tables/01/t_replicated/log/log-0000000001</span><br><span class="line">format version: 4</span><br><span class="line">create_time: 2021-08-12 17:18:32</span><br><span class="line"><span class="built_in">source</span> replica: node2</span><br><span class="line">block_id:</span><br><span class="line">merge <span class="comment"># 合并操作</span></span><br><span class="line">202107_0_0_0 <span class="comment">#合并的分区</span></span><br><span class="line">into</span><br><span class="line">202107_0_0_1 <span class="comment">#合并后的分区</span></span><br><span class="line">deduplicate: 0</span><br><span class="line">part_type: Compact</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="4">
+<li><strong>各个副本分别拉取 log 日志</strong></li>
+</ol>
+<p>当各个副本监听到 log-0000000001 的日志推送后，他们分别拉取本地日志，并推送到各自的 queue 任务队列。</p>
+<ol start="5">
+<li><strong>各个副本分别在本地执行 merge</strong></li>
+</ol>
+<p>各个副本基于各自的/queue 队列开始执行任务，Merge 流程到此结束。</p>
+<h4 id="3-2-3-mutation-的执行流程"><a href="#3-2-3-mutation-的执行流程" class="headerlink" title="3.2.3 mutation 的执行流程"></a>3.2.3 mutation 的执行流程</h4><p>当对 ReplicatedMergeTree 执行 alter delete 和 alter update 操作时，就会进行 mutation 的执行流程</p>
+<p>与 merge 类似，无论从哪个节点发起 mutation 操作，都会由主副本进行相应。</p>
+<ol>
+<li><strong>推送 mutation 日志</strong></li>
+</ol>
+<p>在某个节点尝试通过 delete 删除数据，命令如下：</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter table</span> t_replicated <span class="keyword">delete</span> <span class="keyword">where</span> id <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></tbody></table></figure>
+
+<p>执行之后该副本会做两个操作，</p>
+<ul>
+<li>创建 mutation id</li>
+<li>将 mutation 转换为 mutationEntry 日志，并推送到 /clickhouse/tables/01/t_replicated/mutations</li>
+</ul>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 37] <span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/mutations</span><br><span class="line">[0000000000]</span><br><span class="line">[zk: localhost:2181(CONNECTED) 40] get /clickhouse/tables/01/t_replicated/mutations/0000000000</span><br><span class="line">format version: 1</span><br><span class="line">create <span class="keyword">time</span>: 2021-07-21 17:56:27 <span class="comment"># 创建时回见</span></span><br><span class="line"><span class="built_in">source</span> replica: node2</span><br><span class="line">block numbers count: 1</span><br><span class="line">202107	1</span><br><span class="line">commands: DELETE WHERE <span class="built_in">id</span> = 1 <span class="comment"># 删除条件</span></span><br><span class="line">alter version: -1</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>mutation 操作日志由 /clickhouse/tables/01/t_replicated/mutations 分发至各个副本</p>
+<ol start="2">
+<li><strong>所有副本实例各自监听mutation 日志</strong></li>
+</ol>
+<p>所有副本都会监听 /clickhouse/tables/01/t_replicated/mutations ，当有新的日志节点创建时他们都能监听到，但并不是每个副本都会响应，他们会先判断自己是否是主副本</p>
+<ol start="3">
+<li><strong>由主副本实例响应 mutation 日志并推送 log 日志</strong></li>
+</ol>
+<p>主副本会响应 mutation 日志，将 mutation 日志转换为 logEntry 日志并推送到 /log节点，以通知各个副本执行具体操作</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 42] <span class="built_in">ls</span> /clickhouse/tables/01/t_replicated/log</span><br><span class="line">[log-0000000003, log-0000000001, log-0000000002, log-0000000000]</span><br><span class="line"></span><br><span class="line">[zk: localhost:2181(CONNECTED) 44] get /clickhouse/tables/01/t_replicated/log/log-0000000003</span><br><span class="line">format version: 4</span><br><span class="line">create_time: 2021-08-12 17:56:32</span><br><span class="line"><span class="built_in">source</span> replica: node2</span><br><span class="line">block_id:</span><br><span class="line">drop</span><br><span class="line">202107_0_0_999999999_1</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="4">
+<li><strong>各个副本分别拉取 log 日志</strong></li>
+</ol>
+<p>主副本推送 log 日志后，其余副本会监听到 log 日志节点的变化，根据日志内容将相关操作推送到各自的/queue 队列</p>
+<ol start="5">
+<li><strong>各个副本实例分别在本地执行 mutation</strong></li>
+</ol>
+<p>各个副本会基于自己的/queue 队列开始执行任务，执行结束后，mutation 流程执行结束。</p>
+<h4 id="3-2-4-alter-执行流程"><a href="#3-2-4-alter-执行流程" class="headerlink" title="3.2.4 alter 执行流程"></a>3.2.4 alter 执行流程</h4><p>当 ReplicatedMergeTree 执行 alter 操作时进行元数据修改的时候，就会进入 alter 逻辑，例如增加，删除表字段等。</p>
+<ol>
+<li><strong>修改共享元数据</strong></li>
+</ol>
+<p>在一个节点增加一个列字段，执行之后，该节点会修改 zookeeper 内的共享元数据节点，数据修改后，节点的版本号同时提升，与此同时，该节点还会监听所有副本的修改完成情况。</p>
+<ol start="2">
+<li><strong>监听共享元数据变更并各自执行本地修改</strong></li>
+</ol>
+<p>共享元数据元数据更改之后，其余副本会将自身的元数据版本号与共享元数据版本号进行对比，如果自身元数据版本号低于共享元数据版本号，则进行元数据更新。</p>
+<ol start="3">
+<li><strong>确认所有副本完成修改</strong></li>
+</ol>
+<p>当前确认所有副本均修改成功，则 alter 流程结束。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/76437a77.html">https://www.hnbian.cn/posts/76437a77.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/olap/">
+                                    <span class="chip bg-color">olap</span>
+                                </a>
+                            
+                                <a href="/tags/clickhouse/">
+                                    <span class="chip bg-color">clickhouse</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/97ae78ef.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fqee-3-2BKfBsUOcX6xhoKbtIPEU" class="responsive-img" alt="ClickHouse 12.副本与分片 2.分片">
+                        
+                        <span class="card-title">ClickHouse 12.副本与分片 2.分片</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2021-07-28
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/b08f3300.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FnoUbYaHeD4kH2k8yWby6RVXTNyi" class="responsive-img" alt="ClickHouse 10.数据查询">
+                        
+                        <span class="card-title">ClickHouse 10.数据查询</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2021-07-10
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

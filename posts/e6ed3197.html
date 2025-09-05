@@ -1,0 +1,1685 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="ClickHouse 表引擎 2.MergeTree 索引与数据存储方式, hnbian">
+    <meta name="description" content="1. 一级索引MergeTree 主键使用 primary key 定义，定义主键后，会将数据依据 index_granularity 参数设置的间隔（默认：8192）为表生成一级索引保存到 primary.idx 文件中，索引文件按照 p">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>ClickHouse 表引擎 2.MergeTree 索引与数据存储方式 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/FsDoJ753zCwwse7JQpdW3cLD_yQC')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">ClickHouse 表引擎 2.MergeTree 索引与数据存储方式</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/ClickHouse/">
+                                <span class="chip bg-color">ClickHouse</span>
+                            </a>
+                        
+                            <a href="/tags/olap/">
+                                <span class="chip bg-color">olap</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/ClickHouse/" class="post-category">
+                                ClickHouse
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2021-05-18
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-一级索引"><a href="#1-一级索引" class="headerlink" title="1. 一级索引"></a>1. 一级索引</h2><p>MergeTree 主键使用 primary key 定义，定义主键后，会将数据依据 index_granularity 参数设置的间隔（默认：8192）为表生成一级索引保存到 primary.idx 文件中，索引文件按照 primary key 进行排序。但更常用 order by 代替主键，这时索引文件（primary.idx）与数据文件（column_name.bin）会按照相同的规则排序。</p>
+<h3 id="1-1-系数索引"><a href="#1-1-系数索引" class="headerlink" title="1.1 系数索引"></a>1.1 系数索引</h3><p>primary.idx 文件内的一级索引采用稀疏索引的方式实现的，如下图所示：</p>
+<img src="https://images.hnbian.cn/FpOIIW4KOmdlsQW0fwxuJ2bxrAHe" alt="稀疏索引与稠密索引" style="zoom:50%;">
+
+
+
+<ul>
+<li>稠密索引每一个索引都会对应一条数据记录。</li>
+<li>一条稀疏索引标记对应一段数据，稀疏索引就像是一本书的目录，每个目录只会对应章节的开始位置，而不会对应到具体的每个字。</li>
+<li>使用稀疏索引的好处是使用少量的索引就能标记大量的数据记录的区间位置，而且数据量越大这种优势就会越明显。</li>
+<li>mergetree 使用 12208 条索引标记就能为1 亿行数据记录提供索引。</li>
+<li>由于稀疏索引占用空间小，所以 primary.idx 中的数据时常驻内存的，读取速度非常快。</li>
+</ul>
+<h3 id="1-2-索引粒度"><a href="#1-2-索引粒度" class="headerlink" title="1.2 索引粒度"></a>1.2 索引粒度</h3><ul>
+<li>索引粒度对于 MergeTree 而言是一个非常重要的概念，索引粒度如同标尺一样，会标注整个数据的长度，最终数据会形成多个间隔的小段。</li>
+<li>在新版本中也支持使用自适应粒度，使用 enable_mixed_granularity_parts参数开启。</li>
+<li>MergeTree 使用 index_granularity 参数设置索引粒度（默认：8192），数据通过索引粒度被标记成多个区间，每个区间最多 8192条数据。</li>
+<li>MergeTree 使用 MarkRange 表示一个具体的区间，并通过 start 和 end 表示具体范围。</li>
+<li>index_granularity 参数除了作用于一级索引以外还会影响数据标记（.mrk）和数据文件（.bin）。</li>
+<li>标记文件与一级索引文件粒度相同，彼此对齐，数据文件也会依据粒度间隔生成压缩数据块。</li>
+<li>查询数据时需要数据索引、数据标记和数据文件一起工作完成查询功能。</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FgipmO_qt8jkZdBvnaHCD8LEefqA?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="索引粒度图示"></p>
+<h3 id="1-3-索引数据的生成规则"><a href="#1-3-索引数据的生成规则" class="headerlink" title="1.3 索引数据的生成规则"></a>1.3 索引数据的生成规则</h3><ul>
+<li>MergeTree 的一级索引属于稀疏索引，需要间隔 index_granularity 行数据才会生成一条索引记录，其索引值会依据声明的主键字段获取。</li>
+<li>索引值为间隔index_granularity行数据取一次主键值作为索引值，将几次取指拼接到一起形成最终索引值，索引数据最终会被保存到primary.idx 文件中进行保存。</li>
+<li>如下图ID 作为主键 ，order by (ID)</li>
+</ul>
+<img src="https://images.hnbian.cn/Fi3JoIguwjBaDPu5fFvSGEJGsuyp" alt="稀疏索引生成规则" style="zoom:50%;">
+
+<p>MergeTree 对稀疏索引的存储是非常紧凑的，索引值前后相连，按主键顺序紧密排列在一起， ClickHouse  中很多数据结构都被设计的非常紧凑，如使用位读取代替专门的标识位或状态码，不浪费一点空间，这也是  ClickHouse  性能出色的原因之一。</p>
+<p>如果使用多个主键，索引如下图所示，order by (ID,EventData)</p>
+<p><img src="https://images.hnbian.cn/FnqRQxRu7nf4ksEyZnSlNfkGym-r?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h3 id="1-4-索引的查询过程"><a href="#1-4-索引的查询过程" class="headerlink" title="1.4 索引的查询过程"></a>1.4 索引的查询过程</h3><p>要想知道索引是如何工作的，需要先知道 MarkRange是什么，MarkRange 是 ClickHouse  中用于定义标记区间的对象，MergeTree 按照 index_granularity 的间隔粒度将一段完整的数据划分成多个小的间隔数据段，其中的每个小的数据段都是一个 MarkRange。</p>
+<p>MarkRange 与索引编号对应，使用 start 和 end 两个属性表示其区间范围，通过与 start 和 end 对应的索引编号的取值，即能够得到它对应的数值区间，而数值区间表示了此 MarkRange包含的数据范围。</p>
+<p>一份 192 行的测试数据，主键为 String 类型的 ID，取值范围从 A000 ，A001，A002 …  A192。MergeTree 索引粒度 index_granularity = 3，根据索引生成规则，primary.idx 文件内的索引数据如下图所示：</p>
+<p><img src="https://images.hnbian.cn/FqzGp4iTykK8Kj2XiLnWpkN7sJfE?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>根据索引数据，MergeTree 会将此数据片段划分成192/3=64 个小的MarkRange，相邻的 MarkRange 步长为 1，所有 MarkRange 的最大步长为[A000,+inf]</p>
+<p><img src="https://images.hnbian.cn/FlWrNry6YqvdlH_qGHlEP7x9b0EE?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>对于索引的查询就是两个数值区间的交集判断，一个区间是基于主键的查询条件转换来的，另一个区间是与 MarkRange 对应的数值区间。</p>
+<p>整个索引查询大约分为三个步骤：</p>
+<ol>
+<li>生成查询条件区间：将查询条件转换为条件区间，单个查询条件也会被转换为区间的形式，如：</li>
+</ol>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">where</span> ID <span class="operator">=</span> <span class="string">'A0003'</span></span><br><span class="line">[<span class="string">'A0003'</span>,<span class="string">'A0003'</span>]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">where</span> ID <span class="operator">&gt;</span> <span class="string">'A0003'</span></span><br><span class="line">[<span class="string">'A0003'</span>,<span class="operator">+</span>inf]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">where</span> ID <span class="operator">&lt;</span> <span class="string">'A0003'</span></span><br><span class="line">[<span class="operator">-</span>inf,<span class="string">'A0003'</span>]</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol start="2">
+<li><p>做递归交集判断：以递归的形式依次对 MarkRange 的数值区间与条件区间做交集判断，从最大的区间 <code>['A0000',+inf]</code> 开始。</p>
+<ul>
+<li>如果不存在交集，则直接使用剪枝算法优化此段MarkRange。</li>
+<li>如果存在交集，且 MarkRange 步长大于 merge_tree_coarse_index_granularity （默认：8），则将该区间进一步拆分成对应数量的子区间，并重复递归，继续做交集判断。</li>
+<li>如果存在交集，且 MarkRange 步长小于 merge_tree_coarse_index_granularity （默认：8），则记录 MarkRange 并返回。</li>
+</ul>
+</li>
+<li><p>合并MarkRange区间：将最终匹配的 MarkRange 聚集到一起，合并他们的范围。</p>
+<p>MarkRange 通过递归持续向下拆分区间，最终将MarkRange 定位到最细的粒度，使得在后面取数据时能够最小化扫描数据的范围。</p>
+</li>
+</ol>
+<p>当查询条件是 <code>where ID = 'A0003'</code> 最终需要读取 [A000,A003] 和 [A003,A006] 两个区间的数据，他们对应MarkRange[0,2] 范围，而其他无用的区间都被剪掉了。</p>
+<p><img src="https://images.hnbian.cn/Fo57lqFyhWdkNLkZRMBE0DzPFtn5?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h2 id="2-二级索引"><a href="#2-二级索引" class="headerlink" title="2. 二级索引"></a>2. 二级索引</h2><ul>
+<li>除了一级索引之外，MergeTree 还支持二级索引</li>
+<li>二级索引又称为跳数索引，由数据的聚合信息构成。</li>
+<li>根据索引类型不同，聚合信息的内容也不相同。</li>
+<li>设计二级索引的目的与一级索引一样，也是为了在查询时减少扫描数据的范围</li>
+<li>二级索引需要在 create 语句内定义，支持元组和表达式的声明形式。</li>
+<li>如果声明了二级索引，那么在会额外生成对应的索引文件<code>（skp_idx_[column].idx）</code>与标记文件<code>（skp_idx_[column].mrk）</code></li>
+<li>声明方式：</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INDEX index_name expr TYPE index_type(...) GRANULARITY Granularity</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="2-1-granularity-与-index-granularity"><a href="#2-1-granularity-与-index-granularity" class="headerlink" title="2.1 granularity 与 index_granularity"></a>2.1 granularity 与 index_granularity</h3><ul>
+<li>index_granularity：定义数据的粒度，数据通过索引粒度被标记成多个区间。</li>
+<li>granularity：定义汇聚信息汇总的粒度，定义了一个跳数索引能跳过多少index_granularity的区间数据。</li>
+</ul>
+<h3 id="2-2-跳数索引的生成规则"><a href="#2-2-跳数索引的生成规则" class="headerlink" title="2.2 跳数索引的生成规则"></a>2.2 跳数索引的生成规则</h3><ol>
+<li>按照 index_granularity 粒度间隔将数据划分成 N 段，共有 [0,N-1] 个区间（N = 总行数/index_granularity 向上取整）</li>
+<li>根据索引定义时声明的表达式，从 0 区间开始，依次按 index_granularity 粒度从数据中获取聚合信息，每次向前移动 1 步，聚合信息逐步累加。</li>
+<li>当移动 granularity 次区间时，汇总并声称一行跳数索引数据。</li>
+</ol>
+<p>以 minmax 类型索引为例介绍二级生成方式：</p>
+<p>minmax 索引的聚合信息是在一个 index_granularity 区间内 granularity 的最小值与最大值。</p>
+<p>一下图为例，设置 index_granularity = 8192 ，granularity = 3，则会将数据按照 index_granularity 划分为 N 份，MergeTree 会从第 0 份开始获取聚合信息。当获取到第三个分区时，汇总并生成第一个 minmax 索引，前 3 段minmax极值汇总后取值为 [1,9]</p>
+<p><img src="https://images.hnbian.cn/Fit9QY8dqZMSu5DfLM0nsZDxhuws?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h3 id="2-3-跳数索引的类型"><a href="#2-3-跳数索引的类型" class="headerlink" title="2.3 跳数索引的类型"></a>2.3 跳数索引的类型</h3><ul>
+<li>MergeTree 共支持 4 种跳数索引，分别是：<code>minmax</code> 、 <code>set</code> 、 <code>ngrambf_v1</code> 和  <code>tokenbf_v1</code>。</li>
+<li>在一张表中可以同时声明多个跳数索引。</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">CREATE TABLE</span> skip_test</span><br><span class="line">(</span><br><span class="line">    `id` String,</span><br><span class="line">    `name` String,</span><br><span class="line">    `event_date` <span class="type">date</span>,</span><br><span class="line">    INDEX a id TYPE minmax GRANULARITY <span class="number">5</span>,</span><br><span class="line">    INDEX b length(id) <span class="operator">*</span> <span class="number">8</span> TYPE <span class="keyword">set</span>(<span class="number">1000</span>) GRANULARITY <span class="number">5</span>,</span><br><span class="line">    INDEX c (id, name) TYPE ngrambf_v1(<span class="number">3</span>, <span class="number">256</span>, <span class="number">2</span>, <span class="number">0</span>) GRANULARITY <span class="number">5</span>,</span><br><span class="line">    INDEX d id TYPE tokenbf_v1(<span class="number">256</span>, <span class="number">2</span>, <span class="number">0</span>) GRANULARITY <span class="number">5</span></span><br><span class="line">)</span><br><span class="line">ENGINE <span class="operator">=</span> MergeTree</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> id</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="2-3-1-minmax"><a href="#2-3-1-minmax" class="headerlink" title="2.3.1 minmax"></a>2.3.1 minmax</h4><ul>
+<li>minmax索引 记录了一段数据内的最小值和最大值</li>
+<li>索引的作用类似分区目录的 minmax 索引，能够快速跳过无用的数据区间。</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 示例</span></span><br><span class="line">INDEX a id TYPE minmax GRANULARITY <span class="number">5</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- minmax 索引会记录这段数据区间内 id 字段的最小值与最大值，极值计算设计 5 个 index_granularity 区间的数据</span></span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="2-3-2-set"><a href="#2-3-2-set" class="headerlink" title="2.3.2 set"></a>2.3.2 set</h4><ul>
+<li>set 索引直接记录了声明字段或表达式的取值（唯一值，不重复）</li>
+<li>完整形式为：set(max_rows)，其中 max_rows 是一个阈值，表示在一个index_granularity 内，索引最多记录的数据行数</li>
+<li>如果 max_rows = 0 ，表示无限制</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 示例</span></span><br><span class="line">INDEX b length(id) <span class="operator">*</span> <span class="number">8</span> TYPE <span class="keyword">set</span>(<span class="number">1000</span>) GRANULARITY <span class="number">5</span>,</span><br><span class="line"></span><br><span class="line"><span class="comment">-- set 索引会记录 id 长度 * 8 的值，每个 index_granularity 最多记录 1000 条</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="2-3-3-ngrambf-v1"><a href="#2-3-3-ngrambf-v1" class="headerlink" title="2.3.3 ngrambf_v1"></a>2.3.3 ngrambf_v1</h4><ul>
+<li>ngrambf_v1索引记录的是数据短语的布隆过滤器</li>
+<li>ngrambf_v1索引只支持 String 和FixedString 类型</li>
+<li>ngrambf_v1索引只能提升in、notIn、like、equals和 notEquals 的查询性能</li>
+<li>完整形式为：ngrambf_v1(n, size_of_bloom_filter_in_bytes, number_of_hash_functions, random_seed)<ul>
+<li>n：token 长度，根据 n 长度，将数据切割为 token 短语</li>
+<li>size_of_bloom_filter_in_bytes：布隆过滤器的大小</li>
+<li>number_of_hash_functions：布隆过滤器中使用 hash 函数的个数</li>
+<li>random_seed：hash 函数的随机种子</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 示例</span></span><br><span class="line">INDEX c (id, name) TYPE ngrambf_v1(<span class="number">3</span>, <span class="number">256</span>, <span class="number">2</span>, <span class="number">0</span>) GRANULARITY <span class="number">5</span>,</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ngrambf_v1索引会按照3 的粒度，将数据切分成短语 token，</span></span><br><span class="line"><span class="comment">-- token 会经过两次 hash 函数再被写入</span></span><br><span class="line"><span class="comment">-- 布隆过滤器的大小是 256 字节</span></span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="2-3-4-tokenbf-v1"><a href="#2-3-4-tokenbf-v1" class="headerlink" title="2.3.4 tokenbf_v1"></a>2.3.4 tokenbf_v1</h4><ul>
+<li>tokenbf_v1索引也是一种布隆过滤器索引，可以看做是ngrambf_v1索引的变种。</li>
+<li>tokenbf_v1索引除了短语 token 处理的方法与ngrambf_v1索引不同，其他方面处理都是一样的。</li>
+<li>tokenbf_v1索引会自动按照非字符的，数字的字符分割 token</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 示例</span></span><br><span class="line">INDEX d id TYPE tokenbf_v1(<span class="number">256</span>, <span class="number">2</span>, <span class="number">0</span>) GRANULARITY <span class="number">5</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- token 会经过两次 hash 函数再被写入</span></span><br><span class="line"><span class="comment">-- 布隆过滤器的大小是 256 字节</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h2 id="3-数据存储"><a href="#3-数据存储" class="headerlink" title="3. 数据存储"></a>3. 数据存储</h2><h3 id="3-1-各列独立存储"><a href="#3-1-各列独立存储" class="headerlink" title="3.1 各列独立存储"></a>3.1 各列独立存储</h3><ul>
+<li><p>MergeTree 中数据时按列存储的，具体到每个字段时也是独立存储的。</p>
+</li>
+<li><p>每个列字段都有一个与之对应的 [column_name].bin 文件，这些文件承载着数据最终的物理存储。</p>
+</li>
+<li><p>数据文件以分区目录的形式被组织存放，所以  [column_name].bin 文件只会保存当前分区内的这一部分数据。</p>
+</li>
+<li><p>按列存储的优势在于可以减少扫描的数据量</p>
+</li>
+<li><p>按列存储还可以优化压缩的效率，同一字段的类型相同且重复率更高。</p>
+</li>
+<li><p>MergeTree 将数据写入 bin 文件也是经过设计的：</p>
+<ol>
+<li><p>数据会经过压缩，目前支持的压缩算法有：LZ4(默认)、ZSTD、Multiple和Delat几种算法。</p>
+</li>
+<li><p>数据会按照 order by 的声明排序。</p>
+</li>
+<li><p>数据以压缩块的形式被组织并写入 bin 文件中</p>
+</li>
+</ol>
+</li>
+</ul>
+<h3 id="3-2-压缩数据块"><a href="#3-2-压缩数据块" class="headerlink" title="3.2 压缩数据块"></a>3.2 压缩数据块</h3><ul>
+<li>压缩数据块由头信息和压缩数据两部分组成</li>
+<li>头信息使用固定 9 个字节表示，分为三个部分<ol>
+<li>压缩算法（1 个 UInt8 整型表示，1 字节）</li>
+<li>压缩后的数据大小（1 个 UInt32 整型表示，4 字节）</li>
+<li>压缩前数据大小（1 个 UInt32 整型表示，4 字节）</li>
+</ol>
+</li>
+</ul>
+<p><img src="https://images.hnbian.cn/Fk2EZXH318Uyc81JqUzLYkluWvUa?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>.bin 数据文件是由多个数据压缩块组成的，每个数据压缩块的头信息又是由  CompressionMethod_CompressedSize_UncompressedSize组成的。</p>
+<p>可以通过  ClickHouse  提供的 ClickHouse -compressor工具查看某个.bin 数据文件的统计信息。</p>
+<figure class="highlight shell"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">查看 data.bin 压缩数据统计信息</span></span><br><span class="line">[root@node3 data]#  ClickHouse -compressor --stat db_merge/t_merge_tree_partition/202001_1_1_2/data.bin</span><br><span class="line">2	12</span><br><span class="line">6	16</span><br><span class="line">8	18</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">每一行代表一个数据压缩块的头信息，分别代表着压缩后的数据大小与未压缩的数据大小</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>每个压缩数据块的体积，按照其压缩前的数据字节大小，被严格控制在 64KB~1MB 之间，分别由 min_compress_block_size （默认 65536） 与min_compress_block_size （默认：1048576）参数指定。</p>
+<p>数据压缩块的大小和间隔（index_granularity）内的数据实际大小有关。</p>
+<p>MergeTree 在写入数据过程中，会依照 index_granularity 粒度，按批次取数据并进行处理。设下一批未压缩数据大小为 x 字节，写入数据遵循如下规则：</p>
+<ol>
+<li>x &lt; 64KB：当单批次数据小于 64KB 时，继续获取下一批数据，直到累积到 64KB后，生成下一个数据压缩块。</li>
+<li>64KB &lt; x &lt; 1MB：当单批次数据大于64KB 且小于 1M 时，直接生成下一个数据压缩块。</li>
+<li>x &gt; 1MB：当单批次数据大于 1MB 时，将数据按照 1MB 截取，生成数据压缩块，其余的数据按照前面的规则执行，此时可能生成多个压缩数据块。</li>
+</ol>
+<p><img src="https://images.hnbian.cn/Fs0fsW-YDxv4pyuCZewwZLD88nUc?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>一个 .bin 数据压缩文件，是由一个到多个压缩数据块组成，每个数据压缩块在 64KB 到 1MB 之间，多个数据块之间，按照写入顺序，首尾相连，紧密的排列在一起。</p>
+<ul>
+<li>数据文件中写入压缩数据块的目的：<ol>
+<li>数据被压缩后能够大大减少占用磁盘的空间并增加传输效率，但额外的压缩与解压缩会带来 CPU 性能的损耗，所以需要控制被压缩的数据大小，以保证在性能损耗与数据压缩之间保持平衡。</li>
+<li>在读取某一列数据时，需要将压缩文件加载到内存并解压，这样才能进行后续的数据处理，通过数据压缩块可以在不读取整个.bin 文件的情况下，将读取粒度降低到数据压缩块级别，减少数据读取的范围。</li>
+</ol>
+</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FkrYACnSp3WqOOz8UvKXlnUhv-Ay?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h2 id="4-数据标记"><a href="#4-数据标记" class="headerlink" title="4. 数据标记"></a>4. 数据标记</h2><p>如果把MergeTree 比作一本书，那么这本书的 一级章节目录就是 primary.idx 一级索引，书中的文字就是 .bin 文件中的数据。一级章节目录与书中的文字的联系由 数据标记（.mrk）建立。</p>
+<p>数据标记记录了两个非常重要的信息：</p>
+<ol>
+<li>一级章节对应的页码信息</li>
+<li>文字在某一页的起始位置</li>
+</ol>
+<p>通过数据标记后，很容易就能找到快速的从一本书中找到你想看的那一页，并知道从哪行开始阅读。</p>
+<h3 id="4-1-数据标记的生成规则"><a href="#4-1-数据标记的生成规则" class="headerlink" title="4.1 数据标记的生成规则"></a>4.1 数据标记的生成规则</h3><img src="https://images.hnbian.cn/Fleqgd4U96913C__OQpuAofgihYu" alt="通过索引下标找到对应的数据标记" style="zoom:50%;">
+
+
+
+<p>数据标记是衔接一级章节与数据的桥梁，每本书的每个章节也都会有各自的桥梁。从上图能够发现数据标记的首个特征即数据标记与索引区间是对齐的，都按照index_granularity的粒度间隔。这样只需要简单通过索引区间的下标编号就能找到对应的数据标记。</p>
+<p>为了能够与数据衔接，数据标记文件与 .bin 文件也是一一对应的。即每个列字段 [column].bin 文件都有一个与之对应的[column].mrk 数据标记文件，用于记录 .bin 文件中的偏移量信息。</p>
+<p>一行标记文件使用一个元组表示，元组内包含两个整数的偏移量信息，分别表示：在此段数据区间内，对应的 .bin 压缩文件中，压缩数据块的起始偏移量，以及对该数据块解压后，其未压缩数据的起始偏移量。</p>
+<img src="https://images.hnbian.cn/Fu2rQj8Do-xA9bXKB6Q6SuvkZl8x" style="zoom:50%;">
+
+
+
+<p>每一行标记数据都表示了一个片段的数据（默认 8192 行）在 .bin 文件中的读取位置信息。标记数据与索引数据不同，不能常驻内存，而是使用 URL（最近最少使用）缓存策略加快其读取速度。</p>
+<h3 id="4-2-数据标记的工作方式"><a href="#4-2-数据标记的工作方式" class="headerlink" title="4.2 数据标记的工作方式"></a>4.2 数据标记的工作方式</h3><p>Merge 在读取数据时，必须通过标记数据的位置信息才能找到所需的数据。整个查询过程大致可以分为读取数据压缩块和读取数据两个步骤，下面图示说明了标记数据与压缩数据的对应关系。</p>
+<img src="https://images.hnbian.cn/FnMFHZo_RKyCJ1iM8DBu2GG500pQ" style="zoom:50%;">
+
+
+
+<p>字段了性为 UInt8，每行占用一个字节，index_granularity粒度为 8192，所以一个索引片段占用数据大小是 8192B，根据压缩块的生成规则，当单批次数据小于 64KB 时，继续获取下一批数据，直到累积到 64KB后，生成下一个数据压缩块。</p>
+<p>可以看到标记文件中，每 8 个标记文件对应一个压缩块，（64KB=65536B， 1B*8192= 8192B，65536/8192=8）所以能够看到标记文件中，压缩文件中每 8 行的偏移量都是相同的，因此该 8 行数据都指向了同一个压缩块。</p>
+<p>这 8 行数据中的解压缩文件偏移量按照 8192B 累加，当累加到 65536 后设置为 0，根据规则生成下一个压缩数据块。</p>
+<h4 id="4-2-1-读取压缩数据块"><a href="#4-2-1-读取压缩数据块" class="headerlink" title="4.2.1 读取压缩数据块"></a>4.2.1 读取压缩数据块</h4><ul>
+<li>在读取某一列数据时，Merge 无需加载整个 .bin 文件，这个特性需要借助标记文件中的压缩文件偏移量来实现。</li>
+<li>在标记文件中，上下相邻的像个压缩文件中的起始偏移量，构成了与获取当前标记对应的压缩数据块的偏移量区间。</li>
+<li>由当前标记数据开始向下寻找，直到找到不同的压缩数据偏移量截止，此时得到一组压缩数据偏移量区间，即压缩数据在 .bin  文件中 [0,12016] 字节就能读取到第 0 个压缩数据块。</li>
+<li>压缩数据块加载到内存后会进行解压，接着就到了读取数据的环节。</li>
+</ul>
+<h4 id="4-2-2-读取数据"><a href="#4-2-2-读取数据" class="headerlink" title="4.2.2 读取数据"></a>4.2.2 读取数据</h4><ul>
+<li>在读取解压后的数据时，Merge不需要扫描全部解压数据</li>
+<li>可以根据需要，以 index_granularity 的粒度为单位加载特定小段数据，这个特性需要依靠标记文件中解压文件偏移量来实现。</li>
+<li>上下相邻两个解压缩数据块中的起始偏移量构成了获取当前标记对应的数据偏移量。</li>
+<li>依靠这个区间，能够在数据解压缩后依照偏移量获取数据，如通过[0,8192] 来获取压缩文件 0 中的第一个数据片段。</li>
+</ul>
+<h2 id="5-分区-索引-标记和数据压缩总结"><a href="#5-分区-索引-标记和数据压缩总结" class="headerlink" title="5. 分区,索引,标记和数据压缩总结"></a>5. 分区,索引,标记和数据压缩总结</h2><p>分区、索引、标记数据和压缩数据都是 Merge 的重要组成部分，前面介绍过这不各部分的特点之后，现在需要将它们汇聚在一次做一个总结，下面从写入、查询。数据标记与压缩数据的对应关系三个部分介绍。</p>
+<h3 id="5-1-写入过程"><a href="#5-1-写入过程" class="headerlink" title="5.1 写入过程"></a>5.1 写入过程</h3><ul>
+<li>写入数据的第一步是生成分区目录，伴随着每一批数据的写入都会生成一个新的目录。</li>
+<li>在后续的某个时间属于相同分区的目录会合并到一起。</li>
+<li>接下来按照 index_granularity 的粒度 分别生成 primary.idx一级索引、如果声明了二级索引也会生成二级索引、每一个列字段对应的 .mrk 标记文件和 .bin 压缩数据文件。</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FicUgLQprB1br6t597ApnXeVPtTS?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h3 id="5-2-查询过程"><a href="#5-2-查询过程" class="headerlink" title="5.2 查询过程"></a>5.2 查询过程</h3><ul>
+<li>数据查询的本质是一个不断减小数据范围的过程</li>
+<li>Merge 可以依次借助分区索引、一级索引和二级索引将数据扫描范围缩至最小</li>
+<li>然后借助标记数据将需要解压与计算的数据范围缩至最小</li>
+<li>下图示意了在经过层层过滤获取最小数据范围的过程</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FoHL4FLwpj341xYK2qoVuul9MknM?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>如果一条语句没有指定任何的 where 条件，或者指定了 where 条件但是没有匹配到任何索引，那么 Merge 就不能预先减小数据范围，在后续的查询中会扫描所有的分区目录，以及目录内的数据。虽然不能减少数据范围，但是 Merge 仍然能借助数据标记，以多线程的形式同时读取多个压缩数据块，以提升性能。</p>
+<h3 id="5-3-数据标记与压缩数据块的对应关系"><a href="#5-3-数据标记与压缩数据块的对应关系" class="headerlink" title="5.3 数据标记与压缩数据块的对应关系"></a>5.3 数据标记与压缩数据块的对应关系</h3><p>如下图所示，数据标记与压缩数据块存在三种关系</p>
+<ul>
+<li>多对一</li>
+<li>一对一</li>
+<li>一对多</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FkEyk6q0DUv8lzN8tqvdaiSCI8CP?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<h4 id="5-3-1-多对一"><a href="#5-3-1-多对一" class="headerlink" title="5.3.1 多对一"></a>5.3.1 多对一</h4><p>多个数据标记对应一个数据压缩块，当一个数据间隔内的未压缩数据不到 64KB 时会出现这种关系。</p>
+<p><img src="https://images.hnbian.cn/FuQjA3Z4gCTop5xkk3O5ecNrC35r?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="多个数据标记对应一个数据压缩块"></p>
+<h4 id="5-3-2-一对一"><a href="#5-3-2-一对一" class="headerlink" title="5.3.2 一对一"></a>5.3.2 一对一</h4><p>一个数据标记对应一个数据压缩块，当一个数据间隔内的未压缩数据大于 64KB  且小于 1MB 时会出现这种关系。</p>
+<p><img src="https://images.hnbian.cn/FsVyLpz0aK84EprNCdvTIAo08Dnx?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="一个数据标记对应一个数据压缩块"></p>
+<h4 id="5-3-3-一对多"><a href="#5-3-3-一对多" class="headerlink" title="5.3.3 一对多"></a>5.3.3 一对多</h4><p>一个数据标记对应多个数据压缩块，当一个数据间隔内的未压缩数据大于 1MB 时会出现这种关系。</p>
+<p><img src="https://images.hnbian.cn/FgEDoEtQW44G83DmsMwWnS3W83D1?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="一个数据标记对应多个数据压缩块"></p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/e6ed3197.html">https://www.hnbian.cn/posts/e6ed3197.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/ClickHouse/">
+                                    <span class="chip bg-color">ClickHouse</span>
+                                </a>
+                            
+                                <a href="/tags/olap/">
+                                    <span class="chip bg-color">olap</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/d6a89710.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FoBEqvQWqLjX6An15bPK9UXCocL_" class="responsive-img" alt="ClickHouse表引擎 3.MergeTree 数据生命周期">
+                        
+                        <span class="card-title">ClickHouse表引擎 3.MergeTree 数据生命周期</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2021-05-28
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/clickhouse/" class="post-category">
+                                    clickhouse
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/olap/">
+                        <span class="chip bg-color">olap</span>
+                    </a>
+                    
+                    <a href="/tags/clickhouse/">
+                        <span class="chip bg-color">clickhouse</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/dbe44fb8.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FoTP4eTRQIzQs9k6cuMctA_Gctov" class="responsive-img" alt="记录 Ambari 安装 Kafka 异常">
+                        
+                        <span class="card-title">记录 Ambari 安装 Kafka 异常</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2021-05-12
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/ambari/" class="post-category">
+                                    ambari
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                    <a href="/tags/ambari/">
+                        <span class="chip bg-color">ambari</span>
+                    </a>
+                    
+                    <a href="/tags/others/">
+                        <span class="chip bg-color">others</span>
+                    </a>
+                    
+                    <a href="/tags/kafka/">
+                        <span class="chip bg-color">kafka</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

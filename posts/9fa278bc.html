@@ -1,0 +1,1979 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="HDFS 中常见的数据格式 2.面向列的文件格式介绍, hnbian">
+    <meta name="description" content="1. 列式存储列式存储, 顾名思义就是按照列进行存储, 把某一列的数据连续的存储, 每一行中的不同列的值离散分布, 列式存储技术并不新鲜, 在关系数据库中都已经在使用, 尤其是在针对OLAP场景下的数据存储, 由于OLAP场景下的数据大部分">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>HDFS 中常见的数据格式 2.面向列的文件格式介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fp2O-nAxeWBSGy4g4x_wRXu9Z6gZ')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">HDFS 中常见的数据格式 2.面向列的文件格式介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/hdfs/">
+                                <span class="chip bg-color">hdfs</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hdfs/" class="post-category">
+                                hdfs
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2017-09-03
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-列式存储"><a href="#1-列式存储" class="headerlink" title="1. 列式存储"></a>1. 列式存储</h2><p>列式存储, 顾名思义就是按照列进行存储, 把某一列的数据连续的存储, 每一行中的不同列的值离散分布, 列式存储技术并不新鲜, 在关系数据库中都已经在使用, 尤其是在针对OLAP场景下的数据存储, 由于OLAP场景下的数据大部分情况下都是批量导入, 基本上不需要支持单条记录的增删改操作, 而查询的时候大多数都是只使用部分列进行过滤, 聚合, 对少数列进行计算( 基本不需要 select * from tname 之类的查询). 列式存储可以大大提升这类查询的性能, 交之于行式存储能够带来这些优化:</p>
+<ul>
+<li><p>由于每一列的数据类型相同, 所以可以针对不同类型的列使用不同的编码和压缩方式, 这样可以大大降低数据存储空间.</p>
+</li>
+<li><p>读取数据的时候可以把映射(project) 下推, 只需要读取需要的列, 这样可以大大减少每次查询的I/O 数据量, 更深圳可以支持谓词下推, 跳过不满足条件的列.</p>
+</li>
+<li><p>由于每一列的数据类型相同, 可以使用更加适合CPU     pipeline的编码方式, 减小CPU的缓存失效</p>
+</li>
+</ul>
+<h2 id="2-Parquet"><a href="#2-Parquet" class="headerlink" title="2. Parquet"></a>2. Parquet</h2><h3 id="2-1-Parquet是什么"><a href="#2-1-Parquet是什么" class="headerlink" title="2.1 Parquet是什么"></a>2.1 Parquet是什么</h3><p>Parquet 的灵感来自于2010年Google发表的 <a target="_blank" rel="noopener" href="http://static.googleusercontent.com/media/research.google.com/zh-CN/pubs/archive/36632.pdf">Dremel论文</a>  , 文中介绍了一种支持嵌套结构的存储格式, 并且使用了列式存储的方式提升查询性能, 在Dremel 论文中还介绍了Google如何使用这种存储格式实现并行查询, 如果对此感兴趣可以参考 <a target="_blank" rel="noopener" href="http://static.googleusercontent.com/media/research.google.com/zh-CN/pubs/archive/36632.pdf">论文</a> 和开源实现 <a target="_blank" rel="noopener" href="https://drill.apache.org/">Apache Drill</a>。</p>
+<h3 id="2-2-嵌套数据模型"><a href="#2-2-嵌套数据模型" class="headerlink" title="2.2 嵌套数据模型"></a>2.2 嵌套数据模型</h3><p>在接触大数据之前, 我们简单的将数据划分为结构化数据和非结构化数据. 通常我们使用关系数据库存储结构化数据, 而关系数据库中使用数据模型都是扁平式的, 遇到诸如List, Map 和自定义的Struct的时候就需要用户在应用层解析, 但是在大数据环境下, 通常数据的来源是服务端的埋点数据, 很可能需要把程序中的某些对象内容作为输出的一部分, 而每一个对象都可能是嵌套的, 所以如果能够原生的支持这种数据, 这样在查询的时候就不需要额外的解析便能够获得想要的结果. 例如在Twitter, 在他们的生产环境中的一个典型的日志对象(一条记录) 有87个字段, 其中嵌套了7层,如下图:</p>
+<img src="https://images.hnbian.cn/FkC_JHboCPG6rRX_oSVtt6gjSqWT?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>另外, 随着嵌套格式的数据的需求日益增加, 目前hadoop生态圈中主流的查询引擎都支持更丰富的数据类型, 例如 Hive, SparkSQL,Impala等都原生的支持struct, Map,Array这样复杂的数据类型, 这样也就使得parquet 这种原生支持嵌套数据类型的存储格式变得至关重要, 性能也会更好。</p>
+<h3 id="2-3-Parquet的组成"><a href="#2-3-Parquet的组成" class="headerlink" title="2.3 Parquet的组成"></a>2.3 Parquet的组成</h3><p>Parquet仅仅是一种存储格式, 它是与语言,平台无关的, 并且不需要和任何一种数据处理框架绑定, 目前能够和Parquet是被的组件包括下面这些, 可以看出基本上通常使用的查询引擎和计算框架都已适配, 并且可以很方便的将其它序列化工具生成的数据转换为Parquet格式</p>
+<ul>
+<li>查询引擎: Hive, Impala,     Pig, Presto, Drill, Tajo, HAWQ, IBM Big SQL</li>
+<li>计算框架: MapReduce, Spark,     Cascading, Crunch, Scalding, Kite</li>
+<li>数据模型: Avro, Thrift, Protocol     Buffers, POJOs</li>
+</ul>
+<h3 id="2-4-项目组成"><a href="#2-4-项目组成" class="headerlink" title="2.4 项目组成"></a>2.4 项目组成</h3><p>Parquet项目由以下几个子项目组成:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/parquet-format">parquet-format</a> 项目由java实现，它定义了所有Parquet元数据对象，Parquet的元数据是使用Apache Thrift进行序列化并存储在Parquet文件的尾部。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/parquet-mr">parquet-mr </a>项目由java实现，它包括多个模块，包括实现了读写Parquet文件的功能，并且提供一些和其它组件适配的工具，例如Hadoop     Input/Output Formats、Hive Serde(目前Hive已经自带Parquet了)、Pig loaders等。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/Parquet/parquet-compatibility">parquet-compatibility</a> 项目，包含不同编程语言之间(JAVA和C/C++)读写文件的测试代码。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/apache/parquet-cpp">parquet-cpp</a> 项目，它是用于用于读写Parquet文件的C++库。</li>
+</ul>
+<p>下图展示了Parquet各个组件的层次以及从上到下交互的方式。 </p>
+<img src="https://images.hnbian.cn/FqJxqEGkO4Fqjx7lBVTtcVBPe0fh?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+
+
+<ul>
+<li>数据存储层定义了Parquet的文件格式, 其中元数据在parquet-format中定义, 包括Parquet原始类型定义, Page类型, 编码类型, 压缩类型等等</li>
+<li>对象转换层完成其他对象模型与Parquet内部数据模型的映射和转换, Parquet的编码方式使用的是striping and assembly算法</li>
+<li>对象模型定义了如何读取Parquet文件的内容, 这一层转换包括 Avro,     Thrift, PB 等序列化格式, Hive     serde等的适配, 并且为了帮助大家理解和使用, Parquet提供了 org.apache.parqurt.example 包 实现了java对象的Parquet文件的转换</li>
+</ul>
+<h3 id="2-5-数据模型"><a href="#2-5-数据模型" class="headerlink" title="2.5 数据模型"></a>2.5 数据模型</h3><p>Parquet支持嵌套的数据模型, 类似于Protocol Buffers, 每一个数据模型的schema 包含多个字段, 每个字段又可以包含多个字段, 每一个字段有三个属性: 重复数, 数据类型和字段名, 重复数可以是一下三种: required (出现1次), repeated(出现0次或多次)， optional (出现0次或1次). 每个字段的数据类型分为两种: group(复杂类型) 和primitive(基本类型). 例如 Dremel 中提供的Document 的schema 示例, 它的定义如下</p>
+<figure class="highlight scheme"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">message Document {</span><br><span class="line">   required int<span class="number">64</span> DocId<span class="comment">;// 只出现一次</span></span><br><span class="line"></span><br><span class="line">  optional group Links { //出现<span class="number">0</span>次或<span class="number">1</span>次</span><br><span class="line">  </span><br><span class="line">     repeated int<span class="number">64</span> Backward<span class="comment">; //出现0次或多次</span></span><br><span class="line">     repeated int<span class="number">64</span> Forward<span class="comment">;//出现0次或多次</span></span><br><span class="line">   }</span><br><span class="line">   repeated group Name {</span><br><span class="line">      repeated group Language {</span><br><span class="line">        required string Code<span class="comment">;</span></span><br><span class="line">        optional string Country<span class="comment">;</span></span><br><span class="line">      }</span><br><span class="line">      optional string Url<span class="comment">;</span></span><br><span class="line">   }</span><br><span class="line"> }</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>可以把这个Schema转换成树状结构，根节点可以理解为repeated类型，如下图: </p>
+<img src="https://images.hnbian.cn/FgXk6pGRidqi0jouEEK-4aFQQX4G?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<ul>
+<li>可以看出在Schema中所有的基本类型字段都是叶子节点，在这个Schema中一共存在6个叶子节点，如果把这样的Schema转换成扁平式的关系模型，就可以理解为该表包含六个列。</li>
+<li>Parquet中没有Map、Array这样的复杂数据结构，但是可以通过repeated和group组合来实现这样的需求。</li>
+<li>在这个包含6个字段的表中有以下几个字段和每一条记录中它们可能出现的次数：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>DocId</th>
+<th>int64</th>
+<th>只能出现一次</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Links.Backward</td>
+<td>int64</td>
+<td>可能出现任意多次，但是如果出现0次则需要使用NULL标识</td>
+</tr>
+<tr>
+<td>Links.Forward</td>
+<td>int64</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Name.Language.Code</td>
+<td>string</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Name.Language.Country</td>
+<td>string</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Name.Url</td>
+<td>string</td>
+<td>同上</td>
+</tr>
+</tbody></table>
+<p>由于在一个表中可能存在出现任意多次的列，对于这些列需要标示出现多次或者等于NULL的情况，它是由Striping/Assembly算法实现的。</p>
+<h3 id="2-6-Striping-Assembly算法"><a href="#2-6-Striping-Assembly算法" class="headerlink" title="2.6 Striping/Assembly算法"></a>2.6 Striping/Assembly算法</h3><p>上文介绍了Parquet的数据模型，在Document中存在多个非required列，由于Parquet一条记录的数据分散的存储在不同的列中，如何组合不同的列值组成一条记录是由Striping/Assembly算法决定的，在该算法中列的每一个值都包含三部分：value、repetition level和definition level。</p>
+<h3 id="2-7-Repetition-Levels"><a href="#2-7-Repetition-Levels" class="headerlink" title="2.7 Repetition Levels"></a>2.7 Repetition Levels</h3><p>为了支持repeated类型的节点, 在写入的时候该值等于它前面的值在哪一层节点是不共享的, 在读取 的时候根据该值可以推导出那一层上需要创建新的节点, 例如对于这样的一个Schema和两条记录.</p>
+<figure class="highlight scheme"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message nested {</span><br><span class="line">   repeated group leve<span class="number">1</span> {</span><br><span class="line">      repeated string leve<span class="number">2</span><span class="comment">;</span></span><br><span class="line">   }</span><br><span class="line"> }</span><br><span class="line"> r<span class="number">1</span>:[[<span class="name">a</span>,b,c,] , [<span class="name">d</span>,e,f,g]]</span><br><span class="line"> r<span class="number">2</span>:[[<span class="name">h</span>] , [<span class="name">i</span>,j]]</span><br></pre></td></tr></tbody></table></figure>
+
+<p>计算repetition level值的过程如下：</p>
+<ol>
+<li><p>value = a 是一条记录的开始, 和面前的值(已经没有值了) 在根节点(第0层) 上是不共享的, 所以 repeated level = 0</p>
+</li>
+<li><p>value = b 它前面的值已经共享了level1 这个节点, 但是level2这个节点上是不共享的, 所以 repeated level = 2</p>
+</li>
+<li><p>同理 value =c , repeated level = 2</p>
+</li>
+<li><p>value = d 和前面的值共享了根节点(属于相同记录), 但是这个level 1 这个节点上是不共享的, 所以repeated level = 1</p>
+</li>
+<li><p>value = h 和前面的值不同属于一条记录, 也就是不共享任何节点, 所以repeated level = 0</p>
+</li>
+</ol>
+<p>根据上面的分析, 每个value需要记录的repeated level值 如下:</p>
+<p><img src="https://images.hnbian.cn/FgOWQojsbzT5DXG7fIbPBtI7GA2H?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>在读取的时候，顺序的读取每一个值，然后根据它的repeated level创建对象，当读取value=a时repeated level=0，表示需要创建一个新的根节点(新记录)，value=b时repeated level=2，表示需要创建一个新的level2节点，value=d时repeated level=1，表示需要创建一个新的level1节点，当所有列读取完成之后可以创建一条新的记录。本例中当读取文件构建每条记录的结果如下：</p>
+<img src="https://images.hnbian.cn/FoGUwkEx36JN729dknpC9agy0YyV?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>可以看出repeated level=0表示一条记录的开始，并且repeated level的值只是针对路径上的repeated类型的节点，因此在计算该值的时候可以忽略非repeated类型的节点，在写入的时候将其理解为该节点和路径上的哪一个repeated节点是不共享的，读取的时候将其理解为需要在哪一层创建一个新的repeated节点，这样的话每一列最大的repeated level值就等于路径上的repeated节点的个数（不包括根节点）。减小repeated level的好处能够使得在存储使用更加紧凑的编码方式，节省存储空间。</p>
+<h3 id="2-8-Definition-Levels"><a href="#2-8-Definition-Levels" class="headerlink" title="2.8 Definition Levels"></a>2.8 Definition Levels</h3><p>有了repeated level我们就可以构造出一个记录了，为什么还需要definition levels呢？由于repeated和optional类型的存在，可能一条记录中某一列是没有值的，假设我们不记录这样的值就会导致本该属于下一条记录的值被当做当前记录的一部分，从而造成数据的错误，因此对于这种情况需要一个占位符标示这种情况。</p>
+<p>definition level的值仅仅对于空值是有效的，表示在该值的路径上第几层开始是未定义的，对于非空的值它是没有意义的，因为非空值在叶子节点是定义的，所有的父节点也肯定是定义的，因此它总是等于该列最大的definition levels。例如下面的schema。</p>
+<figure class="highlight scheme"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message ExampleDefinitionLevel {</span><br><span class="line">  optional group a {</span><br><span class="line">   optional group b {</span><br><span class="line">    optional string c<span class="comment">;</span></span><br><span class="line">   }</span><br><span class="line">  }</span><br><span class="line"> }</span><br></pre></td></tr></tbody></table></figure>
+
+<p>它包含一个列a.b.c，这个列的的每一个节点都是optional类型的，当c被定义时a和b肯定都是已定义的，当c未定义时我们就需要标示出在从哪一层开始时未定义的，如下面的值：</p>
+<img src="https://images.hnbian.cn/FrI6bnRAWj52nUbOjbF2cSrXNU21?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>由于definition level只需要考虑未定义的值，而对于repeated类型的节点，只要父节点是已定义的，该节点就必须定义（例如Document中的DocId，每一条记录都该列都必须有值，同样对于Language节点，只要它定义了Code必须有值），所以计算definition level的值时可以忽略路径上的required节点，这样可以减小definition level的最大值，优化存储。</p>
+<h3 id="2-9-Parquet文件格式"><a href="#2-9-Parquet文件格式" class="headerlink" title="2.9 Parquet文件格式"></a>2.9 Parquet文件格式</h3><p>Parquet文件是以二进制方式存储的，所以是不可以直接读取的，文件中包括该文件的数据和元数据，因此Parquet格式文件是自解析的。在HDFS文件系统和Parquet文件中存在如下几个概念。</p>
+<ul>
+<li>HDFS块(Block)：它是HDFS上的最小的副本单位，HDFS会把一个Block存储在本地的一个文件并且维护分散在不同的机器上的多个副本，通常情况下一个Block的大小为256M、512M等。</li>
+<li>HDFS文件(File)：一个HDFS的文件，包括数据和元数据，数据分散存储在多个Block中。</li>
+<li>行组(Row     Group)：按照行将数据物理上划分为多个单元，每一个行组包含一定的行数，在一个HDFS文件中至少存储一个行组，Parquet读写的时候会将整个行组缓存在内存中，所以如果每一个行组的大小是由内存大的小决定的，例如记录占用空间比较小的Schema可以在每一个行组中存储更多的行。</li>
+<li>列块(Column     Chunk)：在一个行组中每一列保存在一个列块中，行组中的所有列连续的存储在这个行组文件中。一个列块中的值都是相同类型的，不同的列块可能使用不同的算法进行压缩。</li>
+<li>页(Page)：每一个列块划分为多个页，一个页是最小的编码的单位，在同一个列块的不同页可能使用不同的编码方式。</li>
+</ul>
+<h3 id="2-10-文件格式"><a href="#2-10-文件格式" class="headerlink" title="2.10 文件格式"></a>2.10 文件格式</h3><p>通常情况下，在存储Parquet数据的时候会按照Block大小设置行组的大小，由于一般情况下每一个Mapper任务处理数据的最小单位是一个Block，这样可以把每一个行组由一个Mapper任务处理，增大任务执行并行度。Parquet文件的格式如下图所示。</p>
+<img src="https://images.hnbian.cn/FnQoTQci0DqT2NrO-_zT786jhyjT?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>上图展示了一个Parquet文件的内容，一个文件中可以存储多个行组，文件的首位都是该文件的Magic Code，用于校验它是否是一个Parquet文件，Footer length了文件元数据的大小，通过该值和文件长度可以计算出元数据的偏移量，文件的元数据中包括每一个行组的元数据信息和该文件存储数据的Schema信息。除了文件中每一个行组的元数据，每一页的开始都会存储该页的元数据，在Parquet中，有三种类型的页：数据页、字典页和索引页。数据页用于存储当前行组中该列的值，字典页存储该列值的编码字典，每一个列块中最多包含一个字典页，索引页用来存储当前行组下该列的索引，目前Parquet中还不支持索引页，但是在后面的版本中增加。</p>
+<p>在执行MR任务的时候可能存在多个Mapper任务的输入是同一个Parquet文件的情况，每一个Mapper通过InputSplit标示处理的文件范围，如果多个InputSplit跨越了一个Row Group，Parquet能够保证一个Row Group只会被一个Mapper任务处理。</p>
+<h3 id="2-11-映射下推-Project-PushDown"><a href="#2-11-映射下推-Project-PushDown" class="headerlink" title="2.11 映射下推(Project PushDown)"></a>2.11 映射下推(Project PushDown)</h3><p>说到列式存储的优势，映射下推是最突出的，它意味着在获取表中原始数据时只需要扫描查询中需要的列，由于每一列的所有值都是连续存储的，所以分区取出每一列的所有值就可以实现TableScan算子，而避免扫描整个表文件内容。</p>
+<p>在Parquet中原生就支持映射下推，执行查询的时候可以通过Configuration传递需要读取的列的信息，这些列必须是Schema的子集，映射每次会扫描一个Row Group的数据，然后一次性得将该Row Group里所有需要的列的Cloumn Chunk都读取到内存中，每次读取一个Row Group的数据能够大大降低随机读的次数，除此之外，Parquet在读取的时候会考虑列是否连续，如果某些需要的列是存储位置是连续的，那么一次读操作就可以把多个列的数据读取到内存。</p>
+<h3 id="2-12-谓词下推-Predicate-PushDown"><a href="#2-12-谓词下推-Predicate-PushDown" class="headerlink" title="2.12 谓词下推(Predicate PushDown)"></a>2.12 谓词下推(Predicate PushDown)</h3><p>在数据库之类的查询系统中最常用的优化手段就是谓词下推了，通过将一些过滤条件尽可能的在最底层执行可以减少每一层交互的数据量，从而提升性能，例如”select count(1) from A Join B on A.id = B.id where A.a &gt; 10 and B.b &lt; 100”SQL查询中，在处理Join操作之前需要首先对A和B执行TableScan操作，然后再进行Join，再执行过滤，最后计算聚合函数返回，但是如果把过滤条件A.a &gt; 10和B.b &lt; 100分别移到A表的TableScan和B表的TableScan的时候执行，可以大大降低Join操作的输入数据。</p>
+<p>无论是行式存储还是列式存储，都可以在将过滤条件在读取一条记录之后执行以判断该记录是否需要返回给调用者，在Parquet做了更进一步的优化，优化的方法时对每一个Row Group的每一个Column Chunk在存储的时候都计算对应的统计信息，包括该Column Chunk的最大值、最小值和空值个数。通过这些统计值和该列的过滤条件可以判断该Row Group是否需要扫描。另外Parquet未来还会增加诸如Bloom Filter和Index等优化数据，更加有效的完成谓词下推。</p>
+<p>在使用Parquet的时候可以通过如下两种策略提升查询性能：1、类似于关系数据库的主键，对需要频繁过滤的列设置为有序的，这样在导入数据的时候会根据该列的顺序存储数据，这样可以最大化的利用最大值、最小值实现谓词下推。2、减小行组大小和页大小，这样增加跳过整个行组的可能性，但是此时需要权衡由于压缩和编码效率下降带来的I/O负载。</p>
+<h3 id="2-13-性能"><a href="#2-13-性能" class="headerlink" title="2.13 性能"></a>2.13 性能</h3><p>相比传统的行式存储，Hadoop生态圈近年来也涌现出诸如RC、ORC、Parquet的列式存储格式，它们的性能优势主要体现在两个方面：</p>
+<ol>
+<li>更高的压缩比，由于相同类型的数据更容易针对不同类型的列使用高效的编码和压缩方式。</li>
+<li>更小的I/O操作，由于映射下推和谓词下推的使用，可以减少一大部分不必要的数据扫描，尤其是表结构比较庞大的时候更加明显，由此也能够带来更好的查询性能。</li>
+</ol>
+<img src="https://images.hnbian.cn/FnrlG9phBr-zCZkfecOsCjvCrf5n?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>上图是展示了使用不同格式存储TPC-H和TPC-DS数据集中两个表数据的文件大小对比，可以看出Parquet较之于其他的二进制文件存储格式能够更有效的利用存储空间，而新版本的Parquet(2.0版本)使用了更加高效的页存储方式，进一步的提升存储空间。</p>
+<img src="https://images.hnbian.cn/Fj_W1AoTAduBgH8DJXZKUPFP-j2z?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>上图展示了Twitter在Impala中使用不同格式文件执行TPC-DS基准测试的结果，测试结果可以看出Parquet较之于其他的行式存储格式有较明显的性能提升。</p>
+<img src="https://images.hnbian.cn/Fnx5GOWLl8fhEDwnw3FdR6mQ20zK?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>上图展示了criteo公司在Hive中使用ORC和Parquet两种列式存储格式执行TPC-DS基准测试的结果，测试结果可以看出在数据存储方面，两种存储格式在都是用snappy压缩的情况下量中存储格式占用的空间相差并不大，查询的结果显示Parquet格式稍好于ORC格式，两者在功能上也都有优缺点，Parquet原生支持嵌套式数据结构，而ORC对此支持的较差，这种复杂的Schema查询也相对较差；而Parquet不支持数据的修改和ACID，但是ORC对此提供支持，但是在OLAP环境下很少会对单条数据修改，更多的则是批量导入。</p>
+<h2 id="2-RCFile"><a href="#2-RCFile" class="headerlink" title="2. RCFile"></a>2. RCFile</h2><p>在新建Hive表时，可以使用stored as rcfile来指定hive文件的存储方式为RCFile。</p>
+<h3 id="2-1-RCFile文件结构"><a href="#2-1-RCFile文件结构" class="headerlink" title="2.1 RCFile文件结构"></a>2.1 RCFile文件结构</h3><p>下图是一个RCFile的文件结构形式。 </p>
+<img src="https://images.hnbian.cn/FsCRw7PQVNRc7taKaAhGzt9s_4c5?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>从上图可以看出： </p>
+<ol>
+<li><p>一张表可以包含多个HDFS block</p>
+</li>
+<li><p>在每个block中，RCFile以行组(row group，类似于ORC中的stripe)为单位存储其中的数据。所谓行组是指在关系型数据块中，若干条记录组成的一个group。对于一张表来说，row group的大小是固定的。通过HDFS的block大小和row group的大小，能够确定一个block上可以容纳多少个row group。 </p>
+</li>
+<li><p>row group又由三个部分组成，包括一个用于在block中分隔两个row group的16字节的标志区，一个存储row group元数据信息的header，以及实际数据区。表中的实际数据以列为单位进行存储。</p>
+</li>
+</ol>
+<h3 id="2-2-RCFile压缩方式"><a href="#2-2-RCFile压缩方式" class="headerlink" title="2.2 RCFile压缩方式"></a>2.2 RCFile压缩方式</h3><p>在存储RCFile时，会对每个row group的metadata header区和data区进行压缩。 </p>
+<p>在metadata header区中，记录了该row group中有多少记录，每个column总共有多少字节数，以及每个column中每一个field的字节数等信息。对metadata header区，使用RLE(Run Length Encoding)算法来压缩数据。需要读取指定column的记录时，可以根据这个metadata中记录的字节数等信息，很快定位到对应的数据。 </p>
+<p>对data区的数据压缩时，RCFile文件格式并不会将整个区域一起进行压缩，而是以列为单位进行Gzip压缩，这样的处理方式使得需要读取某些指定列的数据时，其他无关的列不需要进行读取。 </p>
+<h3 id="2-3-RCFile的数据写入方式"><a href="#2-3-RCFile的数据写入方式" class="headerlink" title="2.3 RCFile的数据写入方式"></a>2.3 RCFile的数据写入方式</h3><p>由于目前HDFS只支持在文件末尾追加内容，无法随意修改hdfs文件中的数据。所以在使用RCFile文件的hive表中也只能在文件末尾写入新的记录。在向RCFile写入数据时， </p>
+<ol>
+<li><p>为了避免频繁的写入操作，RCFile会为每一个column在内存中维持一个对应的column holder。当有记录插入到hive表中时，会把这一条记录的每个字段拆散存入到对应的column holder的末尾。伴随着这个操作的同时，会在metadata header中记录此次操作的相关信息。 </p>
+</li>
+<li><p>上面的column holder当然是不能无限大的，为此RCFile设定了两个参数，当满足任何一个时，就会把column holder中的数据flush到磁盘上。这两个参数一个是写入记录数，另一个是column holder使用的内存大小。 </p>
+</li>
+<li><p>记录写入完毕后，RCFile首先会将metadata header进行压缩。然后把每一个column单独进行压缩，最后将压缩好的数据flush到同一个row group中。</p>
+</li>
+</ol>
+<h3 id="2-4-RCFile的数据读取和解压缩方式"><a href="#2-4-RCFile的数据读取和解压缩方式" class="headerlink" title="2.4 RCFile的数据读取和解压缩方式"></a>2.4 RCFile的数据读取和解压缩方式</h3><p>当需要从一个row group读取数据时，RCFile并不会将整个row group中的数据都读入到内存中，需要读入的数据只包括metadata header，以及在语句中指定的那些column。 </p>
+<p>这两部分数据读入到内存中后，首先会将metadata header进行解压缩，并一直保存在内存中。接下来对加载到内存中的column数据，在RCFile中有一个lazy decompression的概念，这个的意思是说，column数据并不会在加载到内存中后马上进行解压缩，而是后续处理中的确需要读取这个column数据时解压缩过程才会执行。比如有一个sql语句，select a,b,c from table where a &gt; 5;首先会对字段a解压缩，如果判断所有记录中没有a &gt; 5的记录，那么字段b和字段c都不必要进行解压缩了。 </p>
+<h3 id="2-5-RCFile的相关参数"><a href="#2-5-RCFile的相关参数" class="headerlink" title="2.5 RCFile的相关参数"></a>2.5 RCFile的相关参数</h3><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>hive.io.rcfile.record.buffer.size</td>
+<td>4194304</td>
+<td>设置row group的大小</td>
+</tr>
+<tr>
+<td>hive.io.rcfile.record.interval</td>
+<td>2147483647</td>
+<td>row group中最大记录数</td>
+</tr>
+</tbody></table>
+<p>row group默认大小为4MB主要是因为row group不能太大，也不能太小。在Gzip压缩算法中，增大row group的大小能够提升压缩的性能。但是当row group的大小达到某个阈值时，继续增大row group并不能带来压缩性能的提升。并且，以上面的sql语句为例如果一个row group越大，其中保存的记录也就越多，这样该row group中出现a &gt;5的记录的概率就越大，那么就越难使用到lazy decompression这一特性带来的性能提升。并且row group越大，消耗的内存也就越多。 </p>
+<p>这个大小限制在ORC文件格式中得到了改善。</p>
+<h2 id="3-ORCFile"><a href="#3-ORCFile" class="headerlink" title="3. ORCFile"></a>3. ORCFile</h2><p>ORC文件格式是从Hive-0.11版本开始的。关于ORC文件格式的 <a target="_blank" rel="noopener" href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+ORC">官方文档</a>，以及基于 <a target="_blank" rel="noopener" href="http://www.iteblog.com/archives/1014#HiveORCFile">官方文档的翻译</a>内容这里就不赘述了，有兴趣的可以仔细研究了解一下。本文接下来根据论文《Major Technical Advancements in Apache Hive》中的内容进行深入的研究。</p>
+<h3 id="3-1-ORC文件格式"><a href="#3-1-ORC文件格式" class="headerlink" title="3.1 ORC文件格式"></a>3.1 ORC文件格式</h3><p>ORC的全称是(Optimized Record Columnar)，使用ORC文件格式可以提高hive读、写和处理数据的能力。ORC在RCFile的基础上进行了一定的改进，所以与RCFile相比，具有以下一些优势： </p>
+<ol>
+<li><p>ORC中的特定的序列化与反序列化操作可以使ORC file writer根据数据类型进行写出。 </p>
+</li>
+<li><p>提供了多种RCFile中没有的indexes，这些indexes可以使ORC的reader很快的读到需要的数据，并且跳过无用数据，这使得ORC文件中的数据可以很快的得到访问。 </p>
+</li>
+<li><p>由于ORC file writer可以根据数据类型进行写出，所以ORC可以支持复杂的数据结构（比如Map等）。 </p>
+</li>
+<li><p>除了上面三个理论上就具有的优势之外，ORC的具体实现上还有一些其他的优势，比如ORC的stripe默认大小更大，为ORC writer提供了一个memory manager来管理内存使用情况。</p>
+</li>
+</ol>
+<img src="https://images.hnbian.cn/FoC6Fu040sADn-ycL7EU2Wg-QrUO?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="ORC文件结构图" style="zoom:50%;">
+
+
+
+<h3 id="3-2-ORC数据存储方法"><a href="#3-2-ORC数据存储方法" class="headerlink" title="3.2 ORC数据存储方法"></a>3.2 ORC数据存储方法</h3><p>在ORC格式的hive表中，记录首先会被横向的切分为多个stripes，然后在每一个stripe内数据以列为单位进行存储，所有列的内容都保存在同一个文件中。每个stripe的默认大小为256MB，相对于RCFile每个4MB的stripe而言，更大的stripe使ORC的数据读取更加高效。 </p>
+<p>对于复杂数据类型，比如Map，ORC文件会将一个复杂数据类型字段解析成多个子字段。下表中列举了ORC文件中对于复杂数据类型的解析</p>
+<table>
+<thead>
+<tr>
+<th>Data type</th>
+<th>Chile columns</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Array</td>
+<td>一个包含所有数组元素的子字段</td>
+</tr>
+<tr>
+<td>Map</td>
+<td>两个子字段，一个key字段，一个value字段</td>
+</tr>
+<tr>
+<td>Struct</td>
+<td>每一个属性对应一个子字段</td>
+</tr>
+<tr>
+<td>Union</td>
+<td>每一个属性对应一个子字段</td>
+</tr>
+</tbody></table>
+<p>当字段类型都被解析后，会由这些字段类型组成一个字段树，只有树的叶子节点才会保存表数据，这些叶子节点中的数据形成一个数据流，如上图中的Data Stream。 </p>
+<p>为了使ORC文件的reader更加高效的读取数据，字段的metadata会保存在Meta Stream中。在字段树中，每一个非叶子节点记录的就是字段的metadata，比如对一个array来说，会记录它的长度。下图根据表的字段类型生成了一个对应的字段树。 </p>
+<img src="https://images.hnbian.cn/FuOS9HSacuS-jUR-t7JZxTv7TUWv?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="字段树结构图" style="zoom:50%;">
+
+<p>在Hive-0.13中，ORC文件格式只支持读取指定字段，还不支持只读取特殊字段类型中的指定部分。 </p>
+<p>使用ORC文件格式时，用户可以使用HDFS的每一个block存储ORC文件的一个stripe。对于一个ORC文件来说，stripe的大小一般需要设置得比HDFS的block小，如果不这样的话，一个stripe就会分别在HDFS的多个block上，当读取这种数据时就会发生远程读数据的行为。如果设置stripe的只保存在一个block上的话，如果当前block上的剩余空间不足以存储下一个strpie，ORC的writer接下来会将数据打散保存在block剩余的空间上，直到这个block存满为止。这样，下一个stripe又会从下一个block开始存储。 </p>
+<h3 id="3-3-索引"><a href="#3-3-索引" class="headerlink" title="3.3 索引"></a>3.3 索引</h3><p>在ORC文件中添加索引是为了更加高效的从HDFS读取数据。在ORC文件中使用的是稀疏索引(sparse indexes)。</p>
+<p>在ORC文件中主要有两种用途的索引，</p>
+<p>一个是数据统计(Data Statistics)索引，</p>
+<p>一个是位置指针(Position Pointers)索引。</p>
+<ul>
+<li>Data Statistics</li>
+</ul>
+<p>ORC reader用这个索引来跳过读取不必要的数据，在ORC writer生成ORC文件时会创建这个索引文件。这个索引中统计的信息主要有记录的条数，记录的max, min, sum值，以及对text类型和binary类型字段还会记录其长度。对于复杂数据类型，比如Array, Map, Struct, Union，它们的子字段中也会记录这些统计信息。 </p>
+<p>在ORC文件中，Data Statistics有三个level。 </p>
+<ol>
+<li>file level statistics</li>
+</ol>
+<p>在ORC文件的末尾会记录文件级别的统计信息，会记录整个文件中columns的统计信息。这些信息主要用于查询的优化，也可以为一些简单的聚合查询比如max, min, sum输出结果。 </p>
+<ol start="2">
+<li>stripe level statistics</li>
+</ol>
+<p>ORC文件会保存每个字段stripe级别的统计信息，ORC reader使用这些统计信息来确定对于一个查询语句来说，需要读入哪些stripe中的记录。比如说某个stripe的字段max(a)=10，min(a)=3，那么当where条件为a &gt;10或者a &lt;3时，那么这个stripe中的所有记录在查询语句执行时不会被读入。 </p>
+<ol start="3">
+<li>index group level statistics</li>
+</ol>
+<p>为了进一步的避免读入不必要的数据，在逻辑上将一个column的index以一个给定的值(默认为10000，可由参数配置)分割为多个index组。以10000条记录为一个组，对数据进行统计。Hive查询引擎会将where条件中的约束传递给ORC reader，这些reader根据组级别的统计信息，过滤掉不必要的数据。如果该值设置的太小，就会保存更多的统计信息，用户需要根据自己数据的特点权衡一个合理的值。 </p>
+<ul>
+<li>Position Pointers</li>
+</ul>
+<p>当读取一个ORC文件时，ORC reader需要有两个位置信息才能准确的进行数据读取操作。 </p>
+<ol>
+<li>metadata streams和data streams中每个group的开始位置</li>
+</ol>
+<p>由于每个stripe中有多个group，ORC reader需要知道每个group的metadata streams和data streams的开始位置。图１中右边的虚线代表的就是这种pointer。 </p>
+<ol start="2">
+<li>stripes的开始位置</li>
+</ol>
+<p>由于一个ORC文件可以包含多个stripes，并且一个HDFS block也能包含多个stripes。为了快速定位指定stripe的位置，需要知道每个stripe的开始位置。这些信息会保存在ORC file的File Footer中。如图1中间位置的虚线所示。</p>
+<h3 id="3-4-文件压缩"><a href="#3-4-文件压缩" class="headerlink" title="3.4 文件压缩"></a>3.4 文件压缩</h3><p>ORC文件使用两级压缩机制，首先将一个数据流使用流式编码器进行编码，然后使用一个可选的压缩器对数据流进行进一步压缩。 </p>
+<p>一个column可能保存在一个或多个数据流中，可以将数据流划分为以下四种类型： </p>
+<p>• Byte Stream </p>
+<p>字节流保存一系列的字节数据，不对数据进行编码。 </p>
+<p>• Run Length Byte Stream </p>
+<p>字节长度字节流保存一系列的字节数据，对于相同的字节，保存这个重复值以及该值在字节流中出现的位置。 </p>
+<p>• Integer Stream </p>
+<p>整形数据流保存一系列整形数据。可以对数据量进行字节长度编码以及delta编码。具体使用哪种编码方式需要根据整形流中的子序列模式来确定。 </p>
+<p>• Bit Field Stream </p>
+<p>比特流主要用来保存boolean值组成的序列，一个字节代表一个boolean值，在比特流的底层是用Run Length Byte Stream来实现的。 </p>
+<p>接下来会以Integer和String类型的字段举例来说明。 </p>
+<p>（1）Integer </p>
+<p>对于一个整形字段，会同时使用一个比特流和整形流。比特流用于标识某个值是否为null，整形流用于保存该整形字段非空记录的整数值。 </p>
+<p>（2）String </p>
+<p>对于一个String类型字段，ORC writer在开始时会检查该字段值中不同的内容数占非空记录总数的百分比不超过0.8的话，就使用字典编码，字段值会保存在一个比特流，一个字节流及两个整形流中。比特流也是用于标识null值的，字节流用于存储字典值，一个整形流用于存储字典中每个词条的长度，另一个整形流用于记录字段值。 </p>
+<p>如果不能用字典编码，ORC writer会知道这个字段的重复值太少，用字典编码效率不高，ORC writer会使用一个字节流保存String字段的值，然后用一个整形流来保存每个字段的字节长度。 </p>
+<p>在ORC文件中，在各种数据流的底层，用户可以自选ZLIB, Snappy和LZO压缩方式对数据流进行压缩。编码器一般会将一个数据流压缩成一个个小的压缩单元，在目前的实现中，压缩单元的默认大小是256KB。</p>
+<h3 id="3-5-内存管理"><a href="#3-5-内存管理" class="headerlink" title="3.5 内存管理"></a>3.5 内存管理</h3><p>当ORC writer写数据时，会将整个stripe保存在内存中。由于stripe的默认值一般比较大，当有多个ORC writer同时写数据时，可能会导致内存不足。为了现在这种并发写时的内存消耗，ORC文件中引入了一个内存管理器。在一个Map或者Reduce任务中内存管理器会设置一个阈值，这个阈值会限制writer使用的总内存大小。当有新的writer需要写出数据时，会向内存管理器注册其大小（一般也就是stripe的大小），当内存管理器接收到的总注册大小超过阈值时，内存管理器会将stripe的实际大小按该writer注册的内存大小与总注册内存大小的比例进行缩小。当有writer关闭时，内存管理器会将其注册的内存从总注册内存中注销。</p>
+<h3 id="3-6-参数"><a href="#3-6-参数" class="headerlink" title="3.6 参数"></a>3.6 参数</h3><table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>hive.exec.orc.default.stripe.size</td>
+<td>256<em>1024</em>1024</td>
+<td>stripe的默认大小</td>
+</tr>
+<tr>
+<td>hive.exec.orc.default.block.size</td>
+<td>256<em>1024</em>1024</td>
+<td>orc文件在文件系统中的默认block大小，从hive-0.14开始</td>
+</tr>
+<tr>
+<td>hive.exec.orc.dictionary.key.size.threshold</td>
+<td>0.8</td>
+<td>String类型字段使用字典编码的阈值</td>
+</tr>
+<tr>
+<td>hive.exec.orc.default.row.index.stride</td>
+<td>10000</td>
+<td>stripe中的分组大小</td>
+</tr>
+<tr>
+<td>hive.exec.orc.default.compress</td>
+<td>ZLIB</td>
+<td>ORC文件的默认压缩方式</td>
+</tr>
+<tr>
+<td>hive.exec.orc.skip.corrupt.data</td>
+<td>false</td>
+<td>遇到错误数据的处理方式，false直接抛出异常，true则跳过该记录</td>
+</tr>
+</tbody></table>
+<h3 id="3-7-ORC文件格式实际案例分析"><a href="#3-7-ORC文件格式实际案例分析" class="headerlink" title="3.7 ORC文件格式实际案例分析"></a>3.7 ORC文件格式实际案例分析</h3><h4 id="3-7-1-表结构"><a href="#3-7-1-表结构" class="headerlink" title="3.7.1  表结构"></a>3.7.1  表结构</h4><p>库名 + 表名：fileformat.test_orc</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>category_id</td>
+<td>string</td>
+</tr>
+<tr>
+<td>product_id</td>
+<td>int</td>
+</tr>
+<tr>
+<td>brand_id</td>
+<td>int</td>
+</tr>
+<tr>
+<td>price</td>
+<td>double</td>
+</tr>
+<tr>
+<td>category_id_2</td>
+<td>string</td>
+</tr>
+</tbody></table>
+<p> 在hive中命令 desc formatted fileformat.test_orc; 的结果如下图： </p>
+<img src="https://images.hnbian.cn/Fsld_b5bskK0wKFgjF5x9zWWZV5m?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<p>根据上图中的location信息，查看在HDFS上的文件： </p>
+<img src="https://images.hnbian.cn/Fo4dREEmbHYPhvf0URxuxqlzs9vz?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+
+
+<h4 id="3-7-2-查看dump文件"><a href="#3-7-2-查看dump文件" class="headerlink" title="3.7.2 查看dump文件"></a>3.7.2 查看dump文件</h4><p>hive提供了一个–orcfiledump参数用于查看HDFS上ORC表格的文件信息，在hive-0.13版本中的使用方法为：</p>
+<figure class="highlight shell"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hive --orcfiledump &lt;location-of-orc-file&gt;</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>其他版本的使用方法可以去官方文档中查找。 </p>
+<p>下面是命令 <code>hive --orcfiledump /user/hive/warehouse/fileformat.db/test_orc/000000_0 </code> 的查询结果 </p>
+<img src="https://images.hnbian.cn/Fkw_-Z-9j3Il7FV9i3F_m5EPFO5j?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+<h4 id="2-7-3-dump文件分析"><a href="#2-7-3-dump文件分析" class="headerlink" title="2.7.3 dump文件分析"></a>2.7.3 dump文件分析</h4><p>使用hql语句，统计出各字段的count, min, max, sum信息如下：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>COUNT</th>
+<th>MIN</th>
+<th>MAX</th>
+<th>SUM</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>category_id</td>
+<td>1000000</td>
+<td>5011</td>
+<td>975673</td>
+<td>4.0222868968E11</td>
+</tr>
+<tr>
+<td>product_id</td>
+<td>1000000</td>
+<td>968</td>
+<td>50997770</td>
+<td>27158964508399</td>
+</tr>
+<tr>
+<td>brand_id</td>
+<td>999130</td>
+<td>0</td>
+<td>1026427</td>
+<td>774991825568</td>
+</tr>
+<tr>
+<td>price</td>
+<td>1000000</td>
+<td>-0.0092</td>
+<td>358000.0</td>
+<td>1.8953626711045265E8</td>
+</tr>
+<tr>
+<td>category_id_2</td>
+<td>1000000</td>
+<td>5010</td>
+<td>5996</td>
+<td>5.183530839E9</td>
+</tr>
+</tbody></table>
+<p>从dump文件的图片中可以看出，大致分成四个部分：</p>
+<p>1、表结构信息</p>
+<p>记录整张表的记录数，压缩方式，压缩大小，以及表结构。在表结构部分，ORC将整张表的所有字段构造成一个大的struct结构。对应图1-ORC文件结构图中的Postscript部分。</p>
+<p>２、Stripe统计信息</p>
+<p>统计当前HDFS文件对应Stripe的信息，包括各个字段的count，min, max, sum信息。对于最外层的Struct，只统计其count值。由于这张表数据量不大，当前HDFS文件中只有一个Stripe。对应图1-ORC文件结构图中的Stripe Footer部分。 </p>
+<p>3、File统计信息</p>
+<p>统计内容和第二部分一致，不过这里统计的整张表的每个字段count, min, max, sum信息。对应图1-ORC文件结构图中的FileFooter部分。 </p>
+<p>这里我们将dump文件中的统计信息，与各字段实际统计信息作对比。通过与上面表格中各字段统计信息对比，发现对于int类型和double类型的字段，min, max, sum的结果都是匹配的。但是对于string类型的字段，仅仅只有min, max统计结果一致，sum的结果不相同。</p>
+<p>4、Stripe详细信息</p>
+<p>统计各Stripe的offset，总记录行数等Stripe层次的信息。该Stripe中各字段的Index Data和Row Data，以及每个字段的编码方式。 </p>
+<p>前面一行Stripe: offset: 3 data: 7847351 rows: 1000000 tail: 132 index: 7936应该也是保存在FileFooter中，后面各个字段统计信息对应图1-ORC文件结构图中的Index Data和Row Data部分。 </p>
+<p>从dump文件中的数据可以看出，每个字段的ROW_INDEX以及DATA信息是保存在一块连续空间中的，这块文件从offset=3开始。这也说明图1-ORC文件结构图中Row Data区的数据紧随Index Data区数据之后。 </p>
+<p>Index Data数据统计：</p>
+<table>
+<thead>
+<tr>
+<th>起始位置</th>
+<th>字段</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3……21</td>
+<td>STRUCT</td>
+</tr>
+<tr>
+<td>22……1141</td>
+<td>category_id</td>
+</tr>
+<tr>
+<td>1142……3056</td>
+<td>product_id</td>
+</tr>
+<tr>
+<td>3057……5135</td>
+<td>brand_id</td>
+</tr>
+<tr>
+<td>5136……7201</td>
+<td>price</td>
+</tr>
+<tr>
+<td>7202……7938</td>
+<td>category_id_2</td>
+</tr>
+</tbody></table>
+<p>Row Data数据统计：</p>
+<table>
+<thead>
+<tr>
+<th>起始位置</th>
+<th>字段</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>7939……59887</td>
+<td>category_id</td>
+<td>字段对应词条int流</td>
+</tr>
+<tr>
+<td>59888……59898</td>
+<td>category_id</td>
+<td>词条长度int流</td>
+</tr>
+<tr>
+<td>59899……60989</td>
+<td>category_id</td>
+<td>字典词条数据</td>
+</tr>
+<tr>
+<td>60990……3525432</td>
+<td>product_id</td>
+<td>实际数据int流</td>
+</tr>
+<tr>
+<td>3525433……3527085</td>
+<td>brand_id</td>
+<td>标识IF NULL的byte流</td>
+</tr>
+<tr>
+<td>3527086……5708142</td>
+<td>brand_id</td>
+<td>实际数据int流</td>
+</tr>
+<tr>
+<td>5708143……7855016</td>
+<td>price</td>
+<td>double类型</td>
+</tr>
+<tr>
+<td>7855017……7855212</td>
+<td>category_id_2</td>
+<td>字段对应词条int流</td>
+</tr>
+<tr>
+<td>7855213……7855219</td>
+<td>category_id_2</td>
+<td>词条长度int流</td>
+</tr>
+<tr>
+<td>7855220……7855289</td>
+<td>category_id_2</td>
+<td>字典词条数据</td>
+</tr>
+</tbody></table>
+<p>在ORC文件的int类型和string类型保存时，会有一个byte流用于记录字段的某个记录是否为null，根据统计只有brand_id 字段的count值不足100000条，也就是说除了brand_id 字段之外，其他字段中没有null值。所以在上面Row Data表中，只有brand_id有一个对应的IF NULL标识流。一个String类型，会将词条数据保存在字节流中，然后一个int流记录每个词条的长度，另外一个int流用于指定字段某个记录对应字典词条中的哪一个。 </p>
+<p>这部分最后记录了每一个字段的存储方式，统计如下</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>存储方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>STRUCT</td>
+<td></td>
+<td>DIRECT</td>
+</tr>
+<tr>
+<td>category_id</td>
+<td>String</td>
+<td>DICTIONARY_V2</td>
+</tr>
+<tr>
+<td>product_id</td>
+<td>Int</td>
+<td>DIRECT_V2</td>
+</tr>
+<tr>
+<td>brand_id</td>
+<td>Int</td>
+<td>DIRECT_V2</td>
+</tr>
+<tr>
+<td>price</td>
+<td>Double</td>
+<td>DIRECT</td>
+</tr>
+<tr>
+<td>category_id_2</td>
+<td>String</td>
+<td>DICTIONARY_V2</td>
+</tr>
+</tbody></table>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/9fa278bc.html">https://www.hnbian.cn/posts/9fa278bc.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/hdfs/">
+                                    <span class="chip bg-color">hdfs</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/4d8b2f53.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FptfpM58tHuHRAk9m6sYqu37mDHO" class="responsive-img" alt="hive mapjoin 内存溢出异常">
+                        
+                        <span class="card-title">hive mapjoin 内存溢出异常</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2017-09-05
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hive/" class="post-category">
+                                    hive
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                    <a href="/tags/hive/">
+                        <span class="chip bg-color">hive</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/dc70d3ae.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FoYo1N0dm2jFmxt5111EiyiWIhd5" class="responsive-img" alt="HDFS 中常见的数据格式 1.面向行的文件格式介绍">
+                        
+                        <span class="card-title">HDFS 中常见的数据格式 1.面向行的文件格式介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2017-08-29
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hdfs/" class="post-category">
+                                    hdfs
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hdfs/">
+                        <span class="chip bg-color">hdfs</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

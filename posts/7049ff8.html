@@ -1,0 +1,1795 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Spark SQL 4.架构介绍, hnbian">
+    <meta name="description" content="1. SparkSQL架构介绍
+SparkSQL 是spark技术栈当中又一非常实用的模块，
+SparkSQL 通过引入SQL的支持，大大降低了学习成本，让我们开发人员直接使用SQL的方式就能够实现大数据的开发，
+SparkSQL 同时支持">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Spark SQL 4.架构介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Frin_KATJtREdIE29tjrnQUcm5aO')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Spark SQL 4.架构介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/spark-sql/">
+                                <span class="chip bg-color">spark sql</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2018-06-05
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-SparkSQL架构介绍"><a href="#1-SparkSQL架构介绍" class="headerlink" title="1. SparkSQL架构介绍"></a>1. SparkSQL架构介绍</h2><ul>
+<li>SparkSQL 是spark技术栈当中又一非常实用的模块，</li>
+<li>SparkSQL 通过引入SQL的支持，大大降低了学习成本，让我们开发人员直接使用SQL的方式就能够实现大数据的开发，</li>
+<li>SparkSQL 同时支持DSL以及SQL的语法风格</li>
+<li>目前在spark的整个架构设计当中，sparkSQL，SparkML，sparkGrahpx以及Structed Streaming等模块都是基于 Catalyst Optimization &amp; Tungsten Execution模块之上运行</li>
+<li>如下图所示就显示了spark的整体架构模块设计</li>
+</ul>
+<img src="https://images.hnbian.cn/FnbF7d144Pf0olp3mTpnXAKXspS5?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+
+
+<h2 id="2-SparkSQL的架构设计实现"><a href="#2-SparkSQL的架构设计实现" class="headerlink" title="2. SparkSQL的架构设计实现"></a>2. SparkSQL的架构设计实现</h2><p>SparkSQL 执行先会经过 SQL Parser 解析 SQL，然后经过 Catalyst 优化器处理，最后到 Spark 执行。而 Catalyst 的过程又分为很多个过程，其中包括：</p>
+<ul>
+<li><strong>Analysis</strong>：主要利用 Catalog 信息将 Unresolved Logical Plan 解析成 Analyzed logical plan；</li>
+<li><strong>Logical Optimizations</strong>：利用一些规则将 Analyzed logical plan 解析成 Optimized Logical Plan；</li>
+<li><strong>Physical Planning</strong>：前面的 logical plan 不能被 Spark 执行，而这个过程是把 logical plan 转换成多个 physical plans，然后利用代价模型（cost model）选择最佳的 physical plan</li>
+<li><strong>Code Generation</strong>：这个过程会把 SQL 查询生成 Java 字 节码。</li>
+</ul>
+<p><img src="https://images.hnbian.cn/Fh-spuiKy6u0VHZRAi3meY_J9N9i?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="SparkSQL 内部架构构图"></p>
+<h2 id="3-Catalyst执行过程"><a href="#3-Catalyst执行过程" class="headerlink" title="3. Catalyst执行过程"></a>3. Catalyst执行过程</h2><p>我们编写的sql语句，经过多次转换，最终进行编译成为字节码文件进行执行，这一整个过程经过了好多个步骤，其中包括以下几个重要步骤：</p>
+<ul>
+<li>sql解析阶段 –&gt; parse</li>
+<li>生成逻辑计划 –&gt; Analyzer</li>
+<li>sql语句调优阶段 –&gt; Optimizer</li>
+<li>生成物理查询计划 –&gt; planner</li>
+</ul>
+<h3 id="3-1-代码示例"><a href="#3-1-代码示例" class="headerlink" title="3.1 代码示例"></a>3.1 代码示例</h3><ul>
+<li>编写测试代码</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> java.util.<span class="type">Properties</span></span><br><span class="line"><span class="keyword">import</span> org.apache.spark.<span class="type">SparkConf</span></span><br><span class="line"><span class="keyword">import</span> org.apache.spark.sql.{<span class="type">DataFrame</span>, <span class="type">SparkSession</span>}</span><br><span class="line"></span><br><span class="line"><span class="comment">/** 利用sparksql加载mysql表中的数据 */</span></span><br><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">DataFromMysqlPlan</span> </span>{</span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]): <span class="type">Unit</span> = {</span><br><span class="line">    <span class="comment">//1、创建SparkConf对象</span></span><br><span class="line">    <span class="keyword">val</span> sparkConf: <span class="type">SparkConf</span> = <span class="keyword">new</span> <span class="type">SparkConf</span>().setAppName(<span class="string">"DataFromMysql"</span>).setMaster(<span class="string">"local[2]"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment">//sparkConf.set("spark.sql.codegen.wholeStage","true")</span></span><br><span class="line">    <span class="comment">//2、创建SparkSession对象</span></span><br><span class="line">    <span class="keyword">val</span> spark: <span class="type">SparkSession</span> = <span class="type">SparkSession</span>.builder().config(sparkConf).getOrCreate()</span><br><span class="line"></span><br><span class="line">    spark.sparkContext.setLogLevel(<span class="string">"WARN"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment">//3、读取mysql表的数据</span></span><br><span class="line">    <span class="comment">//3.1 指定mysql连接地址</span></span><br><span class="line">    <span class="keyword">val</span> url=<span class="string">"jdbc:mysql://localhost:3306/mydb?characterEncoding=UTF-8"</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">//3.2 指定要加载的表名</span></span><br><span class="line">    <span class="keyword">val</span> student=<span class="string">"students"</span></span><br><span class="line">    <span class="keyword">val</span> score=<span class="string">"scores"</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3.3 配置连接数据库的相关属性</span></span><br><span class="line">    <span class="keyword">val</span> properties = <span class="keyword">new</span> <span class="type">Properties</span>()</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 用户名</span></span><br><span class="line">    properties.setProperty(<span class="string">"user"</span>,<span class="string">"root"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 密码</span></span><br><span class="line">    properties.setProperty(<span class="string">"password"</span>,<span class="string">"123456"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">val</span> studentFrame: <span class="type">DataFrame</span> = spark.read.jdbc(url,student,properties)</span><br><span class="line">    <span class="keyword">val</span> scoreFrame: <span class="type">DataFrame</span> = spark.read.jdbc(url,score,properties)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 把dataFrame注册成表</span></span><br><span class="line">    studentFrame.createTempView(<span class="string">"students"</span>)</span><br><span class="line">    scoreFrame.createOrReplaceTempView(<span class="string">"scores"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 定义查询语句</span></span><br><span class="line">    <span class="keyword">val</span> sql=</span><br><span class="line">      <span class="string">s""</span><span class="string">"</span></span><br><span class="line"><span class="string">        |SELECT</span></span><br><span class="line"><span class="string">        |  temp1.class,</span></span><br><span class="line"><span class="string">        |  SUM(temp1.degree),</span></span><br><span class="line"><span class="string">        |  AVG(temp1.degree)</span></span><br><span class="line"><span class="string">        |FROM (</span></span><br><span class="line"><span class="string">        |  SELECT</span></span><br><span class="line"><span class="string">        |    students.sno AS ssno,</span></span><br><span class="line"><span class="string">        |    students.sname,</span></span><br><span class="line"><span class="string">        |    students.ssex,</span></span><br><span class="line"><span class="string">        |    students.sbirthday,</span></span><br><span class="line"><span class="string">        |    students.class,</span></span><br><span class="line"><span class="string">        |    scores.sno,</span></span><br><span class="line"><span class="string">        |    scores.degree,</span></span><br><span class="line"><span class="string">        |    scores.cno</span></span><br><span class="line"><span class="string">        |  FROM students</span></span><br><span class="line"><span class="string">        |  LEFT JOIN scores ON students.sno =  scores.sno</span></span><br><span class="line"><span class="string">        |  WHERE degree &gt; 60</span></span><br><span class="line"><span class="string">        |  AND sbirthday &gt; '1973-01-01 00:00:00'</span></span><br><span class="line"><span class="string">        |) temp1</span></span><br><span class="line"><span class="string">        |GROUP BY temp1.class</span></span><br><span class="line"><span class="string">        |"</span><span class="string">""</span>.stripMargin</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">val</span> resultFrame: <span class="type">DataFrame</span> = spark.sql(sql)</span><br><span class="line">    resultFrame.explain(<span class="literal">true</span>)</span><br><span class="line">    resultFrame.show()</span><br><span class="line">    spark.stop()</span><br><span class="line">  }</span><br><span class="line">}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ul>
+<li>通过explain方法来查sql的执行计划，得到以下信息</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="comment">----------------------------- Parsed Logical Plan ----------------------------------------------------------</span></span><br><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="string">'Aggregate ['</span>temp1.class], [<span class="string">'temp1.class, unresolvedalias('</span><span class="built_in">SUM</span>(<span class="string">'temp1.degree), None), unresolvedalias('</span><span class="built_in">AVG</span>(<span class="string">'temp1.degree), None)]</span></span><br><span class="line"><span class="string">+- '</span>SubqueryAlias temp1</span><br><span class="line">   <span class="operator">+</span><span class="operator">-</span> <span class="string">'Project ['</span>students.sno <span class="keyword">AS</span> ssno#<span class="number">16</span>, <span class="string">'students.sname, '</span>students.ssex, <span class="string">'students.sbirthday, '</span>students.class, <span class="string">'scores.sno, '</span>scores.degree, <span class="string">'scores.cno]</span></span><br><span class="line"><span class="string">      +- '</span><span class="keyword">Filter</span> ((<span class="string">'degree &gt; 60) &amp;&amp; ('</span>sbirthday <span class="operator">&gt;</span> <span class="number">1973</span><span class="number">-01</span><span class="number">-01</span> <span class="number">00</span>:<span class="number">00</span>:<span class="number">00</span>))</span><br><span class="line">         <span class="operator">+</span><span class="operator">-</span> <span class="string">'Join LeftOuter, ('</span>students.sno <span class="operator">=</span> <span class="string">'scores.sno)</span></span><br><span class="line"><span class="string">            :- '</span>UnresolvedRelation `students`</span><br><span class="line">            <span class="operator">+</span><span class="operator">-</span> <span class="string">'UnresolvedRelation `scores`</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string">-----------------------------Analyzed Logical Plan ---------------------------------------------------------</span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">class: string, sum(degree): decimal(20,1), avg(degree): decimal(14,5)</span></span><br><span class="line"><span class="string">Aggregate [class#4], [class#4, sum(degree#12) AS sum(degree)#27, avg(degree#12) AS avg(degree)#28]</span></span><br><span class="line"><span class="string">+- SubqueryAlias temp1</span></span><br><span class="line"><span class="string">   +- Project [sno#0 AS ssno#16, sname#1, ssex#2, sbirthday#3, class#4, sno#10, degree#12, cno#11]</span></span><br><span class="line"><span class="string">      +- Filter ((cast(degree#12 as decimal(10,1)) &gt; cast(cast(60 as decimal(2,0)) as decimal(10,1))) &amp;&amp; (cast(sbirthday#3 as string) &gt; 1973-01-01 00:00:00))</span></span><br><span class="line"><span class="string">         +- Join LeftOuter, (sno#0 = sno#10)</span></span><br><span class="line"><span class="string">            :- SubqueryAlias students</span></span><br><span class="line"><span class="string">            :  +- Relation[sno#0,sname#1,ssex#2,sbirthday#3,class#4] JDBCRelation(students) [numPartitions=1]</span></span><br><span class="line"><span class="string">            +- SubqueryAlias scores</span></span><br><span class="line"><span class="string">               +- Relation[sno#10,cno#11,degree#12] JDBCRelation(scores) [numPartitions=1]</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string">-----------------------------Optimized Logical Plan---------------------------------------------------------</span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string">                           </span></span><br><span class="line"><span class="string">Aggregate [class#4], [class#4, sum(degree#12) AS sum(degree)#27, cast((avg(UnscaledValue(degree#12)) / 10.0) as decimal(14,5)) AS avg(degree)#28]</span></span><br><span class="line"><span class="string">+- Project [class#4, degree#12]</span></span><br><span class="line"><span class="string">   +- Join Inner, (sno#0 = sno#10)</span></span><br><span class="line"><span class="string">      :- Project [sno#0, class#4]</span></span><br><span class="line"><span class="string">      :  +- Filter ((isnotnull(sbirthday#3) &amp;&amp; (cast(sbirthday#3 as string) &gt; 1973-01-01 00:00:00)) &amp;&amp; isnotnull(sno#0))</span></span><br><span class="line"><span class="string">      :     +- Relation[sno#0,sname#1,ssex#2,sbirthday#3,class#4] JDBCRelation(students) [numPartitions=1]</span></span><br><span class="line"><span class="string">      +- Project [sno#10, degree#12]</span></span><br><span class="line"><span class="string">         +- Filter ((isnotnull(degree#12) &amp;&amp; (degree#12 &gt; 60.0)) &amp;&amp; isnotnull(sno#10))</span></span><br><span class="line"><span class="string">            +- Relation[sno#10,cno#11,degree#12] JDBCRelation(scores) [numPartitions=1]</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string">---------------------------- Physical Plan -----------------------------------------------------------------</span></span><br><span class="line"><span class="string">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">*(6) HashAggregate(keys=[class#4], functions=[sum(degree#12), avg(UnscaledValue(degree#12))], output=[class#4, sum(degree)#27, avg(degree)#28])</span></span><br><span class="line"><span class="string">+- Exchange hashpartitioning(class#4, 200)</span></span><br><span class="line"><span class="string">   +- *(5) HashAggregate(keys=[class#4], functions=[partial_sum(degree#12), partial_avg(UnscaledValue(degree#12))], output=[class#4, sum#32, sum#33, count#34L])</span></span><br><span class="line"><span class="string">      +- *(5) Project [class#4, degree#12]</span></span><br><span class="line"><span class="string">         +- *(5) SortMergeJoin [sno#0], [sno#10], Inner</span></span><br><span class="line"><span class="string">            :- *(2) Sort [sno#0 ASC NULLS FIRST], false, 0</span></span><br><span class="line"><span class="string">            :  +- Exchange hashpartitioning(sno#0, 200)</span></span><br><span class="line"><span class="string">            :     +- *(1) Project [sno#0, class#4]</span></span><br><span class="line"><span class="string">            :        +- *(1) Filter (cast(sbirthday#3 as string) &gt; 1973-01-01 00:00:00)</span></span><br><span class="line"><span class="string">            :           +- *(1) Scan JDBCRelation(students) [numPartitions=1] [sno#0,class#4,sbirthday#3] PushedFilters: [*IsNotNull(sbirthday), *IsNotNull(sno)], ReadSchema: struct&lt;sno:string,class:string,sbirthday:timestamp&gt;</span></span><br><span class="line"><span class="string">            +- *(4) Sort [sno#10 ASC NULLS FIRST], false, 0</span></span><br><span class="line"><span class="string">               +- Exchange hashpartitioning(sno#10, 200)</span></span><br><span class="line"><span class="string">                  +- *(3) Scan JDBCRelation(scores) [numPartitions=1] [sno#10,degree#12] PushedFilters: [*IsNotNull(degree), *GreaterThan(degree,60.0), *IsNotNull(sno)], ReadSchema: struct&lt;sno:string,degree:decimal(10,1)&gt;</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h3 id="3-2-sql解析阶段"><a href="#3-2-sql解析阶段" class="headerlink" title="3.2 sql解析阶段"></a>3.2 sql解析阶段</h3><ul>
+<li><p>Parser 阶段</p>
+</li>
+<li><p>在 Spark2.x 的版本当中，为了解析sparkSQL的sql语句，引入了 <code>Antlr</code>。</p>
+</li>
+<li><p>目前最新版本的 Spark 使用的是 <code>ANTLR4</code>，通过这个对 SQL 进行词法分析并构建语法树。</p>
+</li>
+<li><p>SQL 解析首先通过SqlBaseLexer来解析关键词以及各种标识符，然后使用SqlBaseParser来构建语法树。</p>
+</li>
+<li><p>通过 Lexer 以及 parse 解析之后，生成语法树，生成语法树之后</p>
+</li>
+<li><p>使用AstBuilder将语法树转换成为LogicalPlan 也被称为 Unresolved  LogicalPlan。</p>
+</li>
+</ul>
+<blockquote>
+<p>Antlr 是一款强大的语法生成器工具，可用于读取、处理、执行和翻译结构化的文本或二进制文件，是当前 Java 语言中使用最为广泛的语法生成器工具，我们常见的大数据 SQL 解析都用到了这个工具，包括 Hive、Cassandra、Phoenix、Pig 以及 presto 等。</p>
+</blockquote>
+<p>我们可以通过github去查看得到sparkSQL支持的SQL语法，所有sparkSQL支持的语法都定义在了这个文件当中，具体路径如下：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/apache/spark/blob/master/sql/catalyst/src/main/antlr4/org/apache/spark/sql/catalyst/parser/SqlBase.g4">https://github.com/apache/spark/blob/master/sql/catalyst/src/main/antlr4/org/apache/spark/sql/catalyst/parser/SqlBase.g4</a></p>
+<p>如果我们需要重构sparkSQL的语法，那么我们只需要重新定义好相关语法，然后使用 Antlr4 对SqlBase.g4进行语法解析，生成相关的java类，其中就包含重要的词法解析器 SqlBaseLexer.java 和语法解析器 SqlBaseParser.java。</p>
+<p><img src="https://images.hnbian.cn/FmGpLDYAp5Uwe1AAafrrPy1YgagF?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="构建语法树简单示例"></p>
+<ul>
+<li>解析之后的逻辑计划如下：</li>
+</ul>
+<p>两个表被join之后生成了UnresolvedRelation，选择的列以及聚合的字段都有了，sql解析的第一个阶段就已经完成，接着准备进入到第二个阶段</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="comment">----------------------------- Parsed Logical Plan ----------------------------------------------------------</span></span><br><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="string">'Aggregate ['</span>temp1.class], [<span class="string">'temp1.class, </span></span><br><span class="line"><span class="string">     unresolvedalias('</span><span class="built_in">SUM</span>(<span class="string">'temp1.degree), None), </span></span><br><span class="line"><span class="string">     unresolvedalias('</span><span class="built_in">AVG</span>(<span class="string">'temp1.degree), None)]</span></span><br><span class="line"><span class="string">+- '</span>SubqueryAlias temp1</span><br><span class="line">   <span class="operator">+</span><span class="operator">-</span> <span class="string">'Project [</span></span><br><span class="line"><span class="string">        '</span>students.sno <span class="keyword">AS</span> ssno#<span class="number">16</span>, </span><br><span class="line">        <span class="string">'students.sname, </span></span><br><span class="line"><span class="string">        '</span>students.ssex, </span><br><span class="line">        <span class="string">'students.sbirthday, </span></span><br><span class="line"><span class="string">        '</span>students.class, </span><br><span class="line">        <span class="string">'scores.sno, </span></span><br><span class="line"><span class="string">        '</span>scores.degree, </span><br><span class="line">        <span class="string">'scores.cno</span></span><br><span class="line"><span class="string">      ]</span></span><br><span class="line"><span class="string">                          </span></span><br><span class="line"><span class="string">      +- '</span><span class="keyword">Filter</span> ((<span class="string">'degree &gt; 60) &amp;&amp; ('</span>sbirthday <span class="operator">&gt;</span> <span class="number">1973</span><span class="number">-01</span><span class="number">-01</span> <span class="number">00</span>:<span class="number">00</span>:<span class="number">00</span>))</span><br><span class="line">         <span class="operator">+</span><span class="operator">-</span> <span class="string">'Join LeftOuter, ('</span>students.sno <span class="operator">=</span> <span class="string">'scores.sno)</span></span><br><span class="line"><span class="string">            :- '</span>UnresolvedRelation `students`</span><br><span class="line">            <span class="operator">+</span><span class="operator">-</span> <span class="string">'UnresolvedRelation `scores`</span></span><br></pre></td></tr></tbody></table></figure>
+
+<img src="https://images.hnbian.cn/FlyM7vwbnrLkvDWEYilNNMs9-fnC?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="unresolved Logical Plan" style="zoom:50%;">
+
+
+
+<h3 id="3-3-绑定逻辑计划"><a href="#3-3-绑定逻辑计划" class="headerlink" title="3.3 绑定逻辑计划"></a>3.3 绑定逻辑计划</h3><ul>
+<li><p>Analyzer 阶段</p>
+</li>
+<li><p>在sql解析parse阶段，生成了很多的 unresolvedalias ， UnresolvedRelation 等很多未解析出来的有些关键字，这些都是属于 Unresolved LogicalPlan解析的部分。 </p>
+</li>
+<li><p>Unresolved LogicalPlan仅仅是一种数据结构，不包含任何数据信息，例如不知道数据源，数据类型，不同的列来自哪张表等等</p>
+</li>
+<li><p>Analyzer 阶段会使用事先定义好的 Rule 以及 SessionCatalog 等信息对 Unresolved LogicalPlan 进行 transform。</p>
+<ul>
+<li>SessionCatalog 主要用于各种 <strong>函数资源信息和元数据信息</strong>（数据库、数据表、数据视图、数据分区与函数等）的统一管理。</li>
+<li>Rule 是定义在 Analyzer 里面的，具体的类的路径如下：</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">org.apache.spark.sql.catalyst.analysis.<span class="type">Analyzer</span></span><br><span class="line"></span><br><span class="line">具体的rule规则定义如下：</span><br><span class="line"> <span class="keyword">lazy</span> <span class="keyword">val</span> batches: <span class="type">Seq</span>[<span class="type">Batch</span>] = <span class="type">Seq</span>(</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Hints"</span>, fixedPoint,</span><br><span class="line">      <span class="keyword">new</span> <span class="type">ResolveHints</span>.<span class="type">ResolveBroadcastHints</span>(conf),</span><br><span class="line">      <span class="type">ResolveHints</span>.<span class="type">RemoveAllHints</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Simple Sanity Check"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">LookupFunctions</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Substitution"</span>, fixedPoint,</span><br><span class="line">      <span class="type">CTESubstitution</span>,</span><br><span class="line">      <span class="type">WindowsSubstitution</span>,</span><br><span class="line">      <span class="type">EliminateUnions</span>,</span><br><span class="line">      <span class="keyword">new</span> <span class="type">SubstituteUnresolvedOrdinals</span>(conf)),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Resolution"</span>, fixedPoint,</span><br><span class="line">      <span class="type">ResolveTableValuedFunctions</span> ::</span><br><span class="line">      <span class="type">ResolveRelations</span> ::</span><br><span class="line">      <span class="type">ResolveReferences</span> ::</span><br><span class="line">      <span class="type">ResolveCreateNamedStruct</span> ::</span><br><span class="line">      <span class="type">ResolveDeserializer</span> ::</span><br><span class="line">      <span class="type">ResolveNewInstance</span> ::</span><br><span class="line">      <span class="type">ResolveUpCast</span> ::</span><br><span class="line">      <span class="type">ResolveGroupingAnalytics</span> ::</span><br><span class="line">      <span class="type">ResolvePivot</span> ::</span><br><span class="line">      <span class="type">ResolveOrdinalInOrderByAndGroupBy</span> ::</span><br><span class="line">      <span class="type">ResolveAggAliasInGroupBy</span> ::</span><br><span class="line">      <span class="type">ResolveMissingReferences</span> ::</span><br><span class="line">      <span class="type">ExtractGenerator</span> ::</span><br><span class="line">      <span class="type">ResolveGenerate</span> ::</span><br><span class="line">      <span class="type">ResolveFunctions</span> ::</span><br><span class="line">      <span class="type">ResolveAliases</span> ::</span><br><span class="line">      <span class="type">ResolveSubquery</span> ::</span><br><span class="line">      <span class="type">ResolveSubqueryColumnAliases</span> ::</span><br><span class="line">      <span class="type">ResolveWindowOrder</span> ::</span><br><span class="line">      <span class="type">ResolveWindowFrame</span> ::</span><br><span class="line">      <span class="type">ResolveNaturalAndUsingJoin</span> ::</span><br><span class="line">      <span class="type">ExtractWindowExpressions</span> ::</span><br><span class="line">      <span class="type">GlobalAggregates</span> ::</span><br><span class="line">      <span class="type">ResolveAggregateFunctions</span> ::</span><br><span class="line">      <span class="type">TimeWindowing</span> ::</span><br><span class="line">      <span class="type">ResolveInlineTables</span>(conf) ::</span><br><span class="line">      <span class="type">ResolveTimeZone</span>(conf) ::</span><br><span class="line">      <span class="type">ResolvedUuidExpressions</span> ::</span><br><span class="line">      <span class="type">TypeCoercion</span>.typeCoercionRules(conf) ++</span><br><span class="line">      extendedResolutionRules : _*),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Post-Hoc Resolution"</span>, <span class="type">Once</span>, postHocResolutionRules: _*),</span><br><span class="line">   </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"View"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">AliasViewChild</span>(conf)),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Nondeterministic"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">PullOutNondeterministic</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"UDF"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">HandleNullInputsForUDF</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"FixNullability"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">FixNullability</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Subquery"</span>, <span class="type">Once</span>,</span><br><span class="line">      <span class="type">UpdateOuterReferences</span>),</span><br><span class="line">    </span><br><span class="line">   <span class="type">Batch</span>(<span class="string">"Cleanup"</span>, fixedPoint,</span><br><span class="line">      <span class="type">CleanupAliases</span>)</span><br><span class="line">  )</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<ol>
+<li><p>从上面代码可以看出，多个性质类似的 Rule 组成一个 Batch，比如上面名为 Hints 的 Batch就是由很多个 Hints Rule 组成；</p>
+</li>
+<li><p>而多个 Batch 构成一个 batches。这些 batches 会由 RuleExecutor 执行，先按一个一个 Batch 顺序执行，然后对 Batch 里面的每个 Rule 顺序执行。</p>
+</li>
+<li><p>每个 Batch 会执行一次（Once）或多次（FixedPoint，由<code>spark.sql.optimizer.maxIterations</code> 参数决定），执行过程如下：</p>
+</li>
+</ol>
+<img src="https://images.hnbian.cn/FuC5t2Gm-7PIF38qrNmgwmhS2SMH?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="spark_batch_ruleexecutor-iteblog" style="zoom:50%;">
+
+
+
+<p>所以上面的 SQL 经过这个阶段生成的 Analyzed Logical Plan 如下：</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="comment">-----------------------------Analyzed Logical Plan ---------------------------------------------------------</span></span><br><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line">class: string, </span><br><span class="line"><span class="built_in">sum</span>(degree): <span class="type">decimal</span>(<span class="number">20</span>,<span class="number">1</span>), </span><br><span class="line"><span class="built_in">avg</span>(degree): <span class="type">decimal</span>(<span class="number">14</span>,<span class="number">5</span>)</span><br><span class="line"></span><br><span class="line">Aggregate </span><br><span class="line">    [class#<span class="number">4</span>], </span><br><span class="line">    [</span><br><span class="line">      class#<span class="number">4</span>, <span class="built_in">sum</span>(degree#<span class="number">12</span>) <span class="keyword">AS</span> <span class="built_in">sum</span>(degree)#<span class="number">27</span>, </span><br><span class="line">      <span class="built_in">avg</span>(degree#<span class="number">12</span>) <span class="keyword">AS</span> <span class="built_in">avg</span>(degree)#<span class="number">28</span></span><br><span class="line">    ]</span><br><span class="line"></span><br><span class="line"><span class="operator">+</span><span class="operator">-</span> SubqueryAlias temp1</span><br><span class="line">   <span class="operator">+</span><span class="operator">-</span> Project [</span><br><span class="line">        sno#<span class="number">0</span> <span class="keyword">AS</span> ssno#<span class="number">16</span>, </span><br><span class="line">        sname#<span class="number">1</span>, </span><br><span class="line">        ssex#<span class="number">2</span>, </span><br><span class="line">        sbirthday#<span class="number">3</span>, </span><br><span class="line">        class#<span class="number">4</span>, </span><br><span class="line">        sno#<span class="number">10</span>, </span><br><span class="line">        degree#<span class="number">12</span>, </span><br><span class="line">        cno#<span class="number">11</span></span><br><span class="line">      ]</span><br><span class="line">      </span><br><span class="line">      <span class="operator">+</span><span class="operator">-</span> <span class="keyword">Filter</span> (</span><br><span class="line">           (<span class="built_in">cast</span>(degree#<span class="number">12</span> <span class="keyword">as</span> <span class="type">decimal</span>(<span class="number">10</span>,<span class="number">1</span>)) <span class="operator">&gt;</span> <span class="built_in">cast</span>(<span class="built_in">cast</span>(<span class="number">60</span> <span class="keyword">as</span> <span class="type">decimal</span>(<span class="number">2</span>,<span class="number">0</span>)) <span class="keyword">as</span> <span class="type">decimal</span>(<span class="number">10</span>,<span class="number">1</span>))) </span><br><span class="line">              <span class="operator">&amp;&amp;</span> </span><br><span class="line">           (<span class="built_in">cast</span>(sbirthday#<span class="number">3</span> <span class="keyword">as</span> string) <span class="operator">&gt;</span> <span class="number">1973</span><span class="number">-01</span><span class="number">-01</span> <span class="number">00</span>:<span class="number">00</span>:<span class="number">00</span>)</span><br><span class="line">             )</span><br><span class="line">         </span><br><span class="line">          <span class="operator">+</span><span class="operator">-</span> <span class="keyword">Join</span> LeftOuter, (sno#<span class="number">0</span> <span class="operator">=</span> sno#<span class="number">10</span>)</span><br><span class="line">            :<span class="operator">-</span> SubqueryAlias students</span><br><span class="line">            :  <span class="operator">+</span><span class="operator">-</span> Relation</span><br><span class="line">                  [sno#<span class="number">0</span>,sname#<span class="number">1</span>,ssex#<span class="number">2</span>,sbirthday#<span class="number">3</span>,class#<span class="number">4</span>] </span><br><span class="line">                  JDBCRelation(students) [numPartitions<span class="operator">=</span><span class="number">1</span>]</span><br><span class="line">            <span class="operator">+</span><span class="operator">-</span> SubqueryAlias scores</span><br><span class="line">               <span class="operator">+</span><span class="operator">-</span> Relation</span><br><span class="line">                   [sno#<span class="number">10</span>,cno#<span class="number">11</span>,degree#<span class="number">12</span>] </span><br><span class="line">                   JDBCRelation(scores) [numPartitions<span class="operator">=</span><span class="number">1</span>]</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>从上面的解析过程来看可以看到 Analyzed Logical Plan 主要就是干了一下几件事：</p>
+<p>1、确定最终返回字段名称以及返回类型：</p>
+<ul>
+<li>class: string, sum(degree): decimal(20,1), avg(degree): decimal(14,5)</li>
+</ul>
+<p>2、确定聚合函数</p>
+<ul>
+<li>Aggregate [class#4], [class#4, sum(degree#12) AS sum(degree)#27, avg(degree#12) AS avg(degree)#28]</li>
+</ul>
+<p>3、确定表当中获取的查询字段</p>
+<ul>
+<li>Project [sno#0 AS ssno#16, sname#1, ssex#2, sbirthday#3, class#4, sno#10, cno#11, degree#12]</li>
+</ul>
+<p>4、确定过滤条件</p>
+<p>Filter (</p>
+<p>​    (cast(degree#12 as decimal(10,1)) &gt; cast(cast(60 as decimal(2,0)) as decimal(10,1))) </p>
+<p>​    &amp;&amp;</p>
+<p>​    (cast(sbirthday#3 as string) &gt; 1973-01-01 00:00:00)</p>
+<p>)</p>
+<p>5、确定join方式</p>
+<p>Join LeftOuter, (sno#0 = sno#10)</p>
+<p>6、确定表当中的数据来源以及分区个数</p>
+<ul>
+<li><p>JDBCRelation(students) [numPartitions=1]</p>
+</li>
+<li><p>JDBCRelation(scores) [numPartitions=1]</p>
+</li>
+</ul>
+<p>至此Analyzed Logical  Plan已经完成。</p>
+<img src="https://images.hnbian.cn/FspXrpZc6aFvcJ4OO3KcEAPwmMWW?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Analyzer Logical Plan 过程图示" style="zoom:50%;">
+
+
+
+
+
+<h3 id="3-4-逻辑优化阶段"><a href="#3-4-逻辑优化阶段" class="headerlink" title="3.4 逻辑优化阶段"></a>3.4 逻辑优化阶段</h3><ul>
+<li><p>Optimizer 阶段</p>
+</li>
+<li><p>逻辑计划阶段对 Unresolved LogicalPlan 进行相关 transform 操作得到了 Analyzed Logical Plan</p>
+</li>
+<li><p>Analyzed Logical Plan 是可以直接转换成 Physical Plan 然后在 [Spark] 中执行。</p>
+</li>
+<li><p>但得到的 Physical Plan 很可能不是最优的，需要进一步对Analyzed Logical Plan 进行处理，得到更优的逻辑算子树</p>
+</li>
+<li><p>针对 SQL 逻辑算子树的优化器 Optimizer 应运而生</p>
+</li>
+</ul>
+<p>逻辑优化阶段的优化器主要是基于规则的（Rule-based Optimizer，简称 <code>RBO</code>），而绝大部分的规则都是启发式规则，也就是基于直观或经验而得出的规则，比如</p>
+<ul>
+<li><strong>列裁剪</strong>：过滤掉查询不需要使用到的列</li>
+<li><strong>谓词下推</strong> ：将过滤尽可能地下沉到数据源端</li>
+<li><strong>常量累加</strong>：如 1 + 2 这种事先计算好</li>
+<li><strong>常量替换</strong>：如 SELECT * FROM table WHERE i = 5 AND j = i + 3 可以转换成 SELECT * FROM table WHERE i = 5 AND j = 8</li>
+</ul>
+<p>与前文介绍绑定逻辑计划阶段类似，这个阶段所有的规则也是实现 Rule 抽象类，多个规则组成一个 Batch，多个 Batch 组成一个 batches，同样也是在 RuleExecutor 中进行执行</p>
+<p>这里按照 Rule 执行顺序一一进行说明。</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="comment">-----------------------------Optimized Logical Plan---------------------------------------------------------</span></span><br><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line">                           </span><br><span class="line">Aggregate </span><br><span class="line">    [class#<span class="number">4</span>], </span><br><span class="line">    [</span><br><span class="line">      class#<span class="number">4</span>, </span><br><span class="line">      <span class="built_in">sum</span>(degree#<span class="number">12</span>) <span class="keyword">AS</span> <span class="built_in">sum</span>(degree)#<span class="number">27</span>, </span><br><span class="line">      <span class="built_in">cast</span>((<span class="built_in">avg</span>(UnscaledValue(degree#<span class="number">12</span>)) <span class="operator">/</span> <span class="number">10.0</span>) <span class="keyword">as</span> <span class="type">decimal</span>(<span class="number">14</span>,<span class="number">5</span>)) <span class="keyword">AS</span> <span class="built_in">avg</span>(degree)#<span class="number">28</span>]</span><br><span class="line"></span><br><span class="line"><span class="operator">+</span><span class="operator">-</span> Project [class#<span class="number">4</span>, degree#<span class="number">12</span>]</span><br><span class="line">   <span class="operator">+</span><span class="operator">-</span> <span class="keyword">Join</span> <span class="keyword">Inner</span>, (sno#<span class="number">0</span> <span class="operator">=</span> sno#<span class="number">10</span>)</span><br><span class="line">      :<span class="operator">-</span> Project [sno#<span class="number">0</span>, class#<span class="number">4</span>]</span><br><span class="line">      :  <span class="operator">+</span><span class="operator">-</span> <span class="keyword">Filter</span> (</span><br><span class="line">            (isnotnull(sbirthday#<span class="number">3</span>) </span><br><span class="line">                       <span class="operator">&amp;&amp;</span> </span><br><span class="line">            (<span class="built_in">cast</span>(sbirthday#<span class="number">3</span> <span class="keyword">as</span> string) <span class="operator">&gt;</span> <span class="number">1973</span><span class="number">-01</span><span class="number">-01</span> <span class="number">00</span>:<span class="number">00</span>:<span class="number">00</span>)) <span class="operator">&amp;&amp;</span> isnotnull(sno#<span class="number">0</span>)</span><br><span class="line">            )</span><br><span class="line">      :     <span class="operator">+</span><span class="operator">-</span> Relation[sno#<span class="number">0</span>,sname#<span class="number">1</span>,ssex#<span class="number">2</span>,sbirthday#<span class="number">3</span>,class#<span class="number">4</span>] JDBCRelation(students) [numPartitions<span class="operator">=</span><span class="number">1</span>]</span><br><span class="line">      <span class="operator">+</span><span class="operator">-</span> Project [sno#<span class="number">10</span>, degree#<span class="number">12</span>]</span><br><span class="line">         <span class="operator">+</span><span class="operator">-</span> <span class="keyword">Filter</span> ((isnotnull(degree#<span class="number">12</span>) <span class="operator">&amp;&amp;</span> (degree#<span class="number">12</span> <span class="operator">&gt;</span> <span class="number">60.0</span>)) <span class="operator">&amp;&amp;</span> isnotnull(sno#<span class="number">10</span>))</span><br><span class="line">            <span class="operator">+</span><span class="operator">-</span> Relation[sno#<span class="number">10</span>,cno#<span class="number">11</span>,degree#<span class="number">12</span>] JDBCRelation(scores) [numPartitions<span class="operator">=</span><span class="number">1</span>]</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="3-4-1-谓词下推"><a href="#3-4-1-谓词下推" class="headerlink" title="3.4.1 谓词下推"></a>3.4.1 谓词下推</h4><ul>
+<li><p>谓词下推在 SparkQL 是由 <code>PushDownPredicate</code> 实现的，这个过程主要将过滤条件尽可能地下推到底层，最好是数据源。</p>
+</li>
+<li><p>谓词下推是将 Filter 算子直接下推到 Join 之前，经过这样的操作，可以大大减少 Join 算子处理的数据量，从而加快计算速度。</p>
+</li>
+</ul>
+<p>使用谓词下推优化得到的逻辑计划如下：</p>
+<p>在扫描 student表和scores表的时候使用条件过滤条件过滤出满足条件的数据</p>
+<img src="https://images.hnbian.cn/FpTTmF_4x3l8H3ohYiW4arzIB01Y?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="谓词下推图示" style="zoom:50%;">
+
+
+
+<h4 id="3-4-1-列裁剪"><a href="#3-4-1-列裁剪" class="headerlink" title="3.4.1 列裁剪"></a>3.4.1 列裁剪</h4><p>列裁剪在 Spark SQL 是由 <code>ColumnPruning</code> 实现的。因为我们查询的表可能有很多个字段，但是每次查询我们很大可能不需要扫描出所有的字段，这个时候利用列裁剪可以把那些查询不需要的字段过滤掉，使得扫描的数据量减少。所以针对我们上面介绍的 SQL，使用列裁剪优化得到的逻辑计划如下：</p>
+<img src="https://images.hnbian.cn/FgIlNGf_dmV5y6xN7sq0dBt4moUI?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="列剪枝图示" style="zoom:50%;">
+
+
+
+
+
+<p>从上图可以看出，经过列裁剪后，students 表只需要查询 sno和 class 两个字段；scores 表只需要查询 sno,degree 字段。这样减少了数据的传输，而且如果底层的文件格式为列存（比如 Parquet），可以大大提高数据的扫描速度的。</p>
+<h4 id="3-4-3-常量替换"><a href="#3-4-3-常量替换" class="headerlink" title="3.4.3 常量替换"></a>3.4.3 常量替换</h4><ul>
+<li><p>常量替换在 Spark SQL 是由 <code>ConstantPropagation</code> 实现的。</p>
+</li>
+<li><p>常量替换是将变量替换成常量，如果扫描的行数非常多可以减少很多的计算时间的开销的</p>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 比如 </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">table</span> <span class="keyword">WHERE</span> i <span class="operator">=</span> <span class="number">5</span> <span class="keyword">AND</span> j <span class="operator">=</span> i <span class="operator">+</span> <span class="number">3</span>  </span><br><span class="line"><span class="comment">-- 转换成  </span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">table</span> <span class="keyword">WHERE</span> i <span class="operator">=</span> <span class="number">5</span> <span class="keyword">AND</span> j <span class="operator">=</span> <span class="number">8</span></span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+
+</li>
+<li><p>经过常量替换优化，得到的逻辑计划如下：</p>
+</li>
+</ul>
+<img src="https://images.hnbian.cn/Fm4JME6Xe6hNL2QpvcgsdHl8vfMq?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="常量替换" style="zoom:50%;">
+
+
+
+<p>如上图查询中有 <code>t1.cid = 1 AND t1.did = t1.cid + 1</code> 查询语句，从里面可以看出 t1.cid 其实已经是确定的值了，所以完全可以使用它计算出 t1.did</p>
+<h4 id="3-4-4-常量累加"><a href="#3-4-4-常量累加" class="headerlink" title="3.4.4 常量累加"></a>3.4.4 常量累加</h4><ul>
+<li>常量累加在 Spark SQL 是由 <code>ConstantFolding</code> 实现。</li>
+<li>常量累加和常量替换类似，也是在这个阶段把一些常量表达式事先计算好。</li>
+<li>常量累加看起来改动的不大，但是在数据量非常大的时候可以减少大量的计算，减少 CPU 等资源的使用。</li>
+<li>经过这个优化，得到的逻辑计划如下：</li>
+</ul>
+<img src="https://images.hnbian.cn/FunAKJkSiKIVr-Rw1BZSzWmHMH9u?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="常量累加" style="zoom:50%;">
+
+
+
+
+
+
+
+<p>另外更多的其他优化，参见spark源码：</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala#L59">https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/optimizer/Optimizer.scala#L59</a></p>
+<h3 id="3-5-可执行的物理计划阶段"><a href="#3-5-可执行的物理计划阶段" class="headerlink" title="3.5 可执行的物理计划阶段"></a>3.5 可执行的物理计划阶段</h3><ul>
+<li><p>Physical Plan 阶段</p>
+</li>
+<li><p>经过前面多个多个阶段，得到经过优化之后的sql语句仍然不能执行</p>
+</li>
+<li><p>为了能够执行这个sql，最终必须得要翻译成为可以被执行的物理计划，</p>
+</li>
+<li><p>到可执行的物理计划阶段  spark就知道该如何执行这个sql了，和前面逻辑计划绑定和优化不一样，</p>
+</li>
+<li><p>可执行的物理计划阶段 使用的是策略 strategy，经过前面介绍的逻辑计划绑定和 Transformations 动作之后，树的类型并没有改变。</p>
+<ul>
+<li>Expression 经过 Transformations 之后得到的还是 Transformations </li>
+<li>Logical Plan 经过 Transformations 之后得到的还是 Logical Plan</li>
+</ul>
+</li>
+<li><p>在可执行的物理计划阶段，Logical Plan  经过 Transformations 之后树的类型转换成 Physical Plan</p>
+</li>
+<li><p>一个逻辑计划（Logical Plan）经过一系列的策略处理之后，得到多个物理计划（Physical Plans），物理计划在 Spark 是由 SparkPlan 实现的。</p>
+</li>
+<li><p>多个物理计划再经过代价模型（Cost Model）得到选择后的物理计划（Selected Physical Plan），整个过程如下所示：</p>
+</li>
+</ul>
+<p><img src="https://images.hnbian.cn/FprwYs_2BaqfCPMrj3sseC1ZL_P0?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<ul>
+<li><p>Cost Model 对应的就是基于代价的优化（Cost-based Optimizations，CBO），核心思想是计算每个物理计划的代价，</p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-16026">SPARK-16026</a> 引入的 CBO 优化主要是在前面介绍的<strong>优化逻辑计划阶段 - Optimizer</strong> 阶段进行的</p>
+</li>
+<li><p>对应的 Rule 为 <code>CostBasedJoinReorder</code>，并且默认是关闭的，需要通过 <code>spark.sql.cbo.enabled</code> 或 <code>spark.sql.cbo.joinReorder.enabled</code> 参数开启。</p>
+</li>
+<li><p>最后得到的物理计划如下：</p>
+</li>
+</ul>
+<figure class="highlight sql"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"><span class="comment">---------------------------- Physical Plan -----------------------------------------------------------------</span></span><br><span class="line"><span class="comment">------------------------------------------------------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="operator">*</span>(<span class="number">6</span>) HashAggregate(keys<span class="operator">=</span>[class#<span class="number">4</span>], functions<span class="operator">=</span>[<span class="built_in">sum</span>(degree#<span class="number">12</span>), <span class="built_in">avg</span>(UnscaledValue(degree#<span class="number">12</span>))], output<span class="operator">=</span>[class#<span class="number">4</span>, <span class="built_in">sum</span>(degree)#<span class="number">27</span>, <span class="built_in">avg</span>(degree)#<span class="number">28</span>])</span><br><span class="line"><span class="operator">+</span><span class="operator">-</span> Exchange hashpartitioning(class#<span class="number">4</span>, <span class="number">200</span>)</span><br><span class="line">   <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">5</span>) HashAggregate(keys<span class="operator">=</span>[class#<span class="number">4</span>], functions<span class="operator">=</span>[partial_sum(degree#<span class="number">12</span>), partial_avg(UnscaledValue(degree#<span class="number">12</span>))], output<span class="operator">=</span>[class#<span class="number">4</span>, sum#<span class="number">32</span>, sum#<span class="number">33</span>, count#<span class="number">34</span>L])</span><br><span class="line">      <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">5</span>) Project [class#<span class="number">4</span>, degree#<span class="number">12</span>]</span><br><span class="line">         <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">5</span>) SortMergeJoin [sno#<span class="number">0</span>], [sno#<span class="number">10</span>], <span class="keyword">Inner</span></span><br><span class="line">            :<span class="operator">-</span> <span class="operator">*</span>(<span class="number">2</span>) Sort [sno#<span class="number">0</span> <span class="keyword">ASC</span> <span class="keyword">NULLS FIRST</span>], <span class="literal">false</span>, <span class="number">0</span></span><br><span class="line">            :  <span class="operator">+</span><span class="operator">-</span> Exchange hashpartitioning(sno#<span class="number">0</span>, <span class="number">200</span>)</span><br><span class="line">            :     <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">1</span>) Project [sno#<span class="number">0</span>, class#<span class="number">4</span>]</span><br><span class="line">            :        <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">1</span>) <span class="keyword">Filter</span> (<span class="built_in">cast</span>(sbirthday#<span class="number">3</span> <span class="keyword">as</span> string) <span class="operator">&gt;</span> <span class="number">1973</span><span class="number">-01</span><span class="number">-01</span> <span class="number">00</span>:<span class="number">00</span>:<span class="number">00</span>)</span><br><span class="line">            :           <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">1</span>) Scan JDBCRelation(students) [numPartitions<span class="operator">=</span><span class="number">1</span>] [sno#<span class="number">0</span>,class#<span class="number">4</span>,sbirthday#<span class="number">3</span>] PushedFilters: [<span class="operator">*</span>IsNotNull(sbirthday), <span class="operator">*</span>IsNotNull(sno)], ReadSchema: struct<span class="operator">&lt;</span>sno:string,class:string,sbirthday:<span class="type">timestamp</span><span class="operator">&gt;</span></span><br><span class="line">            <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">4</span>) Sort [sno#<span class="number">10</span> <span class="keyword">ASC</span> <span class="keyword">NULLS FIRST</span>], <span class="literal">false</span>, <span class="number">0</span></span><br><span class="line">               <span class="operator">+</span><span class="operator">-</span> Exchange hashpartitioning(sno#<span class="number">10</span>, <span class="number">200</span>)</span><br><span class="line">                  <span class="operator">+</span><span class="operator">-</span> <span class="operator">*</span>(<span class="number">3</span>) Scan JDBCRelation(scores) [numPartitions<span class="operator">=</span><span class="number">1</span>] [sno#<span class="number">10</span>,degree#<span class="number">12</span>] PushedFilters: [<span class="operator">*</span>IsNotNull(degree), <span class="operator">*</span>GreaterThan(degree,<span class="number">60.0</span>), <span class="operator">*</span>IsNotNull(sno)], ReadSchema: struct<span class="operator">&lt;</span>sno:string,degree:<span class="type">decimal</span>(<span class="number">10</span>,<span class="number">1</span>)<span class="operator">&gt;</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>从上面的结果可以看出，物理计划阶段已经知道数据源是从 JDBC里面读取了，也知道文件的路径，数据类型等。而且在读取文件的时候，直接将过滤条件（PushedFilters）加进去了，同时，这个 Join 变成了 SortMergeJoin，到这里  Physical Plan 就完全生成了。</p>
+<img src="https://images.hnbian.cn/FjdEqvv0-T0r2D4iIcZ9DlCkODxX?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" style="zoom:50%;">
+
+
+
+
+
+<h3 id="3-6-代码生成阶段"><a href="#3-6-代码生成阶段" class="headerlink" title="3.6 代码生成阶段"></a>3.6 代码生成阶段</h3><ul>
+<li><p>物理执行计划标明了整个的代码执行过程当中我们代码层面的执行过程，以及最终要得到的数据字段以及字段类型，也包含了我们对应的数据源的位置，</p>
+</li>
+<li><p>得到物理执行计划想要被执行，最终还是得要生成完整的代码，底层还是基于sparkRDD去进行处理的，spark最后也还会有一些Rule对生成的物理执行计划进行处理，这个处理过程就是prepareForExecution</p>
+</li>
+<li><p>这些rule规则定义在org.apache.spark.sql.execution.QueryExecution 这个类当中的方法里面。</p>
+</li>
+</ul>
+<h4 id="3-6-1-生成代码与sql解析引擎的区别"><a href="#3-6-1-生成代码与sql解析引擎的区别" class="headerlink" title="3.6.1 生成代码与sql解析引擎的区别"></a>3.6.1 生成代码与sql解析引擎的区别</h4><ul>
+<li><p>在sparkSQL当中，通过生成代码，来实现sql语句的最终生成，说白了最后底层执行的还是代码，那么为什么要这么麻烦，使用代码的方式来执行我们的sql语句，难道没有sql的解析引擎直接执行sql语句嘛？</p>
+</li>
+<li><p>当然是有的，在spark2.0版本之前使用的都是基于Volcano Iterator Model（参见 <a target="_blank" rel="noopener" href="http://paperhub.s3.amazonaws.com/dace52a42c07f7f8348b08dc2b186061.pdf">《Volcano-An Extensible and Parallel Query Evaluation System》</a>） 来实现sql的解析的，这个是由 Goetz Graefe 在 1993 年提出的，当今绝大多数数据库系统处理 SQL 在底层都是基于这个模型的。</p>
+</li>
+<li><p>这个模型的执行可以概括为：</p>
+<ol>
+<li>数据库引擎会将 SQL 翻译成一系列的关系代数算子或表达式，</li>
+<li>依赖这些关系代数算子逐条处理输入数据并产生结果。每个算子在底层都实现同样的接口，比如都实现了 next() 方法，</li>
+<li>最顶层的算子 next() 调用子算子的 next()，子算子的 next() 在调用孙算子的 next()，直到最底层的 next()，</li>
+<li>具体过程如下图表示：</li>
+</ol>
+<img src="https://images.hnbian.cn/FlP79Q0IfC_5V59r0dsxGLuoCyyA?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="原始解析sql方式" style="zoom:70%;">
+</li>
+<li><p>Volcano Iterator Model 的优点是抽象起来很简单，很容易实现，而且可以通过任意组合算子来表达复杂的查询。但是缺点也很明显，存在大量的 <strong>虚函数调用</strong> ，会引起 CPU 的中断，最终影响了执行效率。</p>
+</li>
+<li><p>所以总结起来就是将sql解析成为代码，比sql引擎直接解析sql语句效率要快，所以spark2.0最终选择使用代码生成的方式来执行sql语句</p>
+</li>
+<li><p>基于上面的发现，从 Apache Spark 2.0 开始，社区开始引入了 Whole-stage Code Generation，参见 <a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-12795">SPARK-12795</a>，主要就是想通过这个来模拟手写代码，从而提升 Spark SQL 的执行效率。Whole-stage Code Generation 来自于2011年 Thomas Neumann 发表的 <a target="_blank" rel="noopener" href="http://www.vldb.org/pvldb/vol4/p539-neumann.pdf">Efficiently Compiling Efficient Query Plans for Modern Hardware</a>论文，这个也是 Tungsten 计划的一部分。</p>
+</li>
+</ul>
+<p>Tungsten 代码生成分为三部分：</p>
+<ol>
+<li><p>表达式代码生成（expression codegen）</p>
+</li>
+<li><p>全阶段代码生成（Whole-stage Code Generation）</p>
+</li>
+<li><p>加速序列化和反序列化（speed up serialization/deserialization）</p>
+</li>
+</ol>
+<h4 id="3-6-2-表达式代码生成（expression-codegen）"><a href="#3-6-2-表达式代码生成（expression-codegen）" class="headerlink" title="3.6.2 表达式代码生成（expression codegen）"></a>3.6.2 表达式代码生成（expression codegen）</h4><p>这个其实在 Spark 1.x 就有了。表达式代码生成的基类是 org.apache.spark.sql.catalyst.expressions.codegen.CodeGenerator，其下有七个子类：</p>
+<p><img src="https://images.hnbian.cn/FsXuRhVwrF3pwPFCHMPy2bBsuNqx?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>前文的 SQL 生成的逻辑计划中的 <code>(isnotnull(sbirthday#3) &amp;&amp; (cast(sbirthday#3 as string) &gt; 1973-01-01 00:00:00)</code> 就是最基本的表达式。它也是一种 Predicate，所以会调用 org.apache.spark.sql.catalyst.expressions.codegen.GeneratePredicate 来生成表达式的代码。</p>
+<h4 id="3-6-3-全阶段代码生成"><a href="#3-6-3-全阶段代码生成" class="headerlink" title="3.6.3 全阶段代码生成"></a>3.6.3 全阶段代码生成</h4><ul>
+<li>全阶段代码生成（Whole-stage Code Generation），用来将多个处理逻辑整合到单个代码模块中，其中也会用到上面的表达式代码生成。</li>
+<li>和前面介绍的表达式代码生成不一样，这个是对整个 SQL 过程进行代码生成，前面的表达式代码生成仅对于表达式的。</li>
+<li>全阶段代码生成都是继承自 org.apache.spark.sql.execution.BufferedRowIterator 的，生成的代码需要实现 processNext() 方法，这个方法会在 org.apache.spark.sql.execution.WholeStageCodegenExec 里面的 doExecute 方法里面被调用。而这个方法里面的 rdd 会将数据传进生成的代码里面 ，比如我们上文 SQL 这个例子的数据源是 JDBC文件，</li>
+<li>底层使用 org.apache.spark.sql.execution.RowDataSourceScanExec这个类读取文件，然后生成 inputRDD，这个 rdd 在 WholeStageCodegenExec 类中的 doExecute 方法里面调用生成的代码，然后执行我们各种判断得到最后的结果。</li>
+<li>通过引入全阶段代码生成，大大减少了虚函数的调用，减少了 CPU 的调用，使得 SQL 的执行速度有很大提升。</li>
+</ul>
+<img src="https://images.hnbian.cn/FtAQ9IPI-Sl5jbWFNJQ2Lv0pAkw0?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="全阶段代码生成" style="zoom:70%;">
+
+
+
+<ul>
+<li>WholeStageCodegenExec 类中的 doExecute 方法部分代码如下：</li>
+</ul>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** </span></span><br><span class="line"><span class="comment">  * WholeStageCodegen compiles a subtree of plans that support codegen together into single Java </span></span><br><span class="line"><span class="comment">  * function. </span></span><br><span class="line"><span class="comment">  * </span></span><br><span class="line"><span class="comment">  * Here is the call graph of to generate Java source (plan A supports codegen, but plan B does not): </span></span><br><span class="line"><span class="comment">  * </span></span><br><span class="line"><span class="comment">  * WholeStageCodegen       Plan A               FakeInput        Plan B </span></span><br><span class="line"><span class="comment">  * ========================================================================= </span></span><br><span class="line"><span class="comment">  * </span></span><br><span class="line"><span class="comment">  * -&gt; execute() </span></span><br><span class="line"><span class="comment">  *     | </span></span><br><span class="line"><span class="comment">  *  doExecute() ---------&gt;   inputRDDs() -------&gt; inputRDDs() ------&gt; execute() </span></span><br><span class="line"><span class="comment">  *     | </span></span><br><span class="line"><span class="comment">  *     +-----------------&gt;   produce() </span></span><br><span class="line"><span class="comment">  *                             | </span></span><br><span class="line"><span class="comment">  *                          doProduce()  -------&gt; produce() </span></span><br><span class="line"><span class="comment">  *                                                   | </span></span><br><span class="line"><span class="comment">  *                                                doProduce() </span></span><br><span class="line"><span class="comment">  *                                                   | </span></span><br><span class="line"><span class="comment">  *                         doConsume() &lt;--------- consume() </span></span><br><span class="line"><span class="comment">  *                             | </span></span><br><span class="line"><span class="comment">  *  doConsume()  &lt;--------  consume() </span></span><br><span class="line"><span class="comment">  * </span></span><br><span class="line"><span class="comment">  * SparkPlan A should override `doProduce()` and `doConsume()`. </span></span><br><span class="line"><span class="comment">  * </span></span><br><span class="line"><span class="comment">  * `doCodeGen()` will create a `CodeGenContext`, which will hold a list of variables for input, </span></span><br><span class="line"><span class="comment">  * used to generated code for [[BoundReference]]. </span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">doExecute</span></span>(): <span class="type">RDD</span>[<span class="type">InternalRow</span>] = {    </span><br><span class="line">  <span class="keyword">val</span> (ctx, cleanedSource) = doCodeGen()</span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="keyword">try</span> to compile and fallback <span class="keyword">if</span> it failed    </span><br><span class="line">  <span class="keyword">val</span> (_, maxCodeSize) = </span><br><span class="line">  <span class="keyword">try</span> {      </span><br><span class="line">    <span class="type">CodeGenerator</span>.compile(cleanedSource)    </span><br><span class="line">  } <span class="keyword">catch</span> {      </span><br><span class="line">    <span class="keyword">case</span> _: <span class="type">Exception</span> <span class="keyword">if</span> !<span class="type">Utils</span>.isTesting &amp;&amp; sqlContext.conf.codegenFallback =&gt;        </span><br><span class="line">  <span class="comment">// We should already saw the error message        </span></span><br><span class="line">    logWarning(<span class="string">s"Whole-stage codegen disabled for plan (id=<span class="subst">$codegenStageId</span>):\n <span class="subst">$treeString</span>"</span>)        </span><br><span class="line">    <span class="keyword">return</span> child.execute()    </span><br><span class="line">  }    </span><br><span class="line">  <span class="comment">// Check if compiled code has a too large function    </span></span><br><span class="line">  <span class="keyword">if</span> (maxCodeSize &gt; sqlContext.conf.hugeMethodLimit) {      </span><br><span class="line">    logInfo(</span><br><span class="line">      <span class="string">s"Found too long generated codes and JIT optimization might not work: "</span> +        </span><br><span class="line">      <span class="string">s"the bytecode size (<span class="subst">$maxCodeSize</span>) is above the limit "</span> +</span><br><span class="line">      <span class="string">s"<span class="subst">${sqlContext.conf.hugeMethodLimit}</span>, and the whole-stage codegen was disabled "</span> +        </span><br><span class="line">      <span class="string">s"for this plan (id=<span class="subst">$codegenStageId</span>). To avoid this, you can raise the limit "</span> +        </span><br><span class="line">      <span class="string">s"`<span class="subst">${SQLConf.WHOLESTAGE_HUGE_METHOD_LIMIT.key}</span>`:\n<span class="subst">$treeString</span>"</span></span><br><span class="line">    )      </span><br><span class="line">    child <span class="keyword">match</span> {        </span><br><span class="line">      <span class="comment">// The fallback solution of batch file source scan still uses WholeStageCodegenExec        </span></span><br><span class="line">      <span class="keyword">case</span> f: <span class="type">FileSourceScanExec</span> <span class="keyword">if</span> f.supportsBatch =&gt; </span><br><span class="line">      <span class="comment">// do nothing        </span></span><br><span class="line">      <span class="keyword">case</span> _ =&gt; <span class="keyword">return</span> child.execute()      </span><br><span class="line">    }    </span><br><span class="line">  }    </span><br><span class="line">  <span class="keyword">val</span> references = ctx.references.toArray    </span><br><span class="line">  <span class="keyword">val</span> durationMs = longMetric(<span class="string">"pipelineTime"</span>)    </span><br><span class="line">  <span class="keyword">val</span> rdds = child.asInstanceOf[<span class="type">CodegenSupport</span>].inputRDDs()    </span><br><span class="line">  assert(rdds.size &lt;= <span class="number">2</span>, <span class="string">"Up to two input RDDs can be supported"</span>)    </span><br><span class="line">  <span class="keyword">if</span> (rdds.length == <span class="number">1</span>) {      </span><br><span class="line">    rdds.head.mapPartitionsWithIndex { </span><br><span class="line">      (index, iter) =&gt;        </span><br><span class="line">      <span class="keyword">val</span> (clazz, _) = <span class="type">CodeGenerator</span>.compile(cleanedSource)        </span><br><span class="line">      <span class="keyword">val</span> buffer = clazz.generate(references).asInstanceOf[<span class="type">BufferedRowIterator</span>]        </span><br><span class="line">      buffer.init(index, <span class="type">Array</span>(iter))        </span><br><span class="line">      <span class="keyword">new</span> <span class="type">Iterator</span>[<span class="type">InternalRow</span>] {          </span><br><span class="line">        <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">hasNext</span></span>: <span class="type">Boolean</span> = {            </span><br><span class="line">          <span class="keyword">val</span> v = buffer.hasNext            </span><br><span class="line">          <span class="keyword">if</span> (!v) durationMs += buffer.durationMs()            </span><br><span class="line">          v          </span><br><span class="line">        }          </span><br><span class="line">        <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">next</span></span>: <span class="type">InternalRow</span> = buffer.next()        </span><br><span class="line">      }      </span><br><span class="line">    }    </span><br><span class="line">  } <span class="keyword">else</span> {      </span><br><span class="line">    <span class="comment">// Right now, we support up to two input RDDs.      </span></span><br><span class="line">    rdds.head.zipPartitions(rdds(<span class="number">1</span>)) {</span><br><span class="line">      (leftIter, rightIter) =&gt;        </span><br><span class="line">      <span class="type">Iterator</span>((leftIter, rightIter))        </span><br><span class="line">      <span class="comment">// a small hack to obtain the correct partition index</span></span><br><span class="line">    }.mapPartitionsWithIndex { (index, zippedIter) =&gt;</span><br><span class="line">      <span class="keyword">val</span> (leftIter, rightIter) = zippedIter.next()        </span><br><span class="line">      <span class="keyword">val</span> (clazz, _) = <span class="type">CodeGenerator</span>.compile(cleanedSource)        </span><br><span class="line">      <span class="keyword">val</span> buffer = clazz.generate(references).asInstanceOf[<span class="type">BufferedRowIterator</span>]        </span><br><span class="line">      buffer.init(index, <span class="type">Array</span>(leftIter, rightIter))        </span><br><span class="line">      <span class="keyword">new</span> <span class="type">Iterator</span>[<span class="type">InternalRow</span>] {</span><br><span class="line">        <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">hasNext</span></span>: <span class="type">Boolean</span> = {</span><br><span class="line">          <span class="keyword">val</span> v = buffer.hasNext</span><br><span class="line">          <span class="keyword">if</span> (!v) durationMs += buffer.durationMs()</span><br><span class="line">          v</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">next</span></span>: <span class="type">InternalRow</span> = buffer.next()</span><br><span class="line">      }</span><br><span class="line">    }</span><br><span class="line">  }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p>在WholeStageCodegenExec 这个类的注释当中也说明了，最终生成的代码过程如下</p>
+<figure class="highlight scala"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** </span></span><br><span class="line"><span class="comment"> * WholeStageCodegen compiles a subtree of plans that support codegen together into single Java </span></span><br><span class="line"><span class="comment"> * function. </span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * Here is the call graph of to generate Java source (plan A supports codegen, but plan B does not): </span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> *   WholeStageCodegen       Plan A               FakeInput        Plan B </span></span><br><span class="line"><span class="comment"> * ========================================================================= </span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * -&gt; execute() </span></span><br><span class="line"><span class="comment"> *     | </span></span><br><span class="line"><span class="comment"> *  doExecute() ---------&gt;   inputRDDs() -------&gt; inputRDDs() ------&gt; execute() </span></span><br><span class="line"><span class="comment"> *     | *     +-----------------&gt;   produce() </span></span><br><span class="line"><span class="comment"> *                             | </span></span><br><span class="line"><span class="comment"> *                          doProduce()  -------&gt; produce() </span></span><br><span class="line"><span class="comment"> *                                                   | </span></span><br><span class="line"><span class="comment"> *                                                doProduce() </span></span><br><span class="line"><span class="comment"> *                                                   | </span></span><br><span class="line"><span class="comment"> *                         doConsume() &lt;--------- consume() </span></span><br><span class="line"><span class="comment"> *                             | </span></span><br><span class="line"><span class="comment"> *  doConsume()  &lt;--------  consume() </span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * SparkPlan A should override `doProduce()` and `doConsume()`. </span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * `doCodeGen()` will create a `CodeGenContext`, which will hold a list of variables for input, </span></span><br><span class="line"><span class="comment"> * used to generated code for [[BoundReference]]. </span></span><br><span class="line"><span class="comment"> */</span></span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<p><img src="https://images.hnbian.cn/FjTVOg6A9ZzeiVZlbbtgWUYpLQSr?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="全阶段代码生成的执行过程"></p>
+<h4 id="3-6-4-代码编译"><a href="#3-6-4-代码编译" class="headerlink" title="3.6.4 代码编译"></a>3.6.4 代码编译</h4><ul>
+<li><p>生成代码之后需要解决的另一个问题是如何将生成的代码进行编译然后加载到同一个 JVM 中去。</p>
+</li>
+<li><p>在早期 Spark 版本是使用 Scala 的 Reflection 和 Quasiquotes 机制来实现代码生成的。</p>
+</li>
+<li><p>Quasiquotes 是一个简洁的符号，可以让我们轻松操作 Scala 语法树，具体参见 <a target="_blank" rel="noopener" href="https://docs.scala-lang.org/overviews/quasiquotes/intro.html">这里</a>。虽然 Quasiquotes 可以很好的为我们解决代码生成等相关的问题，但是带来的新问题是编译代码时间比较长（大约 50ms - 500ms）所以社区不得不默认关闭表达式代码生成。</p>
+</li>
+<li><p>为了解决这个问题，Spark 引入了 Janino 项目，参见 <a target="_blank" rel="noopener" href="https://issues.apache.org/jira/browse/SPARK-7956">SPARK-7956</a>。</p>
+</li>
+<li><p>Janino 是一个超级小但又超级快的 Java™ 编译器. 它不仅能像 javac 工具那样将一组源文件编译成字节码文件，还可以对一些 Java 表达式，代码块，类中的文本(class body)或者内存中源文件进行编译，并把编译后的字节码直接加载到同一个 JVM 中运行。</p>
+</li>
+<li><p>Janino 不是一个开发工具, 而是作为运行时的嵌入式编译器，比如作为表达式求值的翻译器或类似于 JSP 的服务端页面引擎，关于 Janino 的更多知识请参见<a target="_blank" rel="noopener" href="https://janino-compiler.github.io/janino/">这里</a>。</p>
+</li>
+<li><p>通过引入了 Janino 来编译生成的代码，结果显示 SQL 表达式的编译时间减少到 5ms。</p>
+</li>
+<li><p>在 Spark 中使用了 <code>ClassBodyEvaluator</code> 来编译生成之后的代码，参见 org.apache.spark.sql.catalyst.expressions.codegen.CodeGenerator。</p>
+</li>
+<li><p>需要主要的是，代码生成是在 Driver 端进行的，而代码编译是在 Executor 端进行的。</p>
+</li>
+</ul>
+<h4 id="3-6-5-SQL执行"><a href="#3-6-5-SQL执行" class="headerlink" title="3.6.5 SQL执行"></a>3.6.5 SQL执行</h4><p>终于到了 SQL 真正执行的地方了。这个时候 Spark 会执行上阶段生成的代码，然后得到最终的结果</p>
+<img src="https://images.hnbian.cn/FluNrMrPJH7SEP7P-oJV6FZYadzB?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="DAG 执行图" style="zoom:67%;">
+
+<h2 id="4-sparkSQL执行过程总结"><a href="#4-sparkSQL执行过程总结" class="headerlink" title="4. sparkSQL执行过程总结"></a>4. sparkSQL执行过程总结</h2><p><img src="https://images.hnbian.cn/Fs9ByK7EIIz_IX6umHCHAwu5JeDF?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="SparkSQL 执行过程"></p>
+<p>从上面可以看得出来，sparkSQL的执行主要经过了这么几个大的步骤</p>
+<ol>
+<li><p>输入sql，dataFrame或者dataSet</p>
+</li>
+<li><p>经过Catalyst过程，生成最终我们得到的最优的物理执行计划</p>
+<p>2.1 parser阶段</p>
+</li>
+</ol>
+<p>​		主要是通过Antlr4解析SqlBase.g4 ，所有spark’支持的语法方式都是定义在sqlBase.g4里面了，如果需要扩展sparkSQL的语法，我们只需要扩展sqlBase.g4即可，通过antlr4解析sqlBase.g4文件，生成了我们的语法解析器SqlBaseLexer.java和词法解析器SqlBaseParser.java</p>
+<p>​		parse阶段 –&gt; antlr4 –&gt; 解析 –&gt; SqlBase.g4 –&gt; 得到  –&gt; 语法解析器SqlBaseLexer.java + 词法解析器SqlBaseParser.java</p>
+<p>​		2.2 analyzer阶段</p>
+<p>​		使用基于Rule的规则解析以及Session Catalog来实现函数资源信息和元数据管理信息</p>
+<p>​		Analyzer 阶段 –&gt; 使用 –&gt; Rule  +  Session Catalog –&gt; 多个rule  –&gt; 组成一个batch  </p>
+<p>​				session CataLog  –&gt; 保存函数资源信息以及元数据信息等</p>
+<p>​		2.3 optimizer阶段</p>
+<p>​			optimizer调优阶段  –&gt; 基于规则的RBO优化rule-based optimizer –&gt; 谓词下推 + 列剪枝  + 常量替换  + 常量累加</p>
+<p>​	    2.4 planner阶段</p>
+<p>​		通过analyzer生成多个物理计划 –&gt; 经过Cost  Model进行最优选择 –&gt; 基于代价的CBO优化 –&gt; 最终选定得到的最优物理执行计划</p>
+<p>​		2.5 选定最终的物理计划，准备执行</p>
+<p>​		最终选定的最优物理执行计划  –&gt; 准备生成代码去开始执行</p>
+<ol start="3">
+<li>将最终得到的物理执行计划进行代码生成，提交代码去执行我们的最终任务</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/7049ff8.html">https://www.hnbian.cn/posts/7049ff8.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/spark-sql/">
+                                    <span class="chip bg-color">spark sql</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/9f1182e3.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fsd5gunGLsZsRXrLVUdLh7qe9qG8" class="responsive-img" alt="Spark SQL 5.调优">
+                        
+                        <span class="card-title">Spark SQL 5.调优</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2018-06-15
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/spark-sql/">
+                        <span class="chip bg-color">spark sql</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/23fb6e0e.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FtCSP6X95PxiMF5b4uT8aeg1d0e4" class="responsive-img" alt="Spark SQL 3.Hive On Spark">
+                        
+                        <span class="card-title">Spark SQL 3.Hive On Spark</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2018-05-29
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/spark-sql/">
+                        <span class="chip bg-color">spark sql</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

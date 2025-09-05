@@ -1,0 +1,1958 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Kafka总结（二）常见组件上 Broker 、Producer和 Consumer 介绍, hnbian">
+    <meta name="description" content="1. Broker1.1 Broker 介绍
+Broker 没有副本机制，一旦 Broker 宕机，该 Broker 的消息都将不可用。
+
+Broker 不会保存 Consumer 消费 topic partition offset 的状态">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Kafka总结（二）常见组件上 Broker 、Producer和 Consumer 介绍 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+<link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css"></head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fnx-u8xnFMjm2uyPIgkS8quMIty3')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Kafka总结（二）常见组件上 Broker 、Producer和 Consumer 介绍</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/kafka/">
+                                <span class="chip bg-color">kafka</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/kafka/" class="post-category">
+                                kafka
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2020-02-09
+                </div>
+                
+
+                
+
+                
+
+                
+
+                
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-Broker"><a href="#1-Broker" class="headerlink" title="1. Broker"></a>1. Broker</h2><h3 id="1-1-Broker-介绍"><a href="#1-1-Broker-介绍" class="headerlink" title="1.1 Broker 介绍"></a>1.1 Broker 介绍</h3><ol>
+<li><p>Broker 没有副本机制，一旦 Broker 宕机，该 Broker 的消息都将不可用。</p>
+</li>
+<li><p>Broker 不会保存 Consumer 消费 topic partition offset 的状态，订阅者自己采用不同模式保存。</p>
+</li>
+<li><p>无状态导致消息的删除成为难题（有可能会删除正在被消费的消息），kafka采用基于事件的 SLA（服务水平保证），消息保存一定时间（默认7天，168小时）会被自动删除</p>
+</li>
+<li><p>消费者可以将 offset 重新定位到任意位置进行重新消费，当 Consumer 故障时，可以选择最小的 offset 进行重新读取消费数据。</p>
+</li>
+</ol>
+<h3 id="1-2-Broker-的启动过程"><a href="#1-2-Broker-的启动过程" class="headerlink" title="1.2 Broker 的启动过程"></a>1.2 Broker 的启动过程</h3><ol>
+<li>Broker 启动后先根据其 ID 在 Zookeeper 的 / Broker s/ids/idsznode 下面创建临时子节点，</li>
+<li>创建成功后 Controller 的 ReplicaStateMachine 注册其上的 Broker Change Watch 会被触发，从而通过回调 KafkaController.on Broker Startup 方法，</li>
+<li>回调方法向所有新启动的 Broker 发送 UpdateMetadataRequest。</li>
+<li>将新启动的 Broker 上的所有副本设置为 OnlineReplica 状态，同时这些 Broker 会为这些 Partition 启动 high watermark 线程。</li>
+<li>通过 partitionStateMachine 触发 OnlinePartitionStateChange。</li>
+</ol>
+<h3 id="1-3-Kafka-Controller（控制器）"><a href="#1-3-Kafka-Controller（控制器）" class="headerlink" title="1.3 Kafka Controller（控制器）"></a>1.3 Kafka Controller（控制器）</h3><p>Kafka 集群中会有一个或者多个 Broker ，有一个 Broke r会被选举为控制器（Kafka Controller），它负责整个集群中所有分区和副本的状态。</p>
+<ul>
+<li>选择 Partition Leader：当某个分区副本出现故障时，由 Kafka Controller 负责为该分区选举新的 leader 副本。</li>
+<li>更新元数据：从 Zookeeper 中获取当前所有 topic、partition 以及 Broker 相关信息进行相应的管理。</li>
+<li>增/减/分配分区：当使用 kafka-topics.sh 脚本为某个 topic 增加分区数量时，同样还是由 Kafka Controller 负责新增分区的分配。</li>
+</ul>
+<h4 id="1-3-1-Controller-选举与具体功能"><a href="#1-3-1-Controller-选举与具体功能" class="headerlink" title="1.3.1 Controller 选举与具体功能"></a>1.3.1 Controller 选举与具体功能</h4><p>每个 Broker 在启动的时候都会去尝试读取 /controller 节点的 Brokerid 的值，</p>
+<ul>
+<li>如果ZK中不存在 /controller 节点，或者这个节点值为-1，那么会尝试去创建 /controller 节点，在去创建 /controller 节点的时候，也有可能其他的 Broker 同时尝试创建这个节点，只有创建成功的 Broker 会成为控制器，创建失败的则意味着竞选失败会在 /controller 上注册一个Watch。</li>
+<li>如果读取到 Brokerid 的值不为-1，则表示已经有其他 Broker 节点成功竞选为控制器，则该 Broker 就会放弃竞选，并且会在 /controller 上注册一个Watch。</li>
+<li>当 Controller 挂掉时临时节点会自动消失，这时 Watch 会被触发，此时所有 active 的 Broker 都会去竞选成为新的 Controller。</li>
+</ul>
+<p> /controller  临时节点值如下：</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 2] get  /controller </span><br><span class="line">{<span class="string">"version"</span>:1,<span class="string">" Brokerid"</span>:0,<span class="string">"timestamp"</span>:<span class="string">"1581320839809"</span>}</span><br><span class="line"></span><br><span class="line"><span class="comment"># version：目前版本中固定为1 </span></span><br><span class="line"><span class="comment"># Brokerid：表示控制器的 Broker 的id编号</span></span><br><span class="line"><span class="comment">#timestamp：表示竞选成为控制器的时间戳</span></span><br></pre></td></tr></tbody></table></figure>
+
+<p>每个 Broker 都会在内存中保存当前控制器的 Brokerid 的值，这个值标识位 activeControllerId。当 /controller 节点的数据发生变化时，每个 Broker 都会更新自身内存中保存的 activeControllerId。</p>
+<ul>
+<li>如果 Broker 在数据变更前是控制器，那么如果在数据变更后自身的 Brokerid值与新的activeControllerId值不一致的话，那么就需要“退位”，关闭相应的资源，比如关闭状态机、注销相应的监听器等。有可能控制器由于异常而下线，造成 /controller 这个临时节点会被自动删除；也有可能是其他原因将此节点删除了。</li>
+</ul>
+<p>当 /controller 节点被删除时，每个 Broker 都会进行选举，</p>
+<ul>
+<li>如果 Broker 在节点被删除前是控制器的话，在选举前还需要有一个“退位”的动作。</li>
+<li>如果有特殊需要，可以手动删除 /controller 节点来触发新一轮的选举。当然关闭控制器所对应的 Broker 以及手动向 /controller 节点写入新的 Brokerid的所对应的数据同样可以触发新一轮的选举。</li>
+</ul>
+<p>Zookeeper中还有一个与控制器有关的节点： /controller_epoch节点，这个节点是一个持久化节点（Persistent），它保存的是一个整型的controller_epoch值。这个值用于记录控制器发生变更的次数。即记录当前的控制器是第几代控制器，当控制器发生变更时，每选出一个新的控制器都会在该值的基础上 +1 ，每个和控制器交互的请求都会携带上controller_epoch的值。</p>
+<figure class="highlight bash"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[zk: localhost:2181(CONNECTED) 4] get  /controller_epoch</span><br><span class="line">3</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>如果请求的 controller_epoch 值小于内存中 controller_epoch 的值，则认为这个请求是向已经过期的控制器发送的请求，那么这个请求会被认定为无效请求。</li>
+<li>如果请求的 controller_epoch 值大于内存中 controller_epoch 的值，则说明已经有新的控制器当选了。</li>
+</ul>
+<p>由此可见，kafka通过controller_epoch 来保证控制器的唯一性，进而保证相关操作的一致性。</p>
+<h4 id="1-3-2-Controller-选举成功后的操作"><a href="#1-3-2-Controller-选举成功后的操作" class="headerlink" title="1.3.2 Controller 选举成功后的操作"></a>1.3.2 Controller 选举成功后的操作</h4><p> Broker 成功竞选为Controller后会触发KafkaController.onControllerFailover 方法，并在该方法中完成如下操作：</p>
+<ol>
+<li>读取并在 /controller_epoch 的值基础上+1。</li>
+<li>增加一系列监听用于处理集群环境的变化，具体有哪些监听可以查看 Controller 事件监听章节。</li>
+<li>初始化 Controller 对象，设置当前所有 Topic、 Broker 列表、Partition的Leader 以及 ISR 等</li>
+<li>启动 replicaStateMachine 和 partitionStateMachine</li>
+<li>将 Broker State 状态设置为 partitionStateMachine</li>
+<li>将每个Partition的Leadership 发送给所有active 的 Broker </li>
+<li>若 auto.leader.rebalance.enable 设置为 true，则还会开启一个名为”auto-leader-rebalance-task”的定时任务来负责维护分区的有限副本的均衡。</li>
+<li>如果 delete.topic.enable 值为 true，且 /admin/delete_topics 中有值，则删除对应的 topic</li>
+</ol>
+<h4 id="1-3-2-Controller-事件监听"><a href="#1-3-2-Controller-事件监听" class="headerlink" title="1.3.2 Controller 事件监听"></a>1.3.2 Controller 事件监听</h4><p>在Kafka的早期版本中，并没有采用Kafka Controller这样一个概念来对分区和副本的状态进行管理，而是依赖于Zookeeper，每个 Broker 都会在Zookeeper上为分区和副本注册大量的监听器（Watcher）。当分区或者副本状态变化时，会唤醒很多不必要的监听器，这种严重依赖于Zookeeper的设计会有脑裂、羊群效应以及造成Zookeeper过载的隐患。</p>
+<p>在目前的新版本的设计中，只有Kafka Controller在Zookeeper上注册相应的监听器，其他的 Broker 极少需要再监听Zookeeper中的数据变化，这样省去了很多不必要的麻烦。不过每个 Broker 还是会对 /controller 节点添加监听器的，以此来监听此节点的数据变化（参考ZkClient中的IZkDataListener）。</p>
+<p>控制器在选举成功之后会读取Zookeeper中各个节点的数据来初始化上下文信息（ControllerContext），并且也需要管理这些上下文信息，比如为某个topic增加了若干个分区，控制器在负责创建这些分区的同时也要更新上下文信息，并且也需要将这些变更信息同步到其他普通的 Broker 节点中。</p>
+<p>不管是监听器触发的事件，还是定时任务触发的事件，亦或者是其他事件（比如 ControlledShutdown ）都会读取或者更新控制器中的上下文信息，那么这样就会涉及到多线程间的同步，如果单纯的使用锁机制来实现，那么整体的性能也会大打折扣。针对这一现象，Kafka的控制器使用单线程基于事件队列的模型，将每个事件都做一层封装，然后按照事件发生的先后顺序暂存到LinkedBlockingQueue中，然后使用一个专用的线程（ControllerEventThread）按照FIFO（First Input First Output, 先入先出）的原则顺序处理各个事件，这样可以不需要锁机制就可以在多线程间维护线程安全。<br><img src="https://images.hnbian.cn/FiiCakekeeWI8xC2FK5M8jvxazB8?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Kafka Controller事件监听处理"></p>
+<ol>
+<li>监听partition的变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理分区重分配</td>
+<td>/admin/reassign_partitions</td>
+<td>PartitionReassignmentListener</td>
+</tr>
+<tr>
+<td>处理优先副本选举</td>
+<td>/admin/preferred_replica_election</td>
+<td>PreferredReplicaElectionListener</td>
+</tr>
+<tr>
+<td>处理ISR集合变更</td>
+<td>/isr_change_notification</td>
+<td>IsrChangeNotificationListener</td>
+</tr>
+</tbody></table>
+<ol start="2">
+<li>监听topic相关变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理topic增减的变化</td>
+<td>/ Broker s/topics</td>
+<td>TopicChangeListener</td>
+</tr>
+<tr>
+<td>处理删除topic动作</td>
+<td>/admin/delete_topics</td>
+<td>TopicDeletionListener</td>
+</tr>
+<tr>
+<td>处理topic分区变化</td>
+<td>/ Broker s/topics/[topic]</td>
+<td>PartitionModificationsListener</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li>监听 Broker 相关的变化</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>添加监听的zk节点</th>
+<th>添加的Listener</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>处理 Broker 增减变化</td>
+<td>/ Broker s/ids</td>
+<td>Broker ChangeListener</td>
+</tr>
+</tbody></table>
+<h4 id="1-3-4-Controller-对-Broker-的故障处理"><a href="#1-3-4-Controller-对-Broker-的故障处理" class="headerlink" title="1.3.4 Controller 对 Broker 的故障处理"></a>1.3.4 Controller 对 Broker 的故障处理</h4><ol>
+<li><p>Controller 在 Zookeeper 的 /Brokers/ids 节点上注册 Watch 用来处理 Broker 增减变化，一旦有 Broker 宕机对应的Zookeeper上的节点会自动删除，就会触发 Controller 的 Watch，Controller 即会获取最新的active的 Broker 列表。</p>
+</li>
+<li><p>Controller 决定 Set_p，该集合包含了宕机的 Broker 上的所有Partition副本分布。</p>
+</li>
+<li><p>对于 Set_p 中的每个Partition会做如下操作：</p>
+</li>
+</ol>
+<ul>
+<li>从 / Broker s/topics/topic-name/partitions/partition-id/state 读取该 partition 的 ISR。（ISR是什么会在下一个章节中介绍）</li>
+<li>决定该partition的新leader，</li>
+<li>如果当前ISR中至少有一个副本还处于active状态，则选择其中一个为新的Leader，新的ISR中包含当前ISR中所有幸存的副本</li>
+<li>如果当前ISR中没有副本存活，则选择该partition任意一个存活的副本作为新的Leader以及ISR（这种场景会存在数据丢失的风险）</li>
+<li>如果该partition所有的副本都宕机了，则将新的leader设置为-1</li>
+<li>将新的Leader、新的leader_epochISR以及controller_epoch 写入/ Broker s/topics/topic-name/partitions/partition-id/state。</li>
+</ul>
+<ol start="4">
+<li>直接通过RPC向Set_p 相关的 Broker 发送LeaderAndISRRequest命令，Controller可以在一个RPC操作中发送多个命令从而提高效率。</li>
+</ol>
+<h4 id="1-3-5-LeaderAndISRRequest的响应过程"><a href="#1-3-5-LeaderAndISRRequest的响应过程" class="headerlink" title="1.3.5 LeaderAndISRRequest的响应过程"></a>1.3.5 LeaderAndISRRequest的响应过程</h4><p> Broker 收到 LeaderAndISRRequest 主要通过ReplicaManager 的 becomeLeaderOrFollower 处理：</p>
+<ol>
+<li><p>若请求中controller_epoch 值小于最新的 controller_epoch 的值，则认为这个请求是向已经过期的控制器发送的请求，那么这个请求会被认定为无效请求，直接返回ErrorMapping.StaleControllerEpochCode</p>
+</li>
+<li><p>对于请求中 partitionStateInfos 中的每一个元素，即（(topic, partitionId), partitionStateInfo)：</p>
+</li>
+</ol>
+<ul>
+<li>若 partitionStateInfo 中的 leader epoch 大于当前 ReplicManager 中存储的 (topic, partitionId) 对应的 partition 的 leader epoch，则：<ul>
+<li>若当前 Brokerid（或者说 replica id）在 partitionStateInfo 中，则将该 partition 及 partitionStateInfo 存入一个名为 partitionState 的 HashMap 中</li>
+<li>否则说明该 Broker 不在该 Partition 分配的 Replica list 中，将该信息记录于 log 中</li>
+</ul>
+</li>
+<li>否则将相应的 Error code（ErrorMapping.StaleLeaderEpochCode）存入 Response 中</li>
+</ul>
+<ol start="3">
+<li><p>筛选出 partitionState 中 Leader 与当前 Brokerid 相等的所有记录保存到 partitionsTobeLeader 中，其它记录存入 partitionsToBeFollower 中</p>
+</li>
+<li><p>若 partitionsTobeLeader 不为空，则对其执行 makeLeaders 方</p>
+</li>
+<li><p>若 partitionsToBeFollower 不为空，则对其执行 makeFollowers 方法</p>
+</li>
+<li><p>若 highwatermak 线程还未启动，则将其启动，并将 hwThreadInitialized 设为 true</p>
+</li>
+<li><p>关闭所有 Idle 状态的 Fetcher</p>
+</li>
+</ol>
+<h3 id="1-4-Broker-响应请求的流程"><a href="#1-4-Broker-响应请求的流程" class="headerlink" title="1.4 Broker 响应请求的流程"></a>1.4 Broker 响应请求的流程</h3><p> Broker 通过 kafka.network.SocketServer 及其相关模块接受各种请求并作出相应，整个网络通信模块基于Java NIO 开发，并采用 Reactor模式，其中包括1个Acceptor负责接受客户请求，N个Processor负责读写数据，M个Handle 处理业务逻辑。</p>
+<ul>
+<li>Acceptor：主要负责监听并接受客户端发送的请求，包括Producer、 Consumer 、Controller、Admin Tool 等的请求，并建立和客户端的数据传输通道，然后为该客户端指定一个 Processor，至此它对该客户端的该次请求的任务就结束了，可以去响应下一个客户端的连接请求了。</li>
+<li>Processor：主要负责从客户端读取数据并将响应返回给客户端，它本身并不处理具体的业务逻辑，并且其内部维护了一个队列来保存分配给它的所有 SocketChannel。Processor 会循环调用run方法从队列中取出新的SocketChannel，并将其SelectionKey.OP_READ 注册到selector 上，然后循环处理已就绪的读（请求）和写（响应）。Processor读完数据之后，将其封装成 Request对象，并将其交给RequestChannel。<ul>
+<li>RequestChannel是Processor 和KafkaRequestHandler 交换数据的地方，它包含一个队列，requestQueue用来存放Processor 加入 Request 。</li>
+<li>Processor 会通过prosessNewReponses 方法依次将 requestChannel 中的ResponseQueue保存的Response取出，将其对应的SelectionKey.OP_WRITE事件注册到selector 上。当selector的select 方法返回时，对检测到的可写通道，调用write方法，将Response返回给客户端。</li>
+</ul>
+</li>
+<li>Handler：KafkaRequestHandler 循环送 RequestChannel 中读取Request 并交给kafka.server.kafkaAPIs 处理具体业务逻辑。同时 这个Request还包含一个respondQueue，用来存放KafkaRequestHandler处理完Request后返还给客户端的Response.</li>
+</ul>
+<h2 id="2-Producer（生产者）"><a href="#2-Producer（生产者）" class="headerlink" title="2. Producer（生产者）"></a>2. Producer（生产者）</h2><p>Producer：从外部系统获取数据发送给 Broker ，Producer直接发送数据到 Broker 上的 leader partition，不需要经过任何中介或其他路由。为了实现这个特性，kafka集群中每个 Broker 都可以响应producer的请求，并返回topic的一些元信息，这些原信息包括哪些机器是存活的，topic的leader partition都在哪，现阶段哪些 leader partition是可以直接被访问的。</p>
+<p>不同的应用场景对消息有不同的需求，即是否允许消息丢失、重复、延迟以及吞吐量的要求。不同场景对Kafka生产者的API使用和配置会有直接的影响。</p>
+<h3 id="2-1-Producer发送消息的流程"><a href="#2-1-Producer发送消息的流程" class="headerlink" title="2.1 Producer发送消息的流程"></a>2.1 Producer发送消息的流程</h3><p>消息格式：每个消息是一个ProducerRecord对象，必须的属性有Topic和消息Value值，此外还可以包含消息的Partition以及消息的Key。</p>
+<ol>
+<li><p>序列化ProducerRecord有多个构造器，这里使用了三个参数的，topic、key、value</p>
+</li>
+<li><p>如果ProducerRecord中指定了Partition，则Partitioner不做任何事情；否则，Partitioner根据消息的key得到一个Partition。这时生产者就知道向哪个Topic下的哪个Partition发送这条消息。</p>
+</li>
+<li><p>消息被添加到相应的batch中，独立的线程将这些batch发送到 Broker 上</p>
+</li>
+<li><p>Broker 收到消息会返回一个响应。如果消息成功写入Kafka，则返回RecordMetaData对象，该对象包含了Topic信息、Patition信息、消息在Partition中的Offset信息；若失败，返回一个错误</p>
+</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FsMBsKOwHIDZX79wLZ2aARSx1FVn?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Kafka生产者组件"></p>
+<h3 id="2-2-自定义partitioner"><a href="#2-2-自定义partitioner" class="headerlink" title="2.2 自定义partitioner"></a>2.2 自定义partitioner</h3><p>Producer 客户端自己控制着消息数据被推送到哪个partition。发送的方式可以是随机分配或者是某类随机负载均衡或者指定一些分区算法。<br>kafka提供了接口供用户自己实现自定义partition。用户可以为每个消息指定一个partitionKey，在某些hash算法中通过key将数据分发到不同的partition，比如把userID作为partitionKey的话，相同的userID将会被推送到同一个partition中。</p>
+<p>使用自定义partitioner 需要在producer端加入配置</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//producer需要配置</span></span><br><span class="line">properties.put(<span class="string">"partitioner.class"</span>, PartitionerCLass.class.getName());</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>轮询Partitioner</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.Partitioner;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.Cluster;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.PartitionInfo;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicLong;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> Round Robin Partitioner</span></span><br><span class="line"><span class="comment"> *              不管key是什么样子 如果第一条消息发送0partition 第二条消息发送到1partition...</span></span><br><span class="line"><span class="comment"> *              不需要根据key去做定向的分发</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-13 22:31</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RoundRobinPartitioner</span> <span class="keyword">implements</span> <span class="title class_">Partitioner</span> {</span><br><span class="line">    <span class="comment">//首先定义一个全局计数器</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">AtomicLong</span> <span class="variable">next</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicLong</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 重写 partition方法</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> topic 发送到哪个topic</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key key 值</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> keyBytes key字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> value 发送消息内容</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> valueBytes 发送消息内容字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> cluster</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 返回值是int 返回消息应该发送到哪个partition</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">partition</span><span class="params">(String topic, Object key, <span class="type">byte</span>[] keyBytes, Object value, <span class="type">byte</span>[] valueBytes, Cluster cluster)</span> {</span><br><span class="line">        List&lt;PartitionInfo&gt; partitions = cluster.partitionsForTopic(topic);</span><br><span class="line">        <span class="type">int</span> <span class="variable">numPartitions</span> <span class="operator">=</span> partitions.size();</span><br><span class="line">        <span class="comment">//线程安全的 +1 去除</span></span><br><span class="line">        <span class="type">long</span> <span class="variable">nextIndex</span> <span class="operator">=</span> next.incrementAndGet();</span><br><span class="line">        <span class="comment">//对partition取余数</span></span><br><span class="line">        <span class="keyword">return</span> (<span class="type">int</span>) nextIndex % numPartitions;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">close</span><span class="params">()</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">configure</span><span class="params">(Map&lt;String, ?&gt; map)</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>Hash Partitioner</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.Partitioner;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.Cluster;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.PartitionInfo;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.record.InvalidRecordException;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> Hash Partitioner</span></span><br><span class="line"><span class="comment"> *              实现partition接口   重写 partition方法</span></span><br><span class="line"><span class="comment"> *              一般取key的 在不考虑备份的情况下一个partition只会在一个 Broker 上面</span></span><br><span class="line"><span class="comment"> *              hash partition 一般取key的hash值 对 partition的总数取余数,这样相同的key会发送到一个partition中 比如相同的用户信息发送到一个partition上面</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-13 22:19</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HashPartitioner</span> <span class="keyword">implements</span> <span class="title class_">Partitioner</span> {</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 重写 partition方法</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> topic 发送到哪个topic</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key key 值</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> keyBytes key字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> value 发送消息内容</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> valueBytes 发送消息内容字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> cluster</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 返回值是int 返回消息应该发送到哪个partition</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">partition</span><span class="params">(String topic, Object key, <span class="type">byte</span>[] keyBytes, Object value, <span class="type">byte</span>[] valueBytes, Cluster cluster)</span> {</span><br><span class="line">        List&lt;PartitionInfo&gt; partitions = cluster.partitionsForTopic(topic);</span><br><span class="line">        <span class="type">int</span> <span class="variable">numPartitions</span> <span class="operator">=</span> partitions.size();</span><br><span class="line">        <span class="keyword">if</span>(keyBytes == <span class="literal">null</span>) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidRecordException</span>(<span class="string">"key cannot be null"</span>);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">//对数值型的key直接取余数</span></span><br><span class="line">        <span class="keyword">if</span> ((key <span class="keyword">instanceof</span> Integer)) {</span><br><span class="line">            <span class="keyword">return</span> Math.abs(Integer.parseInt(key.toString())) % numPartitions;</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> Math.abs(key.hashCode() % numPartitions);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">close</span><span class="params">()</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">configure</span><span class="params">(Map&lt;String, ?&gt; map)</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>随机Partitioner</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.Partitioner;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.Cluster;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.PartitionInfo;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.record.InvalidRecordException;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"><span class="keyword">import</span> java.util.Random;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> 将数据随机发送到某个partition</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-13 21:58</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RandomPartitioner</span> <span class="keyword">implements</span> <span class="title class_">Partitioner</span> {</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 重写 partition方法</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> topic 发送到哪个topic</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key key 值</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> keyBytes key字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> value 发送消息内容</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> valueBytes 发送消息内容字节数组</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> cluster</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 返回值是int 返回消息应该发送到哪个partition</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">partition</span><span class="params">(String topic, Object key, <span class="type">byte</span>[] keyBytes, Object value, <span class="type">byte</span>[] valueBytes, Cluster cluster)</span> {</span><br><span class="line">        List&lt;PartitionInfo&gt; partitions = cluster.partitionsForTopic(topic);</span><br><span class="line">        <span class="type">int</span> <span class="variable">numPartitions</span> <span class="operator">=</span> partitions.size();</span><br><span class="line">        <span class="keyword">if</span>(keyBytes == <span class="literal">null</span>) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">InvalidRecordException</span>(<span class="string">"key cannot be null"</span>);</span><br><span class="line">        }</span><br><span class="line">        <span class="type">Random</span> <span class="variable">rand</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Random</span>();</span><br><span class="line">        <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> rand.nextInt(numPartitions); <span class="comment">//生成0-3以内的随机数</span></span><br><span class="line">        <span class="comment">//i = (int) (Math.random() * 3); //0-3以内的随机数，用Matn.random()方式</span></span><br><span class="line">        System.out.println(<span class="string">"发送到partition : "</span>+i);</span><br><span class="line">        <span class="keyword">return</span> i;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">close</span><span class="params">()</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">configure</span><span class="params">(Map&lt;String, ?&gt; map)</span> {</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<h3 id="2-3-消息投递顺序"><a href="#2-3-消息投递顺序" class="headerlink" title="2.3 消息投递顺序"></a>2.3 消息投递顺序</h3><p>Kafka保证分区的顺序，也就是说，如果生产者以一定的顺序发送消息到Kafka的某个分区，那么Kafka在分区内部保持此顺序，而且消费者也按照同样的顺序消费。但是，应用调用send方法的顺序和实际发送消息的顺序不一定是一致的。</p>
+<p>举个例子，如果retries参数不为0，而  max.in.flight.requests.per.connection参数大于1，那么有可能第一个批量消息写入失败，但是第二个批量消息写入成功，然后第一个批量消息重试写入成功，那么这个顺序乱序的。因此，如果需要保证消息顺序，建议设置max.in.flight.requests.per.connection 为1，这样可以在第一个批量消息发送失败重试时，第二个批量消息需要等待。</p>
+<h3 id="2-4-批量发送数据"><a href="#2-4-批量发送数据" class="headerlink" title="2.4 批量发送数据"></a>2.4 批量发送数据</h3><p>生产者发送多个消息到同一个分区的时候，为了减少网络带来的系能开销，kafka会对消息进行批量发送</p>
+<ul>
+<li>batch.size：通过这个参数来设置批量提交的数据大小，默认是16k,当积压的消息达到这个值的时候就会统一发送（发往同一分区的消息）</li>
+<li>linger.ms：这个设置是为发送设置一定是延迟来收集更多的消息，默认大小是0ms（就是有消息就立即发送）</li>
+</ul>
+<p>当这两个参数同时设置的时候，只要两个条件中满足一个就会发送。比如说batch.size设置16kb，linger.ms设置50ms，那么当消息积压达到16kb就会发送，如果没有到达16kb，那么在第一个消息到来之后的50ms之后消息将会发送。</p>
+<ul>
+<li>max.request.size：默认是1M，请求的最大字节数</li>
+</ul>
+<h3 id="2-5-同步Producer与异步Producer"><a href="#2-5-同步Producer与异步Producer" class="headerlink" title="2.5 同步Producer与异步Producer"></a>2.5 同步Producer与异步Producer</h3><ol>
+<li>同步Producer</li>
+</ol>
+<ul>
+<li>低延迟</li>
+<li>低吞吐率</li>
+<li>无数据丢失<br>只有消息发送成功了才会发送下一条消息,不成功重试,三次失败之后抛出异常,自行进行操作</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.KafkaProducer;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.ProducerRecord;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.RecordMetadata;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Properties;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.Future;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> 同步Producer</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-13 21:55</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestSyncProducer</span> {</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">KAFKA_BOOTSTRAP_SERVERS</span> <span class="operator">=</span> <span class="string">"hnode1:9092,hnode2:9092,hnode3:9092"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test1"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">bath</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line"></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">properties</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        properties.put(<span class="string">"bootstrap.servers"</span>,KAFKA_BOOTSTRAP_SERVERS);</span><br><span class="line">        properties.put(<span class="string">"key.serializer"</span>,<span class="string">"org.apache.kafka.common.serialization.StringSerializer"</span>);</span><br><span class="line">        properties.put(<span class="string">"value.serializer"</span>,<span class="string">"org.apache.kafka.common.serialization.StringSerializer"</span>);</span><br><span class="line">        properties.put(<span class="string">"producer.type"</span>, <span class="string">"sync"</span>); <span class="comment">//同步发送</span></span><br><span class="line">        properties.put(<span class="string">"acks"</span>, <span class="string">"1"</span>); <span class="comment">//Leader 写成功才算成功</span></span><br><span class="line">        <span class="type">KafkaProducer</span> <span class="variable">producer</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span>{</span><br><span class="line">            producer = <span class="keyword">new</span> <span class="title class_">KafkaProducer</span>(properties);</span><br><span class="line">            <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;bath;i++){</span><br><span class="line">                ProducerRecord&lt;String,String&gt; record = <span class="keyword">new</span> <span class="title class_">ProducerRecord</span>&lt;String, String&gt;(KAFKA_TOPIC,String.valueOf(i),<span class="string">"message"</span>+i);</span><br><span class="line">                Future&lt;RecordMetadata&gt; future = producer.send(record);</span><br><span class="line">                System.out.printf(<span class="string">"partition=%s,offset=%s \n"</span>,future.get().partition(),future.get().offset());</span><br><span class="line">                Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">            }</span><br><span class="line">        }<span class="keyword">catch</span>(Exception ex){</span><br><span class="line">            ex.printStackTrace();</span><br><span class="line">        }<span class="keyword">finally</span>{</span><br><span class="line">            <span class="keyword">if</span>(producer != <span class="literal">null</span>){</span><br><span class="line">                producer.close();</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<ol start="2">
+<li>异步Producer</li>
+</ol>
+<ul>
+<li>高延迟</li>
+<li>高吞吐率</li>
+<li>可能会有数据丢失</li>
+</ul>
+<p>数据send之后 将数据放进队列,队列数量到达一定程度之后,后台线程拿数据批量发送给 Broker ,如果队列数据满了阻塞超过一定时间,会直接丢掉新的数据</p>
+<p>异步发送将多条消息暂时和客户端buff起来并将他们批量发送到 Broker ，小数据IO太多会拖慢整体的网络延迟，批量发会提高网络效率，不过这也有一定的隐患，比如当producer异常时那些尚未发送的数据将会丢失。</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.Callback;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.KafkaProducer;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.ProducerRecord;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients.producer.RecordMetadata;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Properties;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.Future;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> kafka异步producer</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-13 21:29</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TestAsyncProducer</span> {</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">KAFKA_BOOTSTRAP_SERVERS</span> <span class="operator">=</span> <span class="string">"hnode1:9092,hnode2:9092,hnode3:9092"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test1"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">bath</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line"></span><br><span class="line">        <span class="type">Properties</span> <span class="variable">properties</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        properties.put(<span class="string">"bootstrap.servers"</span>,KAFKA_BOOTSTRAP_SERVERS);</span><br><span class="line">        properties.put(<span class="string">"key.serializer"</span>,<span class="string">"org.apache.kafka.common.serialization.StringSerializer"</span>);</span><br><span class="line">        properties.put(<span class="string">"value.serializer"</span>,<span class="string">"org.apache.kafka.common.serialization.StringSerializer"</span>);</span><br><span class="line">        properties.put(<span class="string">"producer.type"</span>, <span class="string">"async"</span>); <span class="comment">//异步发送</span></span><br><span class="line">        properties.put(<span class="string">"acks"</span>, <span class="string">"1"</span>); <span class="comment">//Leader写成功才算成功</span></span><br><span class="line">        <span class="type">KafkaProducer</span> <span class="variable">producer</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="keyword">try</span>{</span><br><span class="line">            producer = <span class="keyword">new</span> <span class="title class_">KafkaProducer</span>(properties);</span><br><span class="line">            <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">0</span>;i&lt;bath;i++){</span><br><span class="line">                ProducerRecord&lt;String,String&gt; record = <span class="keyword">new</span> <span class="title class_">ProducerRecord</span>&lt;String, String&gt;(KAFKA_TOPIC,String.valueOf(i),<span class="string">"message"</span>+i);</span><br><span class="line">                <span class="comment">//在1.0 版本之前 异步producer不支持Java版本的回调函数</span></span><br><span class="line">                Future&lt;RecordMetadata&gt; future = producer.send(record, <span class="keyword">new</span> <span class="title class_">Callback</span>() {</span><br><span class="line">                    <span class="meta">@Override</span></span><br><span class="line">                    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onCompletion</span><span class="params">(RecordMetadata recordMetadata, Exception e)</span> {</span><br><span class="line">                        <span class="comment">//如果Kafka返回一个错误，onCompletion方法抛出一个non null异常。</span></span><br><span class="line">                        <span class="keyword">if</span> (e != <span class="literal">null</span>) {</span><br><span class="line">                            <span class="comment">//对异常进行一些处理，这里只是简单打印出来</span></span><br><span class="line">                            e.printStackTrace();</span><br><span class="line">                        }</span><br><span class="line">                    }</span><br><span class="line">                });</span><br><span class="line">                System.out.printf(<span class="string">"partition=%s,offset=%s \n"</span>,future.get().partition(),future.get().offset());</span><br><span class="line">                Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">            }</span><br><span class="line">        }<span class="keyword">catch</span>(Exception ex){</span><br><span class="line">            ex.printStackTrace();</span><br><span class="line">        }<span class="keyword">finally</span>{</span><br><span class="line">            <span class="keyword">if</span>(producer != <span class="literal">null</span>){</span><br><span class="line">                producer.close();</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<h2 id="3-Consumer-（消费者）"><a href="#3-Consumer-（消费者）" class="headerlink" title="3. Consumer （消费者）"></a>3. Consumer （消费者）</h2><h3 id="3-1-Consumer-介绍"><a href="#3-1-Consumer-介绍" class="headerlink" title="3.1 Consumer 介绍"></a>3.1 Consumer 介绍</h3><p> Consumer ：从kafka订阅数据供外部系统去使用，在kafka中当前消费到哪条消息的offset值是由 Consumer 来维护的。因此 Consumer 可以自己决定如何读取kafka的数据。比如， Consumer 可以通过重设 offset 值来重新消费已经消费的数据。kafka数据的生命周期是可配置的。只有到达规定时间数据才会被删除，不管该数据有没有被消费到。</p>
+<h3 id="3-2-Consumer-Group"><a href="#3-2-Consumer-Group" class="headerlink" title="3.2 Consumer Group"></a>3.2 Consumer Group</h3><ul>
+<li>多个 Consumer 线程 可以组成一个 Consumer 组（Concumer Group）</li>
+<li>partition中的任意一条数据只能被同组内的一个 Consumer 消费，也就是说当一条消息在一个 Consumer Group 内的 Consumer 线程消费后，该 Consumer Group 内的其他 Consumer 线程就无法消费该数据了，</li>
+<li>但是其他 Consumer Group 中的 Consumer 线程仍然能消费这条数据。所以如果想同时对一个topic做消费的话，启动多个 Consumer Group就可以了，但是需要注意的是，这里的多个 Consumer 的消费都是顺序读取partition里面的message，新启动的 Consumer 默认从partition队列最头端最新的地方阻塞的读message。</li>
+</ul>
+<p>kafka为了提高吞吐量，一个partition最多只允许一个 Consumer Group 下的一个 Consumer 线程去消费，但是不同的 Consumer Group 中的 Consumer 线程还是可以去消费这个partition内的数据的。</p>
+<ul>
+<li>当 Consumer Group中的 Consumer 线程数量小于partition 数量时，该 Consumer 线程还是会消费全部partition内的数据。</li>
+<li>当 Consumer Group中的 Consumer 线程数量大于partition 数量时，每个 Consumer 线程消费一个partition的数据，会有超过partition数量个 Consumer 线程费不到数据。</li>
+<li>当 Consumer Group中的 Consumer 线程数量等于partition 数量时，每个 Consumer 线程消费一个partition的数据，此时是最优设计，效率也是最高的。</li>
+</ul>
+<p>当一份数据需要多次使用的时候就需要建立多个 Consumer Group 同时消费topic数据，这时offset的值互不影响，所以上面三点同样适用于该场景。当我们觉得数据消费效率不高时可以增加partition来横向扩展，同时增加相应数量的 Consumer 线程去消费新增partition的数据。在设定 Consumer group的时候，只需要指明里面有几个 Consumer 数量即可，无需指定对应的消费partition序号， Consumer 会自动进行rebalance。如下图</p>
+<p>我们看一下下面图示的场景：</p>
+<p><img src="https://images.hnbian.cn/FsfjLFLxwFMX7WVRpWUCw3qJItTn?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt=" Consumer Group 消费 Topic内的数据"></p>
+<ul>
+<li>TopicA 有2个partition</li>
+<li>GroupA有一个 Consumer 线程，那么这个线程消费两个分区的数据。</li>
+<li>GroupB有两个 Consumer 线程，这时 Consumer 与partition是一对一的消费关系。</li>
+<li>GroupC有三个 Consumer 线程，有两个线程能够消费到数据，会有一个 Consumer 线程处于空闲状态。当能够消费到数据的两个 Consumer 线程某个挂掉了，那么这个线程就可以消费到数据了。</li>
+</ul>
+<h3 id="3-3-Consumer-Rebalance"><a href="#3-3-Consumer-Rebalance" class="headerlink" title="3.3 Consumer Rebalance"></a>3.3 Consumer Rebalance</h3><h4 id="3-3-1-Rebalance-介绍"><a href="#3-3-1-Rebalance-介绍" class="headerlink" title="3.3.1 Rebalance 介绍"></a>3.3.1 Rebalance 介绍</h4><p>为 Consumer Group 中的多个线程分配要进行消费的topic的分区的过程，称为 Consumer Rebalance。比如有10分区，5个消费线程，那么正常情况下每个消费线程会消费2个分区的数据，这个均衡的过程叫做 Consumer Rebalance。 </p>
+<h4 id="3-3-2-Rebalance-触发条件"><a href="#3-3-2-Rebalance-触发条件" class="headerlink" title="3.3.2 Rebalance 触发条件"></a>3.3.2 Rebalance 触发条件</h4><ol>
+<li>Consumer 线程数增加或减少时</li>
+<li>订阅的 Topic 个数发生变化时</li>
+<li>Topic 分区发生变化时</li>
+</ol>
+<p> Consumer Rebalance 发生时，同一Group下的 Consumer 实例会共同参与，Kafka Controller  确保达到最公平的分配，在Rebalance 过程中 Consumer Group下面的所有线程需要停止工作，等待Rebalance完成，所以会对消费数据的效率有一些影响。</p>
+<h4 id="3-3-3-Group-Coordinator"><a href="#3-3-3-Group-Coordinator" class="headerlink" title="3.3.3 Group Coordinator"></a>3.3.3 Group Coordinator</h4><ul>
+<li>kafka0.9.0版本的时候，在 Server 端增加了 GroupCoordinator 这个角色。</li>
+<li>Broker 在启动的时候都会启动一个GroupCoordinator实例，用于管理多个 Consumer Group和各 Consumer Group中各个成员，主要用于offset位移管理和 Consumer Rebalance。</li>
+<li>Group会选择一个Coordinator来完成自己组内各Partition的Offset信息，选择的规则如下：</li>
+</ul>
+<ol>
+<li>计算 Group 对应在 __Consumer_offsets上的Partition</li>
+<li>根据对应的Partition寻找该Partition的leader所对应的 Broker ，该 Broker 上的Group Coordinator即就是该Group的Coordinator<br>Partition计算规则：</li>
+</ol>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//groupMetadataTopicPartitionCount对应offsets.topic.num.partitions参数值，默认值是50个分区</span></span><br><span class="line">partition-Id(__Consumer_offsets) = Math.abs(groupId.hashCode() % groupMetadataTopicPartitionCount)</span><br></pre></td></tr></tbody></table></figure>
+
+
+
+<h4 id="3-3-4-Rebalance-过程分析"><a href="#3-3-4-Rebalance-过程分析" class="headerlink" title="3.3.4 Rebalance 过程分析"></a>3.3.4 Rebalance 过程分析</h4><p> Consumer Rebalance 过程分为两步：Join 和 Sync。</p>
+<ul>
+<li>Join</li>
+</ul>
+<p>所有成员都向coordinator发送JoinGroup请求，请求加入消费组。当所有成员都发送了JoinGroup请求，coordinator会从中选择一个 Consumer 担任leader的角色，并把组成员信息以及订阅信息发给leader——注意leader和coordinator不是一个概念。leader负责消费分配方案的制定。</p>
+<ul>
+<li>Sync</li>
+</ul>
+<p>leader开始分配消费方案，即哪个 Consumer 负责消费哪些topic的哪些partition。分配完成后，leader会将这个方案封装进SyncGroup请求中发给coordinator，非leader也会发SyncGroup请求，只是内容为空。coordinator接收到分配方案之后会把方案塞进SyncGroup的response中发给各个 Consumer 。这样组内的所有成员就都知道自己应该消费哪些分区了。</p>
+<h4 id="3-3-5-Rebalance-场景分析"><a href="#3-3-5-Rebalance-场景分析" class="headerlink" title="3.3.5 Rebalance 场景分析"></a>3.3.5 Rebalance 场景分析</h4><ol>
+<li>新的 Consumer 加入 Group</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FolQh0sy_XyNqHqTv3KT6Ib8AO5k?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="新的 Consumer 加入 Group"></p>
+<ol start="2">
+<li>Group 中的 Consumer 崩溃</li>
+</ol>
+<p>崩溃则是被动地发起rebalance，崩溃时成员并不会主动地告知coordinator，coordinator有可能需要一个完整的session.timeout周期(心跳周期)才能检测到这种崩溃，而且会造成 Consumer 的滞后。</p>
+<p><img src="https://images.hnbian.cn/FnEj0GrNolFmZMyBxZANOwK5_Zfi?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Group 中的 Consumer 崩溃"></p>
+<ol start="3">
+<li>Group 中的 Consumer 主动离开 （离开组会主动地发起rebalance）</li>
+</ol>
+<p><img src="https://images.hnbian.cn/FqzZsT7YjFed-DUkRl585a4lxgIo?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Group 中的 Consumer 主动离开"></p>
+<ol start="4">
+<li>Offset 提交</li>
+</ol>
+<p><img src="https://images.hnbian.cn/Fh8JuD4AnPAIT7KTLozj2nT35dUX?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Offset 提交"></p>
+<h4 id="3-3-6-避免不必要的-Rebalance"><a href="#3-3-6-避免不必要的-Rebalance" class="headerlink" title="3.3.6 避免不必要的 Rebalance"></a>3.3.6 避免不必要的 Rebalance</h4><p>调整参数：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>session.timeout.ms</td>
+<td>增大session超时时间,默认10s</td>
+</tr>
+<tr>
+<td>heartbeat.interval.ms</td>
+<td>缩短心跳时间间隔，但是会增加资源消耗</td>
+</tr>
+<tr>
+<td>max.poll.interval.ms Consumer</td>
+<td>增大两次调用poll方法的最大时间间隔，默认5min</td>
+</tr>
+</tbody></table>
+<h3 id="3-4-Consumer-投递保证"><a href="#3-4-Consumer-投递保证" class="headerlink" title="3.4 Consumer 投递保证"></a>3.4 Consumer 投递保证</h3><ul>
+<li>Consumer 消费partition 里面数据的时候是以 O(1) 顺序读取的，所以必须维护着上一次读到哪里的offset信息。</li>
+<li>high level API 的 offset 可以选择存储在 Zookeeper 或者 kafka 中。一般来说都是使用high level API 的。kafka为每条消息计算CRC校验，用于错误检测，CRC校验不通过的消息会被直接丢掉。</li>
+<li>low level API 的offset由自己维护。</li>
+</ul>
+<blockquote>
+<p>访问指定元素时无需从头遍历，通过计算便可获得对应地址，其时间复杂度为O(1)</p>
+</blockquote>
+<p>Producer向 Broker 发送消息时，一旦这条消息被commit，因为replication的存在，它就不会丢。</p>
+<p>投递保证（ Consumer delivery guarantee）有下面三种情况：</p>
+<ol>
+<li>At most once模式：</li>
+</ol>
+<ul>
+<li>消息可能会丢，但绝不会重复传输</li>
+<li>读完消息先commit再处理消息，在这种模式下，如果 Consumer 在commit后来没来得及处理消息就crash了，下次重新开始工作就就无法读到刚刚已提交而未处理的消息。这时这些未处理的数据就丢失了。</li>
+</ul>
+<ol start="2">
+<li>At least once模式（默认）：</li>
+</ol>
+<ul>
+<li>消息绝不会丢，但可能会重复传输</li>
+<li>Kafka默认保证 At least once，并且允许通过设置Producer异步提交来实现At most once</li>
+<li>读完消息先处理再commit。在这种模式下，如果在处理完消息之后commit之前 Consumer crash了，下次重新开始工作时还会处理刚刚未commit的消息，实际上该消息已经被处理过了，这就是导致该消息被处理多次，但不会丢数据。这种模式下数据处理相对于At most once会慢一些。</li>
+</ul>
+<ol start="3">
+<li>Exactly once默认：</li>
+</ol>
+<ul>
+<li>Exactly once 每条消息肯定会被传输一次且仅传输一次，很多时候这是用户所想要的。</li>
+<li>Exactly once要求与外部存储系统写作，幸运的是Kafka提供的offset可以非常容易的使用这种方式。</li>
+<li>如果一定要做到Exactly once 在0.11.0.0 之前的版本就需要协调offset和实际操作的输出。经典的做法是引入两个阶段提交。如果能让offset和操作输入存在同一个地方，会更简洁和通用。</li>
+</ul>
+<h3 id="3-5-kafka-对offset的管理"><a href="#3-5-kafka-对offset的管理" class="headerlink" title="3.5 kafka 对offset的管理"></a>3.5 kafka 对offset的管理</h3><ul>
+<li><p>自动commit</p>
+</li>
+<li><p>将 Consumer 设置为autocommit，即 Consumer 一旦读到数据立即自动commit。该操作会在Zookeeper中保存该 Consumer 在该Partition中读取的消息的offset。该 Consumer 下次再读该Partition时会从该offset位置的下一条开始读取。如未commit，下次读取的开始位置会跟上一次commit之后的开始位置相同。</p>
+</li>
+<li><p>手动commit</p>
+</li>
+<li><p>手动commit全部offset</p>
+</li>
+<li><p>手动commit特定partition的offset</p>
+</li>
+<li><p>支持同步和异步commit并支持commit回调</p>
+</li>
+<li><p>消费流程控制 可暂停/恢复对某些Partition的消费</p>
+<ul>
+<li>pause 暂停消费指定的Partition</li>
+<li>resume 恢复对指定partition的消费</li>
+<li>wakeup 唤醒poll阻塞，并抛出WakeupException</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-6-Log-compaction"><a href="#3-6-Log-compaction" class="headerlink" title="3.6 Log compaction"></a>3.6 Log compaction</h3><h4 id="3-6-1-Log-compaction-介绍"><a href="#3-6-1-Log-compaction-介绍" class="headerlink" title="3.6.1 Log compaction 介绍"></a>3.6.1 Log compaction 介绍</h4><p>Log Compaction是kafka提供的一种整理offset数据的方式。Log Compaction对于有相同key的的不同value值，只保留最后一个版本。如果应用只关心key对应的最新value值，可以开启Kafka的日志清理功能，Kafka会定期将相同key的消息进行合并，只保留最新的value值。</p>
+<p><img src="https://images.hnbian.cn/Fmko6EF7W0-MoYGZh50l3ByV0KI?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Log compaction效果"></p>
+<p>如果一个系统使用Kafka来保存topic消费数据的状态，每次有状态变更都会将其写入Kafka中。当某一时刻此系统异常崩溃，需要在恢复阶段通过读取Kafka中的消息来恢复其应有的状态，那么此时系统关心的是它原本的最新状态而不是历史时刻中的每一个状态。如果Kafka的日志保存策略是日志删除（Log Deletion），那么系统势必要一股脑的读取Kafka中的所有数据来恢复，而如果日志保存策略是Log Compaction，那么可以减少数据的加载量进而加快系统的恢复速度。Log Compaction在某些应用场景下可以简化技术栈，提高系统整体的质量。</p>
+<p>Log Compaction执行前后，日志分段中的每条消息的偏移量和写入时的保持一致。Log Compaction会生成新的日志分段文件，日志分段中每条消息的物理位置会重新按照新文件来组织。Log Compaction执行过后的偏移量不再是连续的，会将大量过期数据过滤掉保留最新数据，大大增加了查询速度。Kafka中用于保存消费者消费位移的主题 <code>_Consumer_offsets</code> 使用的就是Log Compaction策略。</p>
+<h4 id="3-6-2-Log-compaction-筛选文件"><a href="#3-6-2-Log-compaction-筛选文件" class="headerlink" title="3.6.2 Log compaction 筛选文件"></a>3.6.2 Log compaction 筛选文件</h4><p>在配置文件中可以通过配置log.dir或者log.dirs参数来设置Kafka日志的存放目录，而对于每一个日志目录下都有一个名为 “<strong>cleaner-offset-checkpoint</strong>” 的文件，这个文件就是清理检查点文件，用来记录每个主题的每个分区中已清理的偏移量。</p>
+<p><img src="https://images.hnbian.cn/FpCzh_y3LYNX91MwQ1wkUYf1fM9h?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="Log compaction offset 分段划分"></p>
+<p>如上图通过检查点日志文件（Log）分成两个部分：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>说明</th>
+<th>范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>clean<br>部分</td>
+<td>已经清理过，clean部分的消息偏移量是断续的</td>
+<td>[logStartOffset,firstDirtyOffset)</td>
+</tr>
+<tr>
+<td>dirty<br>部分</td>
+<td>还未清理的，在日志清理的同时，客户端也会读取日志，dirty部分的消息偏移量是逐一递增的，如果客户端总能赶上dirty部分，它就能读取到日志的所有消息，反之，就不可能读到全部的消息。</td>
+<td>[firstDirtyOffset,firstUncleanableOffset)</td>
+</tr>
+</tbody></table>
+<p>activeSegment：当前活跃的日志文件，为避免activeSegment成为热点文件，activeSegment不会参与Log Compaction的操作。</p>
+<p>同时Kafka支持通过参数<strong>log.cleaner.min.compaction.lag.ms</strong>（默认值为0）来配置消息在被清理前的最小保留时间，默认情况下firstUncleanableOffset等于activeSegment的baseOffset。</p>
+<p>Log Compaction是针对key的，所以在使用时应注意每个消息的key值不为null。每个 Broker 会启动<strong>log.cleaner.thread</strong>（默认值为1）个日志清理线程负责执行清理任务，这些线程会选择“污浊率”最高的日志文件进行清理。日志的污浊率为：</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// dirtyRatio 表示日志的污浊率</span></span><br><span class="line"><span class="comment">// cleanBytes 表示clean部分的日志占用大小</span></span><br><span class="line"><span class="comment">// dirtyBytes 表示dirty部分的日志占用大小</span></span><br><span class="line">dirtyRatio = dirtyBytes / (cleanBytes + dirtyBytes)</span><br></pre></td></tr></tbody></table></figure>
+
+<p>为了防止日志不必要的频繁清理操作，Kafka还使用了参数 <strong>log.cleaner.min.cleanable.ratio</strong>（默认值为0.5）来限定可进行清理操作的最小污浊率。</p>
+<h4 id="3-6-3-Log-compaction-筛选key"><a href="#3-6-3-Log-compaction-筛选key" class="headerlink" title="3.6.3 Log compaction 筛选key"></a>3.6.3 Log compaction 筛选key</h4><p>Kafka中的每个日志清理线程会使用一个名为“SkimpyOffsetMap”的对象来构建 key与offset 的映射关系的哈希表。日志清理需要遍历两次日志文件，</p>
+<ul>
+<li>第一次遍历把每个key的哈希值和最后出现的offset都保存在SkimpyOffsetMap中，映射模型如下图所示。</li>
+<li>第二次遍历检查每个消息是否符合保留条件，如果符合就保留下来，否则就会被清理掉。</li>
+</ul>
+<p>假设一条消息的offset为O1，这条消息的key在SkimpyOffsetMap中所对应的offset为O2，如果O1&gt;=O2即为满足保留条件。</p>
+<p><img src="https://images.hnbian.cn/FurybANDys_SI2GECbt2jUyQueP8?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim" alt="SkimpyOffsetMap中的映射关系"></p>
+<p>其中<a target="_blank" rel="noopener" href="https://blog.51cto.com/helloleex/1770568">使用线性探测法处理哈希冲突</a></p>
+<p>默认情况下SkimpyOffsetMap使用MD5来计算key的哈希值，占用空间大小为16B，根据这个哈希值来从SkimpyOffsetMap中找到对应的槽位，如果发生冲突则用线性探测法处理。为了防止哈希冲突过于频繁，我们也可以通过 Broker 端参数<strong>log.cleaner.io.buffer.load.factor</strong>（默认值为0.9）来调整负载因子。偏移量占用空间大小为8B，故一个映射项占用大小为24B。</p>
+<p>每个日志清理线程的SkimpyOffsetMap的内存占用大小为log.cleaner.dedupe.buffer.size / log.cleaner.thread，默认值为 = 128MB/1 = 128MB。所以默认情况下SkimpyOffsetMap可以保存128MB * 0.9 /24B ≈ 5033164个key的记录。假设每条消息的大小为1KB，那么这个SkimpyOffsetMap可以用来映射4.8GB的日志文件，而如果有重复的key，那么这个数值还会增大，整体上来说SkimpyOffsetMap极大的节省了内存空间且非常高效。</p>
+<p>Kafka中提供了一个墓碑消息（tombstone）的概念，如果一条消息的key不为null，但是其value为null，那么此消息就是墓碑消息。日志清理线程发现墓碑消息时会先进行常规的清理，并保留墓碑消息一段时间。墓碑消息的保留条件是当前墓碑消息所在的日志分段的最近修改时间lastModifiedTime大于deleteHorizonMs，这个deleteHorizonMs的计算方式为clean部分中最后一个日志分段的最近修改时间减去保留阈值deleteRetionMs（通过 Broker 端参数log.cleaner.delete.retention.ms配置，默认值为86400000，即24小时）的大小，即：</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">deleteHorizonMs = clean部分中最后一个LogSegment的lastModifiedTime - deleteRetionMs</span><br></pre></td></tr></tbody></table></figure>
+
+<p>所以墓碑消息的保留条件为所在LogSegment的：</p>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">lastModifiedTime &gt; deleteHorizonMs</span><br><span class="line">也等于 </span><br><span class="line">lastModifiedTime &gt; clean部分中最后一个LogSegment的lastModifiedTime - deleteRetionMs</span><br><span class="line">也等于</span><br><span class="line">lastModifiedTime + deleteRetionMs &gt; clean部分中最后一个LogSegment的lastModifiedTime</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<p>Log Compaction执行过后的日志分段的大小会比原先的日志分段的要小，为了防止出现太多的小文件，Kafka在实际清理过程中并不对单个的日志分段进行单独清理，而是会将日志文件中offset从0至firstUncleanableOffset的所有日志分段进行分组，每个日志分段只属于一组，分组策略为：按照日志分段的顺序遍历，每组中日志分段的占用空间大小之和不超过segmentSize（可以通过 Broker 端参数log.segments.bytes设置，默认值为1GB），且对应的索引文件占用大小之和不超过maxIndexSize（可以通过 Broker 端参数log.index.interval.bytes设置，默认值为10MB）。同一个组的多个日志分段清理过后，只会生成一个新的日志分段。</p>
+<p><img src="https://images.hnbian.cn/Fh4NTgsJ0aMRu82OjShfaGwLUW_a?imageView2/0/interlace/1/q/70%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbg==/font/5b6u6L2v6ZuF6buR/fontsize/600/fill/IzBDMjU2NA==/dissolve/100/gravity/SouthEast/dx/10/dy/10%7Cimageslim"></p>
+<p>参考上图，假设所有的参数配置都为默认值，在Log Compaction之前checkpoint的初始值为0。</p>
+<ul>
+<li>执行第一次Log Compaction之后，每个非活跃的日志分段的大小都有所缩减，checkpoint的值也有所变化。</li>
+<li>执行第二次Log Compaction时会将组队成[0.4GB, 0.4GB]、[0.3GB, 0.7GB]、[0.3GB]、[1GB]这4个分组，并且从第二次Log Compaction开始还会涉及墓碑消息的清除。</li>
+<li>执行第三次Log Compaction过后的情形可参考上图尾部。</li>
+</ul>
+<p>Log Compaction <strong>过程中</strong> 会将对每个日志分组中需要保留的消息拷贝到一个以“.clean”为后缀的临时文件中，此临时文件以当前日志分组中第一个日志分段的文件名命名，例如：000000000000000.log.clean。<br>Log Compaction <strong>完成后</strong> 会将 “.clean” 的文件修改为以 “.swap” 后缀的文件，例如：000000000000000.log.swap，然后删除掉原本的日志文件，<br>最后才把文件的“.swap”后缀去掉，整个过程中的索引文件的变换也是如此，至此一个完整Log Compaction操作才算完成。</p>
+<h3 id="3-7-Consumer-API"><a href="#3-7-Consumer-API" class="headerlink" title="3.7 Consumer API"></a>3.7 Consumer API</h3><p>在1.0版本之前的kafka版本中，kafka Consumer 封装了两种API供用户使用：<strong>High-level API</strong> 和 <strong>Low-level API</strong>。而在1.0 版本之后将两种 API 进行合并优化。</p>
+<h4 id="3-7-1-High-level-API"><a href="#3-7-1-High-level-API" class="headerlink" title="3.7.1 High-level API"></a>3.7.1 High-level API</h4><ul>
+<li><p>封装了对集群中一些列 Broker 的访问，可以透明的消费一个topic。它自己维护了已消费消息的状态，即每次消费的都是下一条数据。</p>
+</li>
+<li><p>还支持以组的方式消费topic，如果多个 Consumer 在同一个 Consumer group内，那么kafka就相当于一个队列消息服务，而各个 Consumer 均衡的消费响应partition的数据，若多个不同的 Consumer group同时消费一个topic数据，group之间也不会互相干扰。</p>
+</li>
+<li><p>Consumer 读取partition的offset是存在zookeeper上的（Kafka 0.8.2 版本中引入了native offset storage，将offset管理从zookeeper移出）在消费数据时也有几种模式。详细说明见 Consumer 投递保证章节。</p>
+</li>
+<li><p>offset 相关参数配置</p>
+</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>参考值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>auto.commit.enable</td>
+<td>是否自动提交offset</td>
+<td>true</td>
+</tr>
+<tr>
+<td>auto.commit.interval.ms</td>
+<td>自从commit时间间隔</td>
+<td>60*1000</td>
+</tr>
+<tr>
+<td>offsets.storage</td>
+<td>offset存储位置</td>
+<td>zookeeper</td>
+</tr>
+<tr>
+<td>dual.commit.enabled</td>
+<td>当offsets.storage=kafka时需要加上此参数（true）</td>
+<td>true</td>
+</tr>
+<tr>
+<td>Consumer Connector.commitOffsets();</td>
+<td>手工管理offset</td>
+<td></td>
+</tr>
+</tbody></table>
+<ul>
+<li>代码示例</li>
+</ul>
+<figure class="highlight xml"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apache.kafka<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>kafka-clients<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.9.0.1<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></tbody></table></figure>
+
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer . Consumer ;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer . Consumer Record;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer . Consumer Records;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer .Kafka Consumer ;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.serialization.StringDeserializer;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Arrays;</span><br><span class="line"><span class="keyword">import</span> java.util.HashMap;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"><span class="keyword">import</span> java.util.Properties;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">KafkaComsumer</span> {</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">KAFKA_BOOTSTRAP_SERVERS</span> <span class="operator">=</span> <span class="string">"node1:9092,node2:9092,node3:9092"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test1"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String KAFKA_ <span class="type">Consumer</span> <span class="variable">_GROUPID</span> <span class="operator">=</span> <span class="string">"groupb"</span>;</span><br><span class="line">    <span class="keyword">private</span> Kafka Consumer &lt;String, String&gt; Consumer = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">private</span> Consumer Records&lt;String, String&gt; msgList;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line">        KafkaComsumer <span class="type">data</span> <span class="variable">Consumer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">KafkaComsumer</span>();</span><br><span class="line">        data Consumer . Consumer ();</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">KafkaComsumer</span><span class="params">()</span> {</span><br><span class="line">        <span class="type">Properties</span> <span class="variable">props</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line">        props.put(<span class="string">"bootstrap.servers"</span>, KAFKA_BOOTSTRAP_SERVERS);</span><br><span class="line">        props.put(<span class="string">"group.id"</span>, KAFKA_ Consumer _GROUPID);</span><br><span class="line">        props.put(<span class="string">"enable.auto.commit"</span>, <span class="string">"true"</span>);</span><br><span class="line">        props.put(<span class="string">"zookeeper.session.timeout.ms"</span>, <span class="string">"50000"</span>);</span><br><span class="line"></span><br><span class="line">        props.put(<span class="string">"key.deserializer"</span>, StringDeserializer.class.getName());</span><br><span class="line">        props.put(<span class="string">"value.deserializer"</span>, StringDeserializer.class.getName());</span><br><span class="line">        props.put(<span class="string">"auto.offset.reset"</span>, <span class="string">"earliest"</span>);</span><br><span class="line">        <span class="built_in">this</span>. Consumer = <span class="keyword">new</span> <span class="title class_">Kafka</span> Consumer &lt;String, String&gt;(props);</span><br><span class="line">        <span class="built_in">this</span>. Consumer .subscribe(Arrays.asList(KAFKA_TOPIC));</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">Consumer</span> <span class="params">()</span> {</span><br><span class="line">        <span class="type">int</span> <span class="variable">messageNo</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line">        Map&lt;String, Integer&gt; deviceMap = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Integer&gt;();</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="keyword">for</span> (; ; ) {</span><br><span class="line">                msgList = Consumer .poll(<span class="number">1000</span>);</span><br><span class="line">                <span class="keyword">if</span> (<span class="literal">null</span> != msgList &amp;&amp; msgList.count() &gt; <span class="number">0</span>) {</span><br><span class="line">                    <span class="keyword">for</span> ( Consumer Record&lt;String, String&gt; record : msgList) {</span><br><span class="line">                        System.out.println(record.value() + <span class="string">","</span> + record.partition() + <span class="string">","</span> + record.offset());</span><br><span class="line">                    }</span><br><span class="line">                } </span><br><span class="line">            }</span><br><span class="line">        } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        } </span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<h4 id="3-7-2-Low-level-API"><a href="#3-7-2-Low-level-API" class="headerlink" title="3.7.2 Low-level API"></a>3.7.2 Low-level API</h4><ul>
+<li><p>Consumer 消费 partition数据的offset在 Consumer 自己的程序中维护。这样的好处是因为offset是我们自己维护的，如果某个数据消费出现了异常，可以对异常消费数据进特殊处理。这样可以做到 exactly once 对数据的准确性有保证。</p>
+</li>
+<li><p>一般不会将offset信息同步到zookeeper上。但是为了kafkamanager能够方便监控，也会手动的同步到zookeeper上。</p>
+</li>
+<li><p>使用Low-level API 的主要原因是，用户比 Consumer Group更好的控制数据的消费。</p>
+<ul>
+<li>同一条消息读多次，方便replay</li>
+<li>只消费某个topic的部分Partition</li>
+<li>管理事务，从而确保每条消息只被处理一次（Exactly once）</li>
+</ul>
+</li>
+<li><p>与High-level API相比 Low-level API 要求用户做大量额外的工作</p>
+</li>
+<li><p>在应用程序中跟踪处理offset，并决定下一条消息是哪条消息。</p>
+</li>
+<li><p>获知每个Partition的Leader</p>
+</li>
+<li><p>处理Leader的变化</p>
+</li>
+<li><p>处理多 Consumer 的协作</p>
+</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> kafka.api.FetchRequestBuilder;</span><br><span class="line"><span class="keyword">import</span> kafka.api.FetchRequest;</span><br><span class="line"><span class="keyword">import</span> kafka.javaapi.FetchResponse;</span><br><span class="line"><span class="keyword">import</span> kafka.javaapi. Consumer .Simple Consumer ;</span><br><span class="line"><span class="keyword">import</span> kafka.javaapi.message.ByteBufferMessageSet;</span><br><span class="line"><span class="keyword">import</span> kafka.message.MessageAndOffset;</span><br><span class="line"><span class="keyword">import</span> java.nio.ByteBuffer;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> 旧的Low-level api </span></span><br><span class="line"><span class="comment"> *              kafka 1.0 之后已经标示这些api为过期状态</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-15 14:16</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LowLevelConsumerOld</span> {</span><br><span class="line">    <span class="comment">// 定义 Kafka 主题</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test4"</span>;</span><br><span class="line">    <span class="comment">// 定义批处理大小</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">bath</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line">        <span class="keyword">try</span>{</span><br><span class="line">            <span class="comment">// 定义客户端 ID</span></span><br><span class="line">            <span class="type">String</span> <span class="variable">clientId</span> <span class="operator">=</span> <span class="string">"LowLevelConsumerOld"</span>;</span><br><span class="line">            <span class="comment">// 创建一个简单的消费者，连接到 Kafka 服务器</span></span><br><span class="line">            <span class="type">SimpleConsumer</span> <span class="variable">simpleConsumer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleConsumer</span>(<span class="string">"hnode3"</span>,<span class="number">9092</span>,<span class="number">1000</span>,<span class="number">64</span>*<span class="number">1000</span>,clientId);</span><br><span class="line">            <span class="comment">// 创建一个获取请求，指定主题、分区和偏移量</span></span><br><span class="line">            <span class="type">FetchRequest</span> <span class="variable">req</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FetchRequestBuilder</span>().clientId(clientId)</span><br><span class="line">                    .addFetch(KAFKA_TOPIC,<span class="number">0</span>,<span class="number">30L</span>,<span class="number">1000000</span>)</span><br><span class="line">                    .addFetch(KAFKA_TOPIC,<span class="number">1</span>,<span class="number">0L</span>,<span class="number">1000000</span>).build();</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 发送获取请求，获取消息</span></span><br><span class="line">            <span class="type">FetchResponse</span> <span class="variable">fetchResponse</span> <span class="operator">=</span> simpleConsumer.fetch(req);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 获取指定主题和分区的消息集</span></span><br><span class="line">            <span class="type">ByteBufferMessageSet</span> <span class="variable">messageSet0</span> <span class="operator">=</span>  (ByteBufferMessageSet)fetchResponse.messageSet(KAFKA_TOPIC,<span class="number">0</span>);</span><br><span class="line">            <span class="type">ByteBufferMessageSet</span> <span class="variable">messageSet1</span> <span class="operator">=</span>  (ByteBufferMessageSet)fetchResponse.messageSet(KAFKA_TOPIC,<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 打印消息集的大小</span></span><br><span class="line">            System.out.println(messageSet0.sizeInBytes());</span><br><span class="line">            <span class="comment">// 遍历消息集，打印每个消息的偏移量和内容</span></span><br><span class="line">            <span class="keyword">for</span>(MessageAndOffset messageAndOffset: messageSet0){</span><br><span class="line">                <span class="type">ByteBuffer</span> <span class="variable">payload</span> <span class="operator">=</span>  messageAndOffset.message().payload();</span><br><span class="line">                <span class="type">long</span> <span class="variable">offset</span> <span class="operator">=</span> messageAndOffset.offset();</span><br><span class="line">                <span class="type">byte</span>[] bytes = <span class="keyword">new</span> <span class="title class_">byte</span>[payload.limit()];</span><br><span class="line">                payload.get(bytes);</span><br><span class="line">                System.out.println(<span class="string">"offset="</span>+offset+<span class="string">", payload="</span>+<span class="keyword">new</span> <span class="title class_">String</span>(bytes,<span class="string">"UTF-8"</span>));</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">        }<span class="keyword">catch</span> (Exception e){</span><br><span class="line">            <span class="comment">// 打印异常信息</span></span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<h4 id="3-7-3-最新API"><a href="#3-7-3-最新API" class="headerlink" title="3.7.3 最新API"></a>3.7.3 最新API</h4><p>在1.0 以及之后的版本中kafka将 High-level API 与Low-level API 进行了统一，以及下面一些变化：</p>
+<ol>
+<li>将kafka. Consumer 和kafka.javaapi 两个包合并到kafka.clients.conumer中</li>
+<li>支持 subscribe 动态 rebalance 和 assign 手动分配 partition</li>
+<li>支持将 offset 存储与 kafka 和 Zookeeper 之外的存储中</li>
+<li>Consumer RebalanceListener</li>
+<li>控制消费位置：通过API 控制从某个位置开始消费</li>
+<li>控制消费流程：可以指定暂停某个partition的消费但是可以将继续消费其他partition</li>
+</ol>
+<ul>
+<li>subscribe 方式，相当于 High-level API 代码示例</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer .*;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.TopicPartition;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Arrays;</span><br><span class="line"><span class="keyword">import</span> java.util.Collections;</span><br><span class="line"><span class="keyword">import</span> java.util.List;</span><br><span class="line"><span class="keyword">import</span> java.util.Properties;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> 消费并提交指定分区的offset</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-15 21:05</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Consumer</span> APINewSubscribePartition {</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">KAFKA_BOOTSTRAP_SERVERS</span> <span class="operator">=</span> <span class="string">"hnode1:9092,hnode2:9092,hnode3:9092"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test1"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">batch</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line">        <span class="type">Properties</span> <span class="variable">props</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line"></span><br><span class="line">        props.put( Consumer Config.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);</span><br><span class="line">        props.put( Consumer Config.GROUP_ID_CONFIG, <span class="string">"Demo Consumer "</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//是否开启自动提交</span></span><br><span class="line">        props.put( Consumer Config.ENABLE_AUTO_COMMIT_CONFIG, <span class="string">"false"</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//每次取出的数据最大数</span></span><br><span class="line">        props.put( Consumer Config.MAX_POLL_RECORDS_CONFIG, batch);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        props.put( Consumer Config.AUTO_COMMIT_INTERVAL_MS_CONFIG, <span class="string">"1000"</span>);</span><br><span class="line">        props.put( Consumer Config.SESSION_TIMEOUT_MS_CONFIG, <span class="string">"30000"</span>);</span><br><span class="line"></span><br><span class="line">        props.put( Consumer Config.KEY_DESERIALIZER_CLASS_CONFIG, <span class="string">"org.apache.kafka.common.serialization.StringDeserializer"</span>);</span><br><span class="line">        props.put( Consumer Config.VALUE_DESERIALIZER_CLASS_CONFIG, <span class="string">"org.apache.kafka.common.serialization.StringDeserializer"</span>);</span><br><span class="line"></span><br><span class="line">        props.put(<span class="string">"auto.AotoCommitDemo.reset"</span>, <span class="string">"latest"</span>);</span><br><span class="line"></span><br><span class="line">        Kafka Consumer &lt;String,String&gt; Consumer =<span class="keyword">new</span> <span class="title class_">Kafka</span> Consumer &lt;String, String&gt;(props);</span><br><span class="line"></span><br><span class="line">        Consumer .assign(Arrays.asList(<span class="keyword">new</span> <span class="title class_">TopicPartition</span>(KAFKA_TOPIC,<span class="number">0</span>)));</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span>(<span class="literal">true</span>){</span><br><span class="line">            Consumer Records&lt;String,String&gt; records= Consumer .poll(<span class="number">10000</span>);</span><br><span class="line">            <span class="comment">//根据分区消费数据</span></span><br><span class="line">            records.partitions().forEach(topicPartition -&gt; {</span><br><span class="line">                List&lt; Consumer Record&lt;String,String&gt;&gt; partitionRecords= records.records(topicPartition);</span><br><span class="line">                partitionRecords.forEach(record-&gt;{</span><br><span class="line">                    System.out.printf(<span class="string">"partition: %s,offset: %s,key: %s,key: %s \n"</span>,</span><br><span class="line">                            record.partition(),record.offset(),record.key(),record.value());</span><br><span class="line">                });</span><br><span class="line">                <span class="comment">//从已有的最早的数据开始消费</span></span><br><span class="line">                <span class="comment">// Consumer .beginningOffsets()</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">//从最后的数据开始消费</span></span><br><span class="line">                <span class="comment">// Consumer .endOffsets()</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">//指定从哪条数据开始消费</span></span><br><span class="line">                <span class="comment">// Consumer .seek();</span></span><br><span class="line"></span><br><span class="line">              <span class="type">long</span> <span class="variable">lastOffset</span> <span class="operator">=</span> partitionRecords.get(partitionRecords.size()-<span class="number">1</span>).offset();</span><br><span class="line">              Consumer .commitSync(</span><br><span class="line">                Collections.singletonMap(topicPartition,<span class="keyword">new</span> <span class="title class_">OffsetAndMetadata</span>(lastOffset + <span class="number">1</span>))</span><br><span class="line">              );</span><br><span class="line">            });</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br></pre></td></tr></tbody></table></figure>
+
+<ul>
+<li>assign 方式，相当于 Low-level API 代码示例</li>
+</ul>
+<figure class="highlight java"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer . Consumer Config;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer . Consumer Records;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer .Kafka Consumer ;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.clients. Consumer .OffsetAndMetadata;</span><br><span class="line"><span class="keyword">import</span> org.apache.kafka.common.TopicPartition;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.Arrays;</span><br><span class="line"><span class="keyword">import</span> java.util.Map;</span><br><span class="line"><span class="keyword">import</span> java.util.Properties;</span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicLong;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Author</span> haonan.bian</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Description</span> //TODO</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@Date</span> 2020-02-15 20:26</span></span><br><span class="line"><span class="comment"> **/</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Consumer</span> APINewAssign {</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">KAFKA_BOOTSTRAP_SERVERS</span> <span class="operator">=</span> <span class="string">"hnode1:9092,hnode2:9092,hnode3:9092"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String KAFKA_TOPIC= <span class="string">"test1"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">bath</span> <span class="operator">=</span> <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> {</span><br><span class="line">        <span class="type">Properties</span> <span class="variable">props</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Properties</span>();</span><br><span class="line"></span><br><span class="line">        props.put( Consumer Config.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//是否开启自动提交</span></span><br><span class="line">        props.put( Consumer Config.ENABLE_AUTO_COMMIT_CONFIG, <span class="string">"false"</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//每次取出的数据最大数</span></span><br><span class="line">        props.put( Consumer Config.MAX_POLL_RECORDS_CONFIG, <span class="number">2</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        props.put( Consumer Config.AUTO_COMMIT_INTERVAL_MS_CONFIG, <span class="string">"1000"</span>);</span><br><span class="line">        props.put( Consumer Config.SESSION_TIMEOUT_MS_CONFIG, <span class="string">"30000"</span>);</span><br><span class="line"></span><br><span class="line">        props.put( </span><br><span class="line">          Consumer Config.KEY_DESERIALIZER_CLASS_CONFIG, </span><br><span class="line">          <span class="string">"org.apache.kafka.common.serialization.StringDeserializer"</span></span><br><span class="line">        );</span><br><span class="line">        props.put( </span><br><span class="line">          Consumer Config.VALUE_DESERIALIZER_CLASS_CONFIG, </span><br><span class="line">          <span class="string">"org.apache.kafka.common.serialization.StringDeserializer"</span></span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        props.put(<span class="string">"auto.AotoCommitDemo.reset"</span>, <span class="string">"latest"</span>);</span><br><span class="line"></span><br><span class="line">        Kafka Consumer &lt;String,String&gt; Consumer =<span class="keyword">new</span> <span class="title class_">Kafka</span> Consumer &lt;String, String&gt;(props);</span><br><span class="line"></span><br><span class="line">        Consumer .assign(Arrays.asList(<span class="keyword">new</span> <span class="title class_">TopicPartition</span>(KAFKA_TOPIC,<span class="number">0</span>),<span class="keyword">new</span> <span class="title class_">TopicPartition</span>(KAFKA_TOPIC,<span class="number">1</span>),<span class="keyword">new</span> <span class="title class_">TopicPartition</span>(KAFKA_TOPIC,<span class="number">2</span>)));</span><br><span class="line"></span><br><span class="line">        <span class="type">AtomicLong</span> <span class="variable">atomicLong</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicLong</span>();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span>(<span class="literal">true</span>){</span><br><span class="line"></span><br><span class="line">            <span class="comment">//超时时间过后如果没有返回数据进行下一次轮询，</span></span><br><span class="line">            Consumer Records&lt;String,String&gt; records= Consumer .poll(<span class="number">10000</span>);</span><br><span class="line"></span><br><span class="line">            System.out.println(records.count());</span><br><span class="line">            records.forEach(record-&gt; System.out.printf(<span class="string">"partition: %s,offset: %s,key: %s,key: %s \n"</span>,</span><br><span class="line">                    record.partition(),record.offset(),record.key(),record.value()));</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span>(atomicLong.get() % <span class="number">10</span> ==<span class="number">0</span>){</span><br><span class="line">                <span class="comment">// Consumer .commitSync(); //同步提交，待提交成功后返回，否则会阻塞在这里</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">//异步提交</span></span><br><span class="line">                Consumer .commitAsync((Map&lt; TopicPartition,OffsetAndMetadata &gt; offsets,Exception ex)-&gt;{</span><br><span class="line">                    offsets.forEach((TopicPartition partition,OffsetAndMetadata offset)-&gt;{</span><br><span class="line">                        System.out.println(</span><br><span class="line">                          <span class="string">"commit topic"</span>+partition.topic()</span><br><span class="line">                          +<span class="string">", partition "</span>+partition.partition()</span><br><span class="line">                          +<span class="string">", offset "</span>+offset.offset()</span><br><span class="line">                        );</span><br><span class="line">                    });</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span>(<span class="literal">null</span> != ex ){</span><br><span class="line">                        ex.printStackTrace();</span><br><span class="line">                    }</span><br><span class="line">                });</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></figure>
+
+<p>参考资料：<br><a target="_blank" rel="noopener" href="https://blog.csdn.net/u013256816/article/details/80865540">https://blog.csdn.net/u013256816/article/details/80865540</a><br><a target="_blank" rel="noopener" href="https://blog.csdn.net/u013256816/article/details/80487758">https://blog.csdn.net/u013256816/article/details/80487758</a><br><a target="_blank" rel="noopener" href="https://www.infoq.cn/article/kafka-analysis-part-3">https://www.infoq.cn/article/kafka-analysis-part-3</a><br><a target="_blank" rel="noopener" href="https://www.cnblogs.com/yoke/p/11405397.html#autoid-0-5-0">https://www.cnblogs.com/yoke/p/11405397.html#autoid-0-5-0</a></p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/a028cfba.html">https://www.hnbian.cn/posts/a028cfba.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/kafka/">
+                                    <span class="chip bg-color">kafka</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/9a99cbec.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fq2QEF5m-tkicCZOlwg_M8NavOV3" class="responsive-img" alt="Kafka总结（二）常见组件下 Topic、Partition等介绍">
+                        
+                        <span class="card-title">Kafka总结（二）常见组件下 Topic、Partition等介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2020-02-10
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/kafka/" class="post-category">
+                                    kafka
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/kafka/">
+                        <span class="chip bg-color">kafka</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/6c75ec58.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FrJEXjUsTh5thOWEEhqtH6rtasu_" class="responsive-img" alt="Kafka总结（一）kafka部署与架构介绍">
+                        
+                        <span class="card-title">Kafka总结（一）kafka部署与架构介绍</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2020-02-07
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/kafka/" class="post-category">
+                                    kafka
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/kafka/">
+                        <span class="chip bg-color">kafka</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2025</span>
+            
+            <a href="/about" target="_blank">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = "2";
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth() + 1;
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // only match artiles with not empty titles and contents
+                        if (data_title !== '' && data_content !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content.indexOf(keyword);
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = data.content.trim().replace(/<[^>]+>/g, "");
+                            if (first_occur >= 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>
