@@ -1,0 +1,2209 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="LangGraph 系列 6：Qwen3 流式工具调用与联网工具实战, hnbian">
+    <meta name="description" content="上一篇已经介绍了 Tool 的几种定义方式，并使用 bind_tools() 手动完成了一次工具调用循环。非流式调用比较容易理解：模型一次返回完整的 AIMessage，应用从 tool_calls 中读取工具名称和参数，再执行对应函数。
+">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>LangGraph 系列 6：Qwen3 流式工具调用与联网工具实战 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-361ef93cd110a6b88c92888a03c34788.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">LangGraph 系列 6：Qwen3 流式工具调用与联网工具实战</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/streaming/">
+                                <span class="chip bg-color">streaming</span>
+                            </a>
+                        
+                            <a href="/tags/langchain/">
+                                <span class="chip bg-color">langchain</span>
+                            </a>
+                        
+                            <a href="/tags/langgraph/">
+                                <span class="chip bg-color">langgraph</span>
+                            </a>
+                        
+                            <a href="/tags/qwen/">
+                                <span class="chip bg-color">qwen</span>
+                            </a>
+                        
+                            <a href="/tags/tool/">
+                                <span class="chip bg-color">tool</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/langgraph/" class="post-category">
+                                langgraph
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2026-04-11
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    5.6k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    22 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>上一篇已经介绍了 Tool 的几种定义方式，并使用 bind_tools() 手动完成了一次工具调用循环。非流式调用比较容易理解：模型一次返回完整的 AIMessage，应用从 tool_calls 中读取工具名称和参数，再执行对应函数。</p>
+<p>实际聊天界面通常希望模型边生成边显示内容。工具调用进入流式模式后，返回的不再是一个完整的 AIMessage，而是一组 AIMessageChunk。工具名称和 JSON 参数也可能被拆成多个 ToolCallChunk，需要先合并，再读取完整工具调用。</p>
+<p>此外，Tool 不一定只处理内存中的固定数据。它也可以访问数据库、文件或互联网接口。本篇先观察本地 Qwen3 的流式工具调用结构，再使用 BaseTool 调用真实的 Open-Meteo 城市查询接口，完成一次联网 Agent 调用。</p>
+<h2 id="1-为什么-Tool-定义正确仍然可能调用失败"><a href="#1-为什么-Tool-定义正确仍然可能调用失败" class="headerlink" title="1. 为什么 Tool 定义正确仍然可能调用失败"></a><strong>1. 为什么 Tool 定义正确仍然可能调用失败</strong></h2><p>使用 @tool、StructuredTool 或 BaseTool 定义工具，只解决了应用程序这一侧的问题。要让模型稳定返回标准工具调用，还需要下面几层共同配合：</p>
+<ol>
+<li>应用把消息和 Tool Schema 交给模型服务。</li>
+<li>Chat Template 把消息、工具说明和生成提示转换成模型能够理解的格式。</li>
+<li>模型按照约定生成工具名称和参数。</li>
+<li>推理服务的工具调用解析器识别模型输出，并转换成 OpenAI 兼容的 tool_calls。</li>
+<li>LangChain 把接口响应转换成 AIMessage 或 AIMessageChunk。</li>
+</ol>
+<p>下图将这条链路拆成客户端请求、推理服务处理和客户端消息合并三层。这样可以看到，工具调用解析器与 AIMessageChunk 合并发生在不同位置，解决的也不是同一个问题。</p>
+<p><img src="https://images.hnbian.cn/new/n-273beac5952cda3acc0f977e0a475be5.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="流式工具调用的解析与消息合并链路"></p>
+<p>推理服务解析器负责把模型生成的 Token 转换成接口中的 delta.tool_calls；LangChain 再把流式响应转换成 AIMessageChunk。最后执行 gathered + chunk 的是客户端代码，它把多个 Chunk 累加成完整的 tool_calls。因此，“服务端解析”和“客户端合并”不能视为同一个步骤。</p>
+<p>这几层中任意一层不匹配，都可能出现下面的现象：</p>
+<ul>
+<li>模型把工具调用当作普通文字输出。</li>
+<li>非流式调用成功，流式调用解析失败。</li>
+<li>工具名存在，但参数 JSON 不完整。</li>
+<li>LangChain 收到内容，却没有得到 tool_calls。</li>
+</ul>
+<p>因此，工具调用失败时不能只检查 Python 函数。还要检查模型、Chat Template、推理服务版本和工具解析器是否互相兼容。</p>
+<h2 id="2-准备两个-Python-环境"><a href="#2-准备两个-Python-环境" class="headerlink" title="2. 准备两个 Python 环境"></a><strong>2. 准备两个 Python 环境</strong></h2><p>客户端代码继续使用 LangGraph 系列 2 创建的 .venv_langgraph。模型服务复用 LangGraph 系列 3 创建的 .venv_tool_server，并按本篇锁文件刷新间接依赖，避免改变前面已经使用的主环境。</p>
+<h3 id="2-1-客户端环境"><a href="#2-1-客户端环境" class="headerlink" title="2.1 客户端环境"></a><strong>2.1 客户端环境</strong></h3><p>在 llm_learning 根目录执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+
+<span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
+python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> langgraph/p06_streaming_and_online_tools/requirements.txt
+python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>客户端沿用下面这些已经锁定的主要版本：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">langchain==1.2.13
+langchain-core==1.2.22
+langchain-openai==1.1.12
+langgraph==1.1.3
+openai==2.30.0
+httpx==0.28.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="2-2-模型服务环境"><a href="#2-2-模型服务环境" class="headerlink" title="2.2 模型服务环境"></a><strong>2.2 模型服务环境</strong></h3><p>如果没有按 LangGraph 系列 3 创建模型服务环境，先创建 Python 3.12 虚拟环境；已经存在则直接激活：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3.12 <span class="token parameter variable">-m</span> venv <span class="token punctuation">\</span>
+  <span class="token parameter variable">--prompt</span> llm_learning_tool_server <span class="token punctuation">\</span>
+  .venv_tool_server
+
+<span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
+python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token string">"pip==26.0.1"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文的直接依赖写在 requirements-server.in：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">mlx-lm==0.31.1
+mlx==0.31.0
+transformers==5.3.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>项目已经生成包含传递依赖的锁文件。安装时直接使用锁文件，避免重新解析出不同的传递依赖：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">uv pip <span class="token function">sync</span> <span class="token punctuation">\</span>
+  langgraph/p06_streaming_and_online_tools/requirements-server-lock.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>安装并检查环境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> langgraph/p06_streaming_and_online_tools/requirements-server-lock.txt
+python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>实际检查结果：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="2-3-启动-Qwen3-服务"><a href="#2-3-启动-Qwen3-服务" class="headerlink" title="2.3 启动 Qwen3 服务"></a><strong>2.3 启动 Qwen3 服务</strong></h3><p>确保当前目录是 llm_learning，并且根目录下的 model 指向已经下载的 Qwen3 模型：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
+
+<span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> model <span class="token punctuation">\</span>
+  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
+  --prompt-cache-size <span class="token number">0</span> <span class="token punctuation">\</span>
+  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个终端需要保持运行。另开一个终端执行健康检查：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
+  http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>&#x2F;v1&#x2F;models 返回模型列表后，再运行后面的脚本。这样可以先排除服务未启动、端口错误和模型路径错误。</p>
+<h2 id="3-invoke-与-stream-的区别"><a href="#3-invoke-与-stream-的区别" class="headerlink" title="3. invoke() 与 stream() 的区别"></a><strong>3. invoke() 与 stream() 的区别</strong></h2><p>invoke() 等待模型完成整次生成，然后返回一个完整消息：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>  <span class="token comment"># AIMessage</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>工具调用已经整理在：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">.</span>tool_calls<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>stream() 返回一个迭代器，每次产生一小块消息：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">for</span> chunk <span class="token keyword">in</span> model_with_tools<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>chunk<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>  <span class="token comment"># AIMessageChunk</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>工具调用的流式片段位于：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">chunk<span class="token punctuation">.</span>tool_call_chunks<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这里有四个容易混淆的对象：</p>
+<table>
+<thead>
+<tr>
+<th align="left">对象</th>
+<th align="left">含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">AIMessage</td>
+<td align="left">一次非流式模型调用的完整消息</td>
+</tr>
+<tr>
+<td align="left">AIMessageChunk</td>
+<td align="left">流式模型调用返回的一块消息</td>
+</tr>
+<tr>
+<td align="left">tool_calls</td>
+<td align="left">已经解析完成的工具调用列表</td>
+</tr>
+<tr>
+<td align="left">tool_call_chunks</td>
+<td align="left">流式返回的工具名称或参数片段</td>
+</tr>
+</tbody></table>
+<p>工具参数可能一次完整返回，也可能被拆成多个字符串片段。应用不能假设每个 Chunk 都包含合法、完整的 JSON。</p>
+<h2 id="4-观察-Qwen3-的-ToolCallChunk"><a href="#4-观察-Qwen3-的-ToolCallChunk" class="headerlink" title="4. 观察 Qwen3 的 ToolCallChunk"></a><strong>4. 观察 Qwen3 的 ToolCallChunk</strong></h2><p>第一个脚本把计算器绑定到本地 Qwen3，打印每个工具调用块，再使用 + 合并全部 AIMessageChunk。</p>
+<p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;01_stream_tool_call_chunks.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""观察 Qwen3 流式返回的工具调用块，并把消息块合并成完整工具调用。"""</span>
+
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> HumanMessage
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+
+
+<span class="token keyword">class</span> <span class="token class-name">CalculatorInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""计算器工具的输入参数。"""</span>
+
+    a<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第一个数字"</span><span class="token punctuation">)</span>
+    b<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第二个数字"</span><span class="token punctuation">)</span>
+    operation<span class="token punctuation">:</span> Literal<span class="token punctuation">[</span><span class="token string">"multiply"</span><span class="token punctuation">]</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"运算类型，只能是 multiply"</span><span class="token punctuation">)</span>
+
+
+<span class="token decorator annotation punctuation">@tool</span><span class="token punctuation">(</span>args_schema<span class="token operator">=</span>CalculatorInput<span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">calculator</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> operation<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""计算两个数字的乘积。"""</span>
+
+    <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">*</span> b<span class="token punctuation">)</span>
+
+
+<span class="token comment"># trust_env=False 避免系统代理或 VPN 转发本机请求。</span>
+<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
+    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+        model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+    gathered<span class="token punctuation">:</span> AIMessageChunk <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span>
+    chunk_number <span class="token operator">=</span> <span class="token number">0</span>
+
+    <span class="token comment"># stream() 返回 AIMessageChunk；工具参数可能被拆成一个或多个块。</span>
+    <span class="token keyword">for</span> chunk <span class="token keyword">in</span> model_with_tools<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
+        <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"请使用计算器工具计算 18 乘以 7。"</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+    <span class="token punctuation">)</span><span class="token punctuation">:</span>
+        gathered <span class="token operator">=</span> chunk <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">else</span> gathered <span class="token operator">+</span> chunk
+
+        <span class="token keyword">for</span> tool_chunk <span class="token keyword">in</span> chunk<span class="token punctuation">.</span>tool_call_chunks<span class="token punctuation">:</span>
+            chunk_number <span class="token operator">+=</span> <span class="token number">1</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具调用块 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>chunk_number<span class="token punctuation">&#125;</span></span><span class="token string">："</span></span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"  工具名："</span><span class="token punctuation">,</span> tool_chunk<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"name"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"  参数片段："</span><span class="token punctuation">,</span> tool_chunk<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"args"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">or</span> <span class="token keyword">not</span> gathered<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+        <span class="token keyword">raise</span> RuntimeError<span class="token punctuation">(</span><span class="token string">"Qwen3 没有生成完整的工具调用"</span><span class="token punctuation">)</span>
+
+    <span class="token comment"># 消息块相加后，LangChain 会把参数片段解析为完整字典。</span>
+    complete_call <span class="token operator">=</span> gathered<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"合并后的工具名："</span><span class="token punctuation">,</span> complete_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"合并后的参数："</span><span class="token punctuation">,</span> complete_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
+python <span class="token punctuation">\</span>
+  langgraph/p06_streaming_and_online_tools/01_stream_tool_call_chunks.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>本机实际输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">工具调用块 1：
+  工具名： calculator
+  参数片段： &#123;"a": 18, "b": 7, "operation": "multiply"&#125;
+合并后的工具名： calculator
+合并后的参数： &#123;'a': 18, 'b': 7, 'operation': 'multiply'&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这次 MLX-LM 在一个 Chunk 中返回了完整工具名称和 JSON 参数，但代码仍然执行了消息合并。更换模型、推理服务或网络传输方式后，参数可能被拆成多个 Chunk，不能根据这一次结果删掉合并逻辑。</p>
+<h3 id="4-1-为什么使用-chunk-相加"><a href="#4-1-为什么使用-chunk-相加" class="headerlink" title="4.1 为什么使用 chunk 相加"></a><strong>4.1 为什么使用 chunk 相加</strong></h3><p>下面这行代码不是字符串拼接：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">gathered <span class="token operator">=</span> chunk <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">else</span> gathered <span class="token operator">+</span> chunk<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>AIMessageChunk.<strong>add</strong>() 会合并文本、工具调用片段和其他消息字段。合并完成后，gathered.tool_calls 才是适合应用继续处理的完整工具调用。</p>
+<p>如果直接对某个中间 Chunk 的 args 调用 json.loads()，参数恰好被拆开时就会产生 JSON 解析错误。</p>
+<h2 id="5-使用-Agent-自动完成流式工具循环"><a href="#5-使用-Agent-自动完成流式工具循环" class="headerlink" title="5. 使用 Agent 自动完成流式工具循环"></a><strong>5. 使用 Agent 自动完成流式工具循环</strong></h2><p>上一个脚本只观察模型生成的工具调用，没有执行工具。create_agent() 会自动完成下面的循环：</p>
+<ol>
+<li>调用模型并获得工具请求。</li>
+<li>根据工具名执行对应 Tool。</li>
+<li>生成与调用 ID 对应的 ToolMessage。</li>
+<li>再次调用模型生成最终回答。</li>
+</ol>
+<p>第二个脚本使用 stream_mode&#x3D;”messages” 观察整个过程。</p>
+<p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;02_stream_agent_tool_loop.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 LangGraph Agent 流式观察工具请求、工具结果和最终回答。"""</span>
+
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> ToolMessage
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+
+
+<span class="token keyword">class</span> <span class="token class-name">CalculatorInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""计算器工具的输入参数。"""</span>
+
+    a<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第一个数字"</span><span class="token punctuation">)</span>
+    b<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第二个数字"</span><span class="token punctuation">)</span>
+    operation<span class="token punctuation">:</span> Literal<span class="token punctuation">[</span><span class="token string">"multiply"</span><span class="token punctuation">]</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"运算类型，只能是 multiply"</span><span class="token punctuation">)</span>
+
+
+<span class="token decorator annotation punctuation">@tool</span><span class="token punctuation">(</span>args_schema<span class="token operator">=</span>CalculatorInput<span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">calculator</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> operation<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""计算两个数字的乘积。"""</span>
+
+    <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">*</span> b<span class="token punctuation">)</span>
+
+
+<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
+    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+        model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
+        model<span class="token operator">=</span>model<span class="token punctuation">,</span>
+        tools<span class="token operator">=</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">,</span>
+        system_prompt<span class="token operator">=</span><span class="token string">"需要计算时必须使用计算器工具，然后用中文简洁回答。"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+
+    tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
+    final_answer <span class="token operator">=</span> <span class="token string">""</span>
+
+    <span class="token comment"># messages 模式每次返回“消息块 + 执行元数据”。</span>
+    <span class="token keyword">for</span> message<span class="token punctuation">,</span> metadata <span class="token keyword">in</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请计算 18 乘以 7。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        stream_mode<span class="token operator">=</span><span class="token string">"messages"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+            tool_call <span class="token operator">=</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型选择的工具："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型生成的参数："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具执行结果："</span><span class="token punctuation">,</span> message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+        <span class="token keyword">elif</span> tool_finished <span class="token keyword">and</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>content<span class="token punctuation">:</span>
+            <span class="token comment"># 工具执行完成后收到的内容，才是最终自然语言回答。</span>
+            text <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+            final_answer <span class="token operator">+=</span> text
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Qwen3 最终回答："</span><span class="token punctuation">,</span> final_answer<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
+  langgraph/p06_streaming_and_online_tools/02_stream_agent_tool_loop.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>本机实际输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">模型选择的工具： calculator
+模型生成的参数： &#123;'a': 18, 'b': 7, 'operation': 'multiply'&#125;
+工具执行结果： 126.0
+Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="5-1-messages-模式返回什么"><a href="#5-1-messages-模式返回什么" class="headerlink" title="5.1 messages 模式返回什么"></a><strong>5.1 messages 模式返回什么</strong></h3><p>agent.stream(…, stream_mode&#x3D;”messages”) 每次返回两个值：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">,</span> metadata<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<ul>
+<li>message 是 AIMessageChunk、ToolMessage 等消息对象。</li>
+<li>metadata 描述这条消息来自 Graph 的哪个执行步骤。</li>
+</ul>
+<p>本篇只根据消息类型识别工具调用、工具结果和最终回答，不打印整段元数据。完整元数据通常包含运行 ID 等动态字段，直接输出既不利于阅读，也不适合作为稳定的文章结果。</p>
+<h3 id="5-2-工具流和文本流不是同一件事"><a href="#5-2-工具流和文本流不是同一件事" class="headerlink" title="5.2 工具流和文本流不是同一件事"></a><strong>5.2 工具流和文本流不是同一件事</strong></h3><p>流式 Agent 中至少存在两类输出：</p>
+<ol>
+<li><strong>工具调用结构流</strong>：模型逐步生成工具名称和参数。</li>
+<li><strong>自然语言 Token 流</strong>：工具执行完成后，模型逐步生成最终回答。</li>
+</ol>
+<p>工具调用不是最终答案。应用必须等待工具执行，得到 ToolMessage，再让模型根据结果回答用户。</p>
+<h2 id="6-推理服务为什么需要工具调用解析器"><a href="#6-推理服务为什么需要工具调用解析器" class="headerlink" title="6. 推理服务为什么需要工具调用解析器"></a><strong>6. 推理服务为什么需要工具调用解析器</strong></h2><p>模型最终生成的仍然是 Token。推理服务需要识别其中的工具名称、参数和调用边界，再把它们转换成 OpenAI 兼容接口的结构。</p>
+<p>以流式响应为例，接口通常在 delta 中逐步返回内容。LangChain 收到后再转换成 ToolCallChunk。因此，解析器位于推理服务层，不属于 Tool，也不是 LangChain 中的 BaseTool。</p>
+<h3 id="6-1-vLLM-中的两个参数"><a href="#6-1-vLLM-中的两个参数" class="headerlink" title="6.1 vLLM 中的两个参数"></a><strong>6.1 vLLM 中的两个参数</strong></h3><p>vLLM 的自动工具调用通常涉及：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">--enable-auto-tool-choice
+--tool-call-parser &lt;解析器名称><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<ul>
+<li>–enable-auto-tool-choice 允许模型自行判断是否调用工具。</li>
+<li>–tool-call-parser 指定如何从模型输出中提取工具调用。</li>
+</ul>
+<p>Hermes 是一种工具调用格式解析器，不是 Tool，也不会替应用执行函数。模型、Chat Template 和解析器格式不一致时，可能出现非流式可用、流式失败或工具调用变成普通文本的情况。</p>
+<h3 id="6-2-SGLang-中的课程配置思路"><a href="#6-2-SGLang-中的课程配置思路" class="headerlink" title="6.2 SGLang 中的课程配置思路"></a><strong>6.2 SGLang 中的课程配置思路</strong></h3><p>课程处理 Qwen3 兼容问题时使用了类似下面的参数组合：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">--tool-call-parser qwen25 <span class="token punctuation">\</span>
+--reasoning-parser qwen3<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>两个解析器负责不同内容：</p>
+<ul>
+<li>qwen25 工具解析器识别工具调用结构。</li>
+<li>qwen3 推理解析器识别 Qwen3 的推理内容。</li>
+</ul>
+<p>这些参数属于 SGLang GPU 服务的兼容配置，不是本文 M1 Max 的启动命令。本篇真实运行使用的是 MLX-LM，不能把上面的命令写成 Apple Silicon 实测结果。</p>
+<p>也不能把特定服务版本中的解析问题概括成“Qwen3 不支持工具调用”。本篇已经使用 Qwen3、MLX-LM 和 LangChain 真实获得 ToolCallChunk、ToolMessage 和最终回答。</p>
+<h2 id="7-使用-BaseTool-调用真实城市接口"><a href="#7-使用-BaseTool-调用真实城市接口" class="headerlink" title="7. 使用 BaseTool 调用真实城市接口"></a><strong>7. 使用 BaseTool 调用真实城市接口</strong></h2><p>前面的计算器只处理本地数字。下面定义一个 CitySearchTool，调用 Open-Meteo Geocoding API 查询城市所属国家、省级行政区、经纬度和时区。</p>
+<p>这个接口不需要 API Key。示例只查询位置资料，不查询实时天气，输出不会随着天气变化。</p>
+<p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;03_city_search_base_tool.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""继承 BaseTool，通过 Open-Meteo 公共接口查询真实城市信息。"""</span>
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> BaseTool
+<span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+
+
+<span class="token keyword">class</span> <span class="token class-name">CitySearchInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""城市查询工具的输入参数。"""</span>
+
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"需要查询的城市中文名或英文名"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">CitySearchTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""调用 Open-Meteo Geocoding API 的城市查询工具。"""</span>
+
+    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"city_search"</span>
+    description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"查询城市所属国家、省级行政区、经纬度和时区"</span>
+    args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> CitySearchInput
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""发送 HTTP 请求，并把第一条匹配结果整理为稳定文本。"""</span>
+
+        <span class="token keyword">try</span><span class="token punctuation">:</span>
+            <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
+                response <span class="token operator">=</span> client<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
+                    <span class="token string">"https://geocoding-api.open-meteo.com/v1/search"</span><span class="token punctuation">,</span>
+                    params<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+                        <span class="token string">"name"</span><span class="token punctuation">:</span> city<span class="token punctuation">,</span>
+                        <span class="token string">"count"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+                        <span class="token string">"language"</span><span class="token punctuation">:</span> <span class="token string">"zh"</span><span class="token punctuation">,</span>
+                        <span class="token string">"format"</span><span class="token punctuation">:</span> <span class="token string">"json"</span><span class="token punctuation">,</span>
+                    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token punctuation">)</span>
+                response<span class="token punctuation">.</span>raise_for_status<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        results <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span>
+            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token punctuation">)</span>
+
+
+city_search <span class="token operator">=</span> CitySearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"查询杭州："</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>city_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"杭州"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"\n查询不存在的城市："</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>city_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"不存在的城市xyz12345"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
+  langgraph/p06_streaming_and_online_tools/03_city_search_base_tool.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>本机实际输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">查询杭州：
+城市：杭州
+国家：中国
+省级行政区：浙江
+纬度：30.29365
+经度：120.16142
+时区：Asia/Shanghai
+
+查询不存在的城市：
+没有找到城市：不存在的城市xyz12345<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="7-1-为什么工具内部仍然要处理异常"><a href="#7-1-为什么工具内部仍然要处理异常" class="headerlink" title="7.1 为什么工具内部仍然要处理异常"></a><strong>7.1 为什么工具内部仍然要处理异常</strong></h3><p>模型不会替应用处理网络超时、HTTP 错误和空结果。联网 Tool 至少需要考虑：</p>
+<ul>
+<li>设置合理的请求超时。</li>
+<li>对非 2xx 响应调用 raise_for_status()。</li>
+<li>捕获 HTTP 异常。</li>
+<li>检查接口是否返回结果。</li>
+<li>把错误整理成 Agent 可以继续处理的文本。</li>
+</ul>
+<p>示例使用 trust_env&#x3D;False，避免系统代理或 VPN 影响 HTTP 客户端。本机 Qwen3 请求使用它是为了确保 127.0.0.1 不经过代理；Open-Meteo 请求使用它则表示本示例明确不读取环境代理配置。</p>
+<h2 id="8-将联网工具交给-Qwen3-Agent"><a href="#8-将联网工具交给-Qwen3-Agent" class="headerlink" title="8. 将联网工具交给 Qwen3 Agent"></a><strong>8. 将联网工具交给 Qwen3 Agent</strong></h2><p>最后把 CitySearchTool 交给 Agent。模型负责理解问题和生成 city&#x3D;”杭州”，Agent 负责执行工具，工具负责访问 Open-Meteo，模型再把结果整理成中文回答。</p>
+<p>下图按照真实调用顺序展示两次模型请求。Open-Meteo 的 JSON 响应会先返回 CitySearchTool，Tool 整理成字符串后交给 Agent，再由 Agent 创建与工具调用 ID 匹配的 ToolMessage。</p>
+<p><img src="https://images.hnbian.cn/new/n-6e8d9c336b186cee9b9aeba74a05a4f0.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="联网工具的 Agent 调用时序图"></p>
+<p>Open-Meteo 不认识 LangChain 消息，也不会直接生成 ToolMessage。这个消息对象属于 Agent 工具循环，用来把本地 Tool 的执行结果交回模型。</p>
+<p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;04_agent_with_city_search.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""把真实联网城市查询工具交给本地 Qwen3 Agent 自动选择和执行。"""</span>
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> ToolMessage
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> BaseTool
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+
+
+<span class="token keyword">class</span> <span class="token class-name">CitySearchInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""城市查询工具的输入参数。"""</span>
+
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"需要查询的城市中文名或英文名"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">CitySearchTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""调用 Open-Meteo Geocoding API 的城市查询工具。"""</span>
+
+    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"city_search"</span>
+    description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"查询城市所属国家、省级行政区、经纬度和时区"</span>
+    args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> CitySearchInput
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""查询城市，并返回适合模型继续处理的文本。"""</span>
+
+        <span class="token keyword">try</span><span class="token punctuation">:</span>
+            <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
+                response <span class="token operator">=</span> client<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
+                    <span class="token string">"https://geocoding-api.open-meteo.com/v1/search"</span><span class="token punctuation">,</span>
+                    params<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+                        <span class="token string">"name"</span><span class="token punctuation">:</span> city<span class="token punctuation">,</span>
+                        <span class="token string">"count"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+                        <span class="token string">"language"</span><span class="token punctuation">:</span> <span class="token string">"zh"</span><span class="token punctuation">,</span>
+                        <span class="token string">"format"</span><span class="token punctuation">:</span> <span class="token string">"json"</span><span class="token punctuation">,</span>
+                    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token punctuation">)</span>
+                response<span class="token punctuation">.</span>raise_for_status<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        results <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span>
+            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token punctuation">)</span>
+
+
+city_search <span class="token operator">=</span> CitySearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
+    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+        model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
+        model<span class="token operator">=</span>model<span class="token punctuation">,</span>
+        tools<span class="token operator">=</span><span class="token punctuation">[</span>city_search<span class="token punctuation">]</span><span class="token punctuation">,</span>
+        system_prompt<span class="token operator">=</span><span class="token string">"涉及城市信息时必须使用城市查询工具，然后根据工具结果用中文回答。"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+
+    tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
+    final_answer <span class="token operator">=</span> <span class="token string">""</span>
+
+    <span class="token keyword">for</span> message<span class="token punctuation">,</span> metadata <span class="token keyword">in</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
+        <span class="token punctuation">&#123;</span>
+            <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
+                <span class="token punctuation">&#123;</span>
+                    <span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
+                    <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请查询杭州属于哪个省级行政区，并给出经纬度和时区。"</span><span class="token punctuation">,</span>
+                <span class="token punctuation">&#125;</span>
+            <span class="token punctuation">]</span>
+        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        stream_mode<span class="token operator">=</span><span class="token string">"messages"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+            tool_call <span class="token operator">=</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型选择的工具："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型生成的参数："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具返回的信息："</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+        <span class="token keyword">elif</span> tool_finished <span class="token keyword">and</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>content<span class="token punctuation">:</span>
+            final_answer <span class="token operator">+=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Qwen3 最终回答："</span><span class="token punctuation">,</span> final_answer<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
+  langgraph/p06_streaming_and_online_tools/04_agent_with_city_search.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>本机一次实际输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">模型选择的工具： city_search
+模型生成的参数： &#123;'city': '杭州'&#125;
+工具返回的信息：
+城市：杭州
+国家：中国
+省级行政区：浙江
+纬度：30.29365
+经度：120.16142
+时区：Asia/Shanghai
+Qwen3 最终回答： 杭州属于中国的浙江省，其经纬度为纬度30.29365，经度120.16142，时区为Asia/Shanghai。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>模型回答的具体措辞可能变化，但工具名称、参数结构、城市接口返回字段和消息执行顺序应保持一致。</p>
+<h3 id="8-1-谁真正访问了互联网"><a href="#8-1-谁真正访问了互联网" class="headerlink" title="8.1 谁真正访问了互联网"></a><strong>8.1 谁真正访问了互联网</strong></h3><p>这条调用链中各组件的职责如下：</p>
+<ol>
+<li>Qwen3 选择 city_search 并生成城市参数。</li>
+<li>LangGraph Agent 根据工具名执行 CitySearchTool。</li>
+<li>CitySearchTool._run() 使用 httpx 请求 Open-Meteo。</li>
+<li>Agent 把返回值包装成 ToolMessage。</li>
+<li>Qwen3 根据 ToolMessage 生成最终回答。</li>
+</ol>
+<p>模型没有直接获得任意互联网访问权限。网络地址、超时、错误处理和返回字段都由 Tool 代码控制。</p>
+<h2 id="9-常见问题"><a href="#9-常见问题" class="headerlink" title="9. 常见问题"></a><strong>9. 常见问题</strong></h2><h3 id="9-1-连接本地模型时报-502-或连接失败"><a href="#9-1-连接本地模型时报-502-或连接失败" class="headerlink" title="9.1 连接本地模型时报 502 或连接失败"></a><strong>9.1 连接本地模型时报 502 或连接失败</strong></h3><p>先检查模型服务：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
+  http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果健康接口失败，检查虚拟环境、model 路径和 18080 端口。不要先修改 LangChain Tool。</p>
+<h3 id="9-2-模型没有返回-tool-calls"><a href="#9-2-模型没有返回-tool-calls" class="headerlink" title="9.2 模型没有返回 tool_calls"></a><strong>9.2 模型没有返回 tool_calls</strong></h3><p>依次检查：</p>
+<ul>
+<li>Tool 名称、描述和参数 Schema 是否清楚。</li>
+<li>提示词是否真的需要使用工具。</li>
+<li>模型与 Chat Template 是否支持工具调用。</li>
+<li>推理服务是否启用了正确的工具解析器。</li>
+<li>先用 invoke() 验证非流式调用，再检查 stream()。</li>
+</ul>
+<h3 id="9-3-参数-JSON-解析失败"><a href="#9-3-参数-JSON-解析失败" class="headerlink" title="9.3 参数 JSON 解析失败"></a><strong>9.3 参数 JSON 解析失败</strong></h3><p>不要假设单个 ToolCallChunk 包含完整 JSON。先合并所有 AIMessageChunk，再从合并结果的 tool_calls 读取参数。</p>
+<h3 id="9-4-ToolMessage-与工具调用不匹配"><a href="#9-4-ToolMessage-与工具调用不匹配" class="headerlink" title="9.4 ToolMessage 与工具调用不匹配"></a><strong>9.4 ToolMessage 与工具调用不匹配</strong></h3><p>每个工具结果都必须保留对应的 tool_call_id。使用 Agent 时会自动处理；手写工具循环时，应该把完整 tool_call 传给 Tool：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">tool_message <span class="token operator">=</span> selected_tool<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="9-5-只看到工具调用，看不到最终回答"><a href="#9-5-只看到工具调用，看不到最终回答" class="headerlink" title="9.5 只看到工具调用，看不到最终回答"></a><strong>9.5 只看到工具调用，看不到最终回答</strong></h3><p>工具执行后还需要把 ToolMessage 交回模型。Agent 会自动发起第二次模型调用；手动循环则需要自己追加消息并再次调用模型。</p>
+<h3 id="9-6-外部接口超时或没有结果"><a href="#9-6-外部接口超时或没有结果" class="headerlink" title="9.6 外部接口超时或没有结果"></a><strong>9.6 外部接口超时或没有结果</strong></h3><p>联网 Tool 必须设置超时、捕获 httpx.HTTPError 并处理空列表。不要让一次网络失败直接中断整个 Agent。</p>
+<h3 id="9-7-VPN-或代理影响本机请求"><a href="#9-7-VPN-或代理影响本机请求" class="headerlink" title="9.7 VPN 或代理影响本机请求"></a><strong>9.7 VPN 或代理影响本机请求</strong></h3><p>本机 OpenAI 兼容接口可以使用：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>命令行健康检查可以使用：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这两种方式都能避免环境代理转发 127.0.0.1 请求。</p>
+<h2 id="10-小结"><a href="#10-小结" class="headerlink" title="10. 小结"></a><strong>10. 小结</strong></h2><p>Tool 定义解决的是“应用有哪些能力、参数是什么”；Chat Template 和推理服务解析器解决的是“模型如何表达工具调用、接口如何识别它”；LangChain 与 LangGraph 负责把结构转换成消息，并组织工具执行循环。</p>
+<p>非流式调用返回完整 AIMessage.tool_calls。流式调用返回 AIMessageChunk，工具名称和参数可能位于多个 ToolCallChunk 中，因此必须正确合并消息块。Agent 的 messages 流还可以同时观察工具请求、ToolMessage 和最终自然语言 Token。</p>
+<p>联网 Tool 本质上仍然是受应用控制的 Python 代码。模型只选择工具和生成参数，真实 HTTP 请求由 BaseTool 执行。本篇已经完成从本地计算器到真实城市接口的完整验证，也补齐了 Qwen3 工具解析和流式调用这一部分内容。</p>
+<p>到这里，从 Python 函数、Runnable 和 BaseTool 创建本地工具，到非流式调用、流式工具调用、推理服务解析器和联网工具，这组知识已经完整闭环。下一篇开始学习智能体运行时上下文，区分课程中的 configurable 与项目使用的 Runtime Context。</p>
+<table>
+<thead>
+<tr>
+<th align="left">知识点</th>
+<th align="left">关键对象或方法</th>
+<th align="left">作用</th>
+<th align="left">本篇实测结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">非流式工具调用</td>
+<td align="left">invoke()、AIMessage.tool_calls</td>
+<td align="left">一次得到完整工具调用</td>
+<td align="left">作为流式排错基准</td>
+</tr>
+<tr>
+<td align="left">流式工具调用</td>
+<td align="left">stream()、AIMessageChunk</td>
+<td align="left">分块接收模型输出</td>
+<td align="left">本地 Qwen3 正常返回消息块</td>
+</tr>
+<tr>
+<td align="left">工具调用片段</td>
+<td align="left">ToolCallChunk</td>
+<td align="left">保存流式工具名和参数片段</td>
+<td align="left">本次在一个 Chunk 中返回完整参数</td>
+</tr>
+<tr>
+<td align="left">消息合并</td>
+<td align="left">gathered + chunk</td>
+<td align="left">合并文本和工具调用片段</td>
+<td align="left">合并后得到标准 tool_calls 字典</td>
+</tr>
+<tr>
+<td align="left">Agent 消息流</td>
+<td align="left">stream_mode&#x3D;”messages”</td>
+<td align="left">观察工具请求、工具结果和最终 Token</td>
+<td align="left">依次得到 calculator、126.0 和最终回答</td>
+</tr>
+<tr>
+<td align="left">工具解析器</td>
+<td align="left">推理服务参数</td>
+<td align="left">把模型输出转换成 API 工具结构</td>
+<td align="left">MLX-LM 主线运行成功；vLLM&#x2F;SGLang 作为兼容说明</td>
+</tr>
+<tr>
+<td align="left">联网 BaseTool</td>
+<td align="left">CitySearchTool._run()</td>
+<td align="left">受控调用外部 HTTP 接口</td>
+<td align="left">Open-Meteo 返回杭州位置资料</td>
+</tr>
+<tr>
+<td align="left">联网 Agent</td>
+<td align="left">create_agent()</td>
+<td align="left">自动选择、执行工具并组织回答</td>
+<td align="left">Qwen3 选择 city_search 并完成中文回答</td>
+</tr>
+</tbody></table>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/482cf61b.html">https://www.hnbian.cn/posts/482cf61b.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/streaming/">
+                                    <span class="chip bg-color">streaming</span>
+                                </a>
+                            
+                                <a href="/tags/langchain/">
+                                    <span class="chip bg-color">langchain</span>
+                                </a>
+                            
+                                <a href="/tags/langgraph/">
+                                    <span class="chip bg-color">langgraph</span>
+                                </a>
+                            
+                                <a href="/tags/qwen/">
+                                    <span class="chip bg-color">qwen</span>
+                                </a>
+                            
+                                <a href="/tags/tool/">
+                                    <span class="chip bg-color">tool</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/79ff91ad.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-2c1bdbc27b538756479071b4ff6f2621.jpg" class="responsive-img" alt="LangGraph 系列 7：智能体运行时上下文与静态配置">
+                        
+                        <span class="card-title">LangGraph 系列 7：智能体运行时上下文与静态配置</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2026-04-15
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langgraph/" class="post-category">
+                                    langgraph
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/langgraph/">
+                        <span class="chip bg-color">langgraph</span>
+                    </a>
+                    
+                    <a href="/tags/qwen/">
+                        <span class="chip bg-color">qwen</span>
+                    </a>
+                    
+                    <a href="/tags/context/">
+                        <span class="chip bg-color">context</span>
+                    </a>
+                    
+                    <a href="/tags/configurable/">
+                        <span class="chip bg-color">configurable</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e3b5aeab.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-8ce60448b8faa8bbf06a5ea5d499e07d.jpg" class="responsive-img" alt="LangGraph 系列 5：本地 Tool 的定义与调用">
+                        
+                        <span class="card-title">LangGraph 系列 5：本地 Tool 的定义与调用</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2026-04-08
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langgraph/" class="post-category">
+                                    langgraph
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/langgraph/">
+                        <span class="chip bg-color">langgraph</span>
+                    </a>
+                    
+                    <a href="/tags/agent/">
+                        <span class="chip bg-color">agent</span>
+                    </a>
+                    
+                    <a href="/tags/qwen/">
+                        <span class="chip bg-color">qwen</span>
+                    </a>
+                    
+                    <a href="/tags/tool/">
+                        <span class="chip bg-color">tool</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

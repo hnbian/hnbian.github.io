@@ -1,0 +1,1881 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="【YARN 权威指南】8. 理解 MapReduce on YARN, hnbian">
+    <meta name="description" content="MapReduce 运行在 YARN 上以后，最容易产生的误解是：YARN 只是把原来的 MapReduce 作业搬到另一套资源管理器上运行。这个理解只对了一半。真正重要的变化，是 MapReduce 不再独占集群调度模型。它退回成 YAR">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>【YARN 权威指南】8. 理解 MapReduce on YARN | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-42754d76fa7afdbb804592f5e8313b9e.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">【YARN 权威指南】8. 理解 MapReduce on YARN</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/yarn/">
+                                <span class="chip bg-color">yarn</span>
+                            </a>
+                        
+                            <a href="/tags/hadoop/">
+                                <span class="chip bg-color">hadoop</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/yarn/" class="post-category">
+                                yarn
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-02-12
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    25 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>MapReduce 运行在 YARN 上以后，最容易产生的误解是：YARN 只是把原来的 MapReduce 作业搬到另一套资源管理器上运行。这个理解只对了一半。真正重要的变化，是 MapReduce 不再独占集群调度模型。它退回成 YARN 上的一种应用框架，和其它框架一样，通过 ResourceManager 申请资源，通过 NodeManager 启动 Container，再由自己的 ApplicationMaster 管理应用内部逻辑。</p>
+<p>这意味着 MapReduce 的核心概念仍然存在：Job、Map Task、Reduce Task、InputSplit、Shuffle、Counter、OutputCommitter 都还在。但这些概念的运行边界发生了变化。集群资源不再由 MapReduce 自己的中心节点直接管理，任务进程也不再由 TaskTracker 这种 MapReduce 专用守护进程启动。ResourceManager 不参与 MapReduce 任务语义，但仍参与资源调度；NodeManager 负责节点执行；MRAppMaster 才负责 MapReduce 作业本身。</p>
+<p>在测试环境里，我提交了一个 Pi 示例任务到 root.etl 队列：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hadoop jar /opt/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.4.1.jar <span class="token punctuation">\</span>
+  pi <span class="token parameter variable">-Dmapreduce.job.queuename</span><span class="token operator">=</span>etl <span class="token number">6</span> <span class="token number">4000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这次任务生成的标识如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Application ID: application_1739344332779_0001
+Job ID:         job_1739344332779_0001
+Queue:          root.etl
+State:          FINISHED
+Final Status:   SUCCEEDED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这组标识很适合用来拆解 MapReduce on YARN 的运行链路。application_1739344332779_0001 是 YARN 视角的应用，job_1739344332779_0001 是 MapReduce 视角的作业。前者回答“这个应用在集群资源层面如何运行”，后者回答“这个 MapReduce 作业内部如何执行”。两者通常一一对应，但生命周期视角不完全相同：Application 关注 AM、Container、队列和资源状态，Job 关注 Map&#x2F;Reduce、TaskAttempt、Counter 和输出提交。</p>
+<p><img src="https://images.hnbian.cn/new/n-134032b89318b64fc4dea175e96e6246.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="ResourceManager 中的 MapReduce 应用详情"></p>
+<h2 id="1-MapReduce-On-YARN-的角色模型"><a href="#1-MapReduce-On-YARN-的角色模型" class="headerlink" title="1. MapReduce On YARN 的角色模型"></a>1. MapReduce On YARN 的角色模型</h2><h3 id="1-1-从-JobTracker-到-YARN-角色拆分"><a href="#1-1-从-JobTracker-到-YARN-角色拆分" class="headerlink" title="1.1 从 JobTracker 到 YARN 角色拆分"></a>1.1 从 JobTracker 到 YARN 角色拆分</h3><p>MRv1 时代的 JobTracker 同时承担了太多职责：接收作业、调度任务、跟踪 TaskTracker、处理失败重试、维护作业状态，还要提供历史和监控入口。集群规模变大以后，这种设计的问题很明显。一个中心角色既要管资源，又要懂 MapReduce 作业语义，还要处理大量任务心跳，扩展性和隔离性都会受到限制。</p>
+<p>YARN 把这些职责拆开：</p>
+<table>
+<thead>
+<tr>
+<th>MRv1 职责</th>
+<th>YARN 下的角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>全局资源管理</td>
+<td>ResourceManager</td>
+</tr>
+<tr>
+<td>节点资源和进程执行</td>
+<td>NodeManager</td>
+</tr>
+<tr>
+<td>单个 MapReduce 作业协调</td>
+<td>MRAppMaster</td>
+</tr>
+<tr>
+<td>Map 或 Reduce 任务执行</td>
+<td>Container 内的 Task 进程</td>
+</tr>
+<tr>
+<td>作业完成后的历史查询</td>
+<td>JobHistoryServer 与日志聚合</td>
+</tr>
+</tbody></table>
+<p>这个拆分的价值不只是“性能更好”。更关键的是，资源管理变成了集群公共能力，MapReduce 只是这套公共能力上的一个应用类型。Spark、Tez、Flink 等框架也可以用同样的资源申请和 Container 启动模型接入 YARN。MapReduce 不再需要拥有集群，它只需要在自己的 ApplicationMaster 里管理作业语义。</p>
+<p>这也是排查思路必须变化的原因。一个作业失败时，不能只盯着 MapReduce 日志看。它可能失败在客户端提交阶段，可能失败在 ResourceManager 接受应用阶段，可能失败在 MRAppMaster 启动阶段，也可能失败在某个 Map 或 Reduce Container 里。不同阶段对应不同组件，排查入口也不同。</p>
+<h3 id="1-2-客户端提交：作业先变成-YARN-Application"><a href="#1-2-客户端提交：作业先变成-YARN-Application" class="headerlink" title="1.2 客户端提交：作业先变成 YARN Application"></a>1.2 客户端提交：作业先变成 YARN Application</h3><p>一次 MapReduce 作业从 hadoop jar 开始。客户端不会直接在本机执行 Map 和 Reduce，而是先完成提交准备：</p>
+<ol>
+<li>解析命令行参数和作业配置。</li>
+<li>计算输入数据的 InputSplit。</li>
+<li>把作业 jar、配置文件、分片信息等资源放入 staging 目录。</li>
+<li>向 ResourceManager 提交一个 YARN Application。</li>
+<li>等待 ResourceManager 分配第一个 Container，用来启动 MRAppMaster。</li>
+</ol>
+<p>在这个阶段，mapreduce.job.queuename&#x3D;etl 很关键。它并不是让 MapReduce 自己去选择机器，而是把应用提交到 Capacity Scheduler 的 root.etl 队列。调度器会根据队列容量、最大容量、当前资源使用、用户限制和应用状态决定它什么时候可以获得资源。</p>
+<p>ResourceManager 应用列表里可以直接看到这层关系：</p>
+<p><img src="https://images.hnbian.cn/new/n-519325778e730ca487baa3cc4d840d56.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="ResourceManager 应用列表中 MapReduce 作业进入 root.etl 队列"></p>
+<p>这里的 Application Type&#x3D;MAPREDUCE 表示应用框架类型，Queue&#x3D;root.etl 表示它进入的调度队列，State&#x3D;FINISHED 和 FinalStatus&#x3D;SUCCEEDED 表示 YARN 层面应用已经完成且结果成功。对使用者来说，这个页面比单纯看命令行输出更有价值，因为它把应用类型、队列归属、资源视角和最终状态放在同一个地方。</p>
+<p>提交阶段常见问题主要有三类。第一类是客户端配置不对，比如 mapreduce.framework.name 没有设置为 yarn，导致作业没有按 YARN 模式提交。第二类是 HDFS staging 目录权限或空间问题，客户端资源上传失败。第三类是队列不存在或 ACL 不允许提交，应用还没进入执行阶段就被拒绝。遇到这些问题时，优先看客户端异常、ResourceManager 应用状态和调度器队列配置。</p>
+<p>客户端提交还有一个细节值得单独看：staging 目录不是临时小文件的随意堆放，而是作业交给集群前的交接区。MapReduce 会把作业配置、分片信息、jar 包和需要分发的资源放进去，MRAppMaster 启动后再从这里读取作业定义。也就是说，客户端不是把“一个命令”交给集群，而是把一份可被 ApplicationMaster 接管的作业描述交给集群。</p>
+<p>这个设计带来两个实际影响。第一，提交端和执行端可以分离。客户端提交完成、Application 已被 RM 接受并且 AM 能成功启动后，真正的作业推进由 MRAppMaster 接手，客户端退出通常不影响作业继续运行。第二，HDFS 元数据和权限会参与作业启动。如果 staging 路径所属用户不对、目录权限不对、空间不足、文件丢失或 NameNode 不稳定，作业可能还没到 AM 阶段就失败。很多人看到 MapReduce 作业失败，会直接找 Map 或 Reduce 日志，其实提交阶段的问题根本不会产生有效 Task 日志。</p>
+<p>还有一个经常被忽略的点是输入分片。InputSplit 是客户端提交阶段计算出来的逻辑任务划分，它不是 YARN 的资源划分，也不等同于 HDFS block。一个 Split 可以对应一个或多个 block，也可能因为输入格式、压缩格式和切分策略发生变化。YARN 只看 Container 资源请求，MapReduce 才知道某个 Map Task 对应哪个输入分片。</p>
+<p>数据本地性也由 MRAppMaster 在申请 Container 时表达：它会把期望节点、机架等信息带给 ResourceManager，让调度器尽量把 Map Task 放到靠近数据的位置。常见层次包括 node-local、rack-local 和 off-rack。node-local 表示计算就在数据所在节点上；rack-local 表示在同机架节点上读取；off-rack 则需要跨机架或更远路径读取。调度器能不能满足本地性，要看队列资源、节点状态和等待策略。</p>
+<h3 id="1-3-MRAppMaster：单个作业的应用级协调器"><a href="#1-3-MRAppMaster：单个作业的应用级协调器" class="headerlink" title="1.3 MRAppMaster：单个作业的应用级协调器"></a>1.3 MRAppMaster：单个作业的应用级协调器</h3><p>YARN 给应用分配第一个 Container 后，启动的不是 Map Task，而是 MRAppMaster。MRAppMaster 是 MapReduce on YARN 里最容易被低估的角色。它不是全局控制器，而是单个 MapReduce 作业的状态机和调度协调器，负责这个作业内部的完整生命周期。</p>
+<p>MRAppMaster 的主要职责包括：</p>
+<table>
+<thead>
+<tr>
+<th>职责</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>作业状态机</td>
+<td>管理 Job、Task、TaskAttempt 的状态转换</td>
+</tr>
+<tr>
+<td>资源申请</td>
+<td>根据 Map&#x2F;Reduce 任务需求向 ResourceManager 申请 Container</td>
+</tr>
+<tr>
+<td>任务调度</td>
+<td>结合输入分片、本地性和任务优先级安排 Task Attempt</td>
+</tr>
+<tr>
+<td>失败处理</td>
+<td>处理 Task 失败、Container 失败、节点异常和重试</td>
+</tr>
+<tr>
+<td>推测执行</td>
+<td>识别慢任务并按策略启动额外 attempt</td>
+</tr>
+<tr>
+<td>心跳处理</td>
+<td>接收 Task Attempt 状态更新并推进状态机</td>
+</tr>
+<tr>
+<td>计数器汇总</td>
+<td>收集 Map&#x2F;Reduce Counters，形成作业级统计</td>
+</tr>
+<tr>
+<td>输出提交</td>
+<td>协调作业成功后的输出提交和失败清理</td>
+</tr>
+</tbody></table>
+<p>这个角色解释了为什么 YARN 能同时运行不同框架。ResourceManager 并不知道 MapReduce 的 Shuffle 细节，也不关心一个 Job 有几个 Map、几个 Reduce。它只处理资源请求。MRAppMaster 才知道哪些任务已经完成，哪些任务需要重试，哪些 Reduce 要等待 Map 输出。</p>
+<p>在应用详情页里，Attempt ID 对应 ApplicationMaster 的一次尝试，Node 显示它运行在哪个 NodeManager 上，Logs 是进入 AM 日志的入口。对于单机环境，AM 和任务 Container 都在同一个节点上；但在真实集群里，AM 是作业级协调器，Map 和 Reduce 任务可能分散在不同节点。</p>
+<p>MRAppMaster 失败时，YARN 可以重新启动 Application Attempt。这个能力和普通 Task 重试不同。Task 重试是 MapReduce 作业内部的失败恢复，AM 重启是 YARN 应用级别的失败恢复，也是 appattempt 机制的核心价值。两者配合起来，才能让一个作业在节点抖动、Container 异常、短暂资源问题下有机会恢复。</p>
+<p>从排查角度看，MRAppMaster 日志比普通 Map&#x2F;Reduce 日志更适合回答“作业为什么这样调度”。普通 Task 日志通常只能说明某个任务进程做了什么，AM 日志则能看到任务状态转换、资源申请、失败重试和作业完成提交。如果应用状态是 FAILED，而 Task 日志里没有明显异常，AM 日志往往是第一入口。</p>
+<p>MRAppMaster 还承担了一个很重要的协调职责：它要在 Map 阶段、Shuffle 阶段和 Reduce 阶段之间维护依赖关系。Map 任务不是全部成功以后才对系统可见，Reduce 可以在部分 Map 完成后逐步拉取输出，但最终 Reduce 的输入完整性、失败重试和输出提交仍然由 AM 管理。这个角色使 MapReduce 能在 YARN 通用资源模型上保留自己的执行语义。</p>
+<p>因此，MRAppMaster 既不是 ResourceManager 的替代，也不是一个普通 Task。它是单个作业内部的协调器。RM 只承诺“给你资源”，NM 只承诺“帮你启动和监管进程”，AM 才承诺“把这个作业按 MapReduce 的规则跑完”。理解这个边界后，很多问题就不会互相甩锅：调度慢不一定是 AM 问题，Task 失败不一定是 RM 问题，队列拒绝更不是 MapReduce 算法问题。</p>
+<h3 id="1-4-Map-和-Reduce-Task-运行在-Container-中"><a href="#1-4-Map-和-Reduce-Task-运行在-Container-中" class="headerlink" title="1.4 Map 和 Reduce Task 运行在 Container 中"></a>1.4 Map 和 Reduce Task 运行在 Container 中</h3><p>MRAppMaster 启动以后，会向 ResourceManager 继续申请资源。Map Task 和 Reduce Task 不再由专用 TaskTracker 进程启动，而是在 NodeManager 分配的 Container 中运行。Container 是 YARN 的资源执行单元，包含内存、vcore、本地目录、环境变量、本地化资源和启动命令；Task 是 Container 内部启动的 JVM&#x2F;Process，不是 Container 抽象本身。</p>
+<p>这个模型有两个好处。第一，MapReduce 任务的资源边界更清楚。一个 Map Task 可以有自己的内存配置，一个 Reduce Task 也可以有自己的内存配置，NodeManager 负责按 Container 维度管理进程。第二，MapReduce 不再绑定节点守护进程的执行模型。NodeManager 只需要知道如何启动、监控和清理 Container，不需要理解 MapReduce 作业逻辑。</p>
+<p>MapReduce 任务资源通常由这些参数控制：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>mapreduce.map.memory.mb</td>
+<td>Map Task 申请的 Container 内存</td>
+</tr>
+<tr>
+<td>mapreduce.reduce.memory.mb</td>
+<td>Reduce Task 申请的 Container 内存</td>
+</tr>
+<tr>
+<td>mapreduce.map.java.opts</td>
+<td>Map Task JVM 参数</td>
+</tr>
+<tr>
+<td>mapreduce.reduce.java.opts</td>
+<td>Reduce Task JVM 参数</td>
+</tr>
+<tr>
+<td>yarn.scheduler.minimum-allocation-mb</td>
+<td>调度器最小内存分配单位</td>
+</tr>
+<tr>
+<td>yarn.scheduler.maximum-allocation-mb</td>
+<td>单个 Container 可申请的最大内存</td>
+</tr>
+<tr>
+<td>yarn.nodemanager.resource.memory-mb</td>
+<td>NodeManager 可提供给 YARN 的内存</td>
+</tr>
+</tbody></table>
+<p>这里有一个容易踩坑的地方：MapReduce 的内存参数不是孤立生效的。mapreduce.map.memory.mb 配得再大，如果超过 yarn.scheduler.maximum-allocation-mb，调度器也不会正常分配。mapreduce.map.java.opts 配得接近 Container 内存上限，也可能因为 JVM 堆外内存、native buffer、压缩库、排序缓冲区或 Shuffle buffer 导致进程被 NodeManager 杀掉。生产环境里要给 off-heap 和框架缓冲区留出余量。</p>
+<p>更稳妥的做法是把三层参数一起看：任务 JVM 参数、MapReduce Container 内存、YARN 调度器和 NodeManager 的资源上限。Container 是资源边界，JVM 只是 Container 内部的一个进程。把这两层混在一起，是很多 MapReduce 内存问题的根源。</p>
+<p>在小集群里，资源参数还有一个更现实的约束：AM 自己也需要 Container。一个队列看起来有足够资源，但如果最大应用数、用户限制或 AM 资源比例卡住，作业也可能长时间等待。MapReduce 作业启动时先要拿到 AM Container，AM 启动后才能继续申请 Map 和 Reduce Container。所以 ACCEPTED 卡住时，不要只盯着 Map&#x2F;Reduce 资源参数，也要看队列是否允许新的 AM 启动。</p>
+<p>本地资源也是 Container 模型的一部分。NodeManager 启动 Container 前，会把作业 jar、配置文件、缓存文件等资源本地化到节点目录。这个过程由 YARN 负责，不由 MapReduce 自己到处复制文件。好处是应用资源管理统一了，坏处是本地目录、磁盘空间、权限和清理策略都会影响任务启动。单机环境里这些问题不明显，多节点环境里一台机器本地目录损坏，就可能造成某些 Container 反复失败。</p>
+<p>日志目录也类似。Container 标准输出、标准错误和框架日志先落在 NodeManager 本地目录，再根据日志聚合配置上传。作业运行时看 NM 本地日志最快，作业结束后看聚合日志更方便。这个流程解释了为什么有时 RM 页面上的 Logs 链接能打开，有时要等日志聚合完成后才能通过 yarn logs 查看完整内容。</p>
+<h3 id="1-5-Shuffle-为什么依赖-NodeManager-辅助服务"><a href="#1-5-Shuffle-为什么依赖-NodeManager-辅助服务" class="headerlink" title="1.5 Shuffle 为什么依赖 NodeManager 辅助服务"></a>1.5 Shuffle 为什么依赖 NodeManager 辅助服务</h3><p>MapReduce on YARN 里，Shuffle 是一个很好的边界示例。Map Task 结束后会在本地生成输出，Reduce Task 需要从各个节点拉取这些 Map 输出。如果只看 MapReduce 逻辑，Shuffle 像是 Reduce 和 Map 之间的数据传输。但在 YARN 运行模型里，Map Task 作为 Container 结束后，Map 输出仍然要能被 Reduce 拉取，这就需要 NodeManager 提供长期可用的 Shuffle 服务。</p>
+<p>这就是 mapreduce_shuffle 辅助服务的作用。它配置在 yarn-site.xml 里，随 NodeManager 启动，并运行在 NodeManager 内部的 HTTP server 上，为 Reduce 端提供 map output fetch endpoint。没有这个服务，Map Task 可以跑完，Reduce Task 却可能在拉取 Map 输出时报错。</p>
+<p>常见配置类似这样：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.nodemanager.aux-services<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>mapreduce_shuffle<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.nodemanager.aux-services.mapreduce_shuffle.class<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>org.apache.hadoop.mapred.ShuffleHandler<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个配置也说明，MapReduce on YARN 并不是“MapReduce 完全自带一切”。它把作业控制逻辑放在 MRAppMaster，把任务进程放在 Container，但 Shuffle 这种跨任务、跨 Container 生命周期的数据服务，需要 NodeManager 配合。</p>
+<p>这次 Pi 示例的计数器里能看到 Shuffle 过程是正常的：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Launched map tasks=6
+Launched reduce tasks=1
+Data-local map tasks=6
+Map input records=6
+Map output records=12
+Reduce input groups=2
+Reduce shuffle bytes=168
+Reduce input records=12
+Shuffled Maps=6
+Failed Shuffles=0
+Merged Map outputs=6<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这几行比 Pi 的结果更有排查价值。Launched map tasks&#x3D;6 对应命令里的 6 个 map；Launched reduce tasks&#x3D;1 说明示例作业启动了一个 reduce；Shuffled Maps&#x3D;6 和 Failed Shuffles&#x3D;0 表示 Reduce 成功拉取了全部 Map 输出；Merged Map outputs&#x3D;6 表示 Reduce 端完成了 Map 输出合并。如果 Shuffle 服务异常，这些计数器通常会暴露问题。</p>
+<p>Shuffle 的复杂度在于它跨越了多个边界。Map 输出先写在本地磁盘，Reduce 通过网络从多个节点拉取，拉取后还要在 Reduce 端合并、排序，再进入用户的 reduce 函数。这个拉取不是一次性动作，而是 Reduce 端多线程 fetch、失败重试、持续 merge 的过程。任何一个环节出问题，最终都可能表现为 Reduce 慢、Reduce 重试、Fetch failed 或磁盘空间不足。</p>
+<p>所以 Reduce 慢不一定是 reduce 函数慢。它可能在等待 Map 输出，也可能在反复拉取失败，也可能在本地 merge 阶段消耗大量磁盘和 CPU。排查时至少要分清三件事：Map 是否稳定产出，Shuffle 是否稳定拉取，Reduce 函数是否真正开始处理数据。Counter、Reduce 日志和 NodeManager 日志组合起来，才能把这三件事拆开。</p>
+<p>mapreduce_shuffle 还有一个工程上的启示：YARN 的通用性不是完全无框架感知。YARN 核心不理解 MapReduce 作业语义，但 NodeManager 可以通过 auxiliary service 为特定框架提供节点级服务。这样既保持了资源模型统一，又给 MapReduce 这种有特殊数据交换需求的框架留出了扩展点。</p>
+<h2 id="2-标识、历史和兼容性"><a href="#2-标识、历史和兼容性" class="headerlink" title="2. 标识、历史和兼容性"></a>2. 标识、历史和兼容性</h2><h3 id="2-1-Application-ID-和-Job-ID-不要混用"><a href="#2-1-Application-ID-和-Job-ID-不要混用" class="headerlink" title="2.1 Application ID 和 Job ID 不要混用"></a>2.1 Application ID 和 Job ID 不要混用</h3><p>MapReduce on YARN 同时存在 Application ID 和 Job ID，这是很多排查混乱的来源。</p>
+<table>
+<thead>
+<tr>
+<th>标识</th>
+<th>所属层次</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>application_1739344332779_0001</td>
+<td>YARN</td>
+<td>ResourceManager 视角的应用</td>
+</tr>
+<tr>
+<td>appattempt_1739344332779_0001_000001</td>
+<td>YARN</td>
+<td>ApplicationMaster 的一次尝试</td>
+</tr>
+<tr>
+<td>container_1739344332779_0001_01_000001</td>
+<td>YARN</td>
+<td>运行 AM 或 Task 的 Container</td>
+</tr>
+<tr>
+<td>job_1739344332779_0001</td>
+<td>MapReduce</td>
+<td>MapReduce 视角的作业</td>
+</tr>
+<tr>
+<td>task_* &#x2F; attempt_*</td>
+<td>MapReduce</td>
+<td>Map 或 Reduce 的任务和尝试</td>
+</tr>
+</tbody></table>
+<p>ResourceManager 页面通常围绕 Application ID 展开，JobHistoryServer 更偏向 Job ID、Task ID 和 Counter。命令行也一样，yarn application -status 使用 Application ID，mapred job -status 或历史服务相关接口更关注 Job ID。两者编号后缀看起来相似，但不能随便替换。</p>
+<p>还要注意 Application Attempt。appattempt_* 表示 ApplicationMaster 的一次尝试，是 AM failover&#x2F;retry 的核心标识。一个 Application 可能因为 AM 失败产生多个 attempt，而每个 attempt 又会对应自己的 AM Container 和日志入口。排查 AM 重启、短暂节点故障或应用级恢复时，不能只看 Application ID，还要看具体 appattempt。</p>
+<p>在排查时，我通常按这个顺序看：</p>
+<ol>
+<li>先用 Application ID 确认 YARN 层面是否成功启动应用。</li>
+<li>再看 AM Attempt 是否启动、是否有日志入口。</li>
+<li>如果应用进入运行态但作业失败，再进入 MapReduce Job、Task 和 Counter 层面。</li>
+<li>如果 Reduce 阶段异常，重点看 Shuffle、磁盘、本地目录和 NodeManager 日志。</li>
+<li>如果作业完成但输出不正确，再看 OutputCommitter、输入路径、输出路径和业务逻辑。</li>
+</ol>
+<p>这个顺序能避免一开始就陷入某个 Task 日志。YARN 层面失败和 MapReduce 内部失败是两类问题，先分层再定位，会快很多。</p>
+<h3 id="2-2-JobHistoryServer-和日志聚合的价值"><a href="#2-2-JobHistoryServer-和日志聚合的价值" class="headerlink" title="2.2 JobHistoryServer 和日志聚合的价值"></a>2.2 JobHistoryServer 和日志聚合的价值</h3><p>MapReduce 作业完成后，ResourceManager 不会永久保存所有任务细节。它更像应用入口和资源视图，不是完整历史作业视图。真正要看任务列表、Counter、失败尝试和历史执行细节，需要依赖 JobHistoryServer 和日志聚合。</p>
+<p>日志聚合的意义在于，Container 运行在各个 NodeManager 本地，日志默认也分散在节点目录里。开启日志聚合后，YARN 会把应用日志收集到 HDFS 等集中位置，用户可以通过 yarn logs -applicationId 查看。对于多节点集群，这比逐台机器登录查看本地日志可靠得多。</p>
+<p>这次应用详情里可以看到 Log Aggregation Status&#x3D;SUCCEEDED，说明日志聚合已经完成。实际排查时可以用：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">yarn</span> logs <span class="token parameter variable">-applicationId</span> application_1739344332779_0001<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果只是验证作业是否成功，ResourceManager 的 state&#x3D;FINISHED 和 FinalStatus&#x3D;SUCCEEDED 需要一起看。FINISHED 只是生命周期状态，不等于成功；最终是否成功由 FinalStatus 决定。如果要分析 Map 或 Reduce 为什么慢、哪个 Task 重试最多、Shuffle 是否频繁失败，就需要继续看 JobHistoryServer 和聚合日志。作业运行时看 RM 和 NM，作业完成后看 JHS 和日志，这是 MapReduce on YARN 比较清晰的一条观察路径。</p>
+<p>日志聚合还有一个小陷阱：它成功不代表作业成功，它只是说明日志收集动作完成了。一个失败应用也可以有成功的日志聚合，一个成功应用也可能因为日志聚合配置或 HDFS 权限问题导致日志查看不完整。因此状态判断要分开：应用最终状态看 FinalStatus，任务细节看 JobHistory，日志可用性看 Log Aggregation Status。</p>
+<p>Counter 也要理解成周期性汇总结果，而不是严格实时的流式指标。Task Attempt 会在运行中汇报进度和计数器，MRAppMaster 聚合后形成作业级 Counter。作业运行时 Counter 可能有延迟或不完整，完成后的 JobHistory 视图通常更适合做最终分析。</p>
+<p>命令行和页面也各有价值。页面适合快速看状态、队列、AM、节点和时间线；命令行适合保存证据、批量查询和脚本化排查。例如：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">yarn</span> application <span class="token parameter variable">-status</span> application_1739344332779_0001
+<span class="token function">yarn</span> logs <span class="token parameter variable">-applicationId</span> application_1739344332779_0001
+hdfs dfs <span class="token parameter variable">-ls</span> /tmp/hadoop-yarn/staging/root/.staging<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>前两个命令面向 YARN 应用，第三个命令面向提交阶段的 staging 路径。它们覆盖的是三个不同问题：应用有没有被 RM 接受，Container 日志是否可查，客户端资源是否正常上传。把这些命令串起来，比单独记一个 Web UI 地址更可靠。</p>
+<h3 id="2-3-MRv1-兼容性应该怎么看"><a href="#2-3-MRv1-兼容性应该怎么看" class="headerlink" title="2.3 MRv1 兼容性应该怎么看"></a>2.3 MRv1 兼容性应该怎么看</h3><p>Hadoop 2 之后仍然保留了大量 MRv1 兼容能力，原因很现实：很多旧作业、脚本、调度平台和数据处理流程不能因为底层资源管理模型变化就全部重写。兼容性让旧 MapReduce API、命令行脚本和历史作业迁移到 YARN 时成本低很多。</p>
+<p>但兼容不等于运行模型没有变化。即使用旧 API 编写的作业，到了 YARN 环境里，资源申请、AM 启动、Container 管理、日志聚合、队列调度仍然走 YARN 模型。旧 API 主要影响作业编程接口和部分配置名称，不应该再按 JobTracker&#x2F;TaskTracker 的方式理解运行路径。</p>
+<p>这里需要保留两个判断：</p>
+<table>
+<thead>
+<tr>
+<th>判断</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>业务代码可以兼容</td>
+<td>很多旧 MapReduce 代码仍可运行，不必为了迁移而重写算法</td>
+</tr>
+<tr>
+<td>运维模型必须更新</td>
+<td>队列、Container、AM、NM、日志聚合是新的排查边界</td>
+</tr>
+</tbody></table>
+<p>如果旧脚本只是在命令行里调用 hadoop jar，迁移通常比较直接。如果脚本依赖旧的 JobTracker 地址、旧的历史页面、旧的计数器采集方式，就需要改造监控和排查链路。对于长期运行的集群，真正难的往往不是代码能不能跑，而是周边平台是否已经理解 YARN 的应用模型。</p>
+<p>兼容性还会影响配置命名。很多老资料里会出现 mapred.<em>、mapreduce.</em> 混用的情况。YARN 环境仍然保留了不少兼容处理，但新配置应优先使用 mapreduce.* 和 YARN 相关参数。这样做不是为了追求形式统一，而是为了减少团队协作时的歧义。一个配置到底是旧接口兼容项，还是当前运行路径真正读取的参数，排查时差别很大。</p>
+<p>对于需要长期维护的作业，我更倾向于把迁移分成两层：代码层尽量保持稳定，只做必要 API 适配；运行层则明确改成 YARN 语言，包括队列、Container、AM、日志聚合、History、资源参数和调度器限制。这样迁移风险最小，也能让运维和开发用同一套词汇讨论问题。</p>
+<h2 id="3-排查链路"><a href="#3-排查链路" class="headerlink" title="3. 排查链路"></a>3. 排查链路</h2><h3 id="3-1-一条更实用的排查链路"><a href="#3-1-一条更实用的排查链路" class="headerlink" title="3.1 一条更实用的排查链路"></a>3.1 一条更实用的排查链路</h3><p>MapReduce on YARN 的排查可以按状态分层：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>观察对象</th>
+<th>常见问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>提交前</td>
+<td>客户端配置、HDFS 路径</td>
+<td>jar 不存在、输入路径错误、staging 权限不足</td>
+</tr>
+<tr>
+<td>SUBMITTED&#x2F;ACCEPTED</td>
+<td>RM、Scheduler、队列</td>
+<td>队列容量不足、ACL 拒绝、资源不满足</td>
+</tr>
+<tr>
+<td>AM 启动</td>
+<td>Application Attempt、AM 日志</td>
+<td>AM Container 申请失败、环境变量或本地资源异常</td>
+</tr>
+<tr>
+<td>Task 运行</td>
+<td>Task Attempt、NM 日志</td>
+<td>JVM OOM、磁盘不足、输入数据异常</td>
+</tr>
+<tr>
+<td>Shuffle</td>
+<td>Reduce 日志、Shuffle Counters</td>
+<td>Shuffle 服务异常、Map 输出丢失、网络或磁盘问题</td>
+</tr>
+<tr>
+<td>提交输出</td>
+<td>OutputCommitter、HDFS</td>
+<td>输出目录已存在、权限不足、提交失败</td>
+</tr>
+<tr>
+<td>完成后</td>
+<td>JobHistory、聚合日志</td>
+<td>任务耗时、重试次数、Counter 异常</td>
+</tr>
+</tbody></table>
+<p>这张表比记住某一个命令更重要。MapReduce 作业的生命周期横跨客户端、HDFS、ResourceManager、NodeManager、MRAppMaster 和 JobHistoryServer。只看其中一个组件，很容易把问题定位错。</p>
+<p>例如应用长时间处于 ACCEPTED，优先看队列资源和调度器；Map 任务全部完成但 Reduce 卡住，优先看 Shuffle；应用显示成功但输出目录没有预期文件，优先看 OutputCommitter 和输出路径；任务偶发失败但最终成功，优先看 TaskAttempt 重试和节点健康状态。</p>
+<p>再举几个更具体的判断。应用刚提交就失败，通常先看客户端和 AM 启动日志，不要急着查 Reduce。应用进入 RUNNING 后很快失败，重点看 AM 是否拿到了作业配置和本地资源。Map 大量失败但 Reduce 没开始，重点看输入数据、Mapper 逻辑和节点本地目录。Reduce 开始后频繁失败，优先看 Shuffle、排序合并、Reduce 内存和磁盘空间。作业最终成功但耗时异常，重点看 Counter、数据倾斜和慢任务。</p>
+<p>如果只用一句话概括，就是先判断失败发生在哪个层次，再选择对应工具。YARN 层看 RM、Scheduler、NM 和 Application 日志；MapReduce 层看 Job、Task、Counter 和 JobHistory；数据层看 HDFS 路径、输入格式、输出提交和权限。MapReduce on YARN 的复杂度正来自这些层次叠在一起，排查效率也来自把它们拆开。</p>
+<h2 id="4-小结"><a href="#4-小结" class="headerlink" title="4. 小结"></a>4. 小结</h2><p>MapReduce on YARN 可以用一个统一模型来记：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ResourceManager</td>
+<td>scheduler，负责集群资源调度和应用生命周期入口</td>
+</tr>
+<tr>
+<td>NodeManager</td>
+<td>executor，负责节点侧 Container 启动、监控和清理</td>
+</tr>
+<tr>
+<td>MRAppMaster</td>
+<td>coordinator，负责单个 MapReduce 作业的状态机和执行协调</td>
+</tr>
+<tr>
+<td>Container</td>
+<td>resource unit，表示一次资源分配和运行上下文</td>
+</tr>
+<tr>
+<td>Map&#x2F;Reduce Task</td>
+<td>execution unit，是 Container 内部启动的 JVM&#x2F;Process</td>
+</tr>
+</tbody></table>
+<p>MapReduce on YARN 的关键不是 MapReduce 语义变了，而是它从“集群内置执行模型”变成了“YARN 上的一种应用框架”。ResourceManager 管全局资源，NodeManager 管节点执行，MRAppMaster 管单个作业，Container 承载 AM 和 Task，Shuffle 通过 NodeManager 辅助服务支撑 Reduce 拉取 Map 输出，JobHistoryServer 和日志聚合负责完成后的追踪。</p>
+<p>这套拆分让 MapReduce 继续保留成熟的数据处理模型，同时把资源管理能力交给 YARN。理解这一点后，很多配置和排查动作就更自然了：队列问题看 Scheduler，应用状态看 RM，节点执行看 NM，作业内部看 MRAppMaster 和 JobHistory，Shuffle 问题看 NodeManager 辅助服务和 Counter。MapReduce 仍然是 MapReduce，但它已经运行在一个更通用的资源操作系统上。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/d0da2e4.html">https://www.hnbian.cn/posts/d0da2e4.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/yarn/">
+                                    <span class="chip bg-color">yarn</span>
+                                </a>
+                            
+                                <a href="/tags/hadoop/">
+                                    <span class="chip bg-color">hadoop</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/7fdefae1.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-7fa49f6e0e0383044170e210f2be9256.jpg" class="responsive-img" alt="【YARN 权威指南】9. 理解 YARN 应用提交模型">
+                        
+                        <span class="card-title">【YARN 权威指南】9. 理解 YARN 应用提交模型</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-02-19
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/yarn/" class="post-category">
+                                    yarn
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/yarn/">
+                        <span class="chip bg-color">yarn</span>
+                    </a>
+                    
+                    <a href="/tags/hadoop/">
+                        <span class="chip bg-color">hadoop</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/ca0a4340.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-be0465b7ac3b9699a28ac896d04fea7e.jpg" class="responsive-img" alt="【YARN 权威指南】7. 理解 Capacity Scheduler">
+                        
+                        <span class="card-title">【YARN 权威指南】7. 理解 Capacity Scheduler</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-02-05
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/yarn/" class="post-category">
+                                    yarn
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/yarn/">
+                        <span class="chip bg-color">yarn</span>
+                    </a>
+                    
+                    <a href="/tags/hadoop/">
+                        <span class="chip bg-color">hadoop</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

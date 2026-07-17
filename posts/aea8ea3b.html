@@ -1,0 +1,1972 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Spark SQL 读取 Parquet 失败排查：Schema 不一致, hnbian">
+    <meta name="description" content="一、问题现象在执行 Spark SQL 查询 Parquet 表时，任务直接失败，并出现如下异常：
+
+org.apache.spark.SparkException: Job aborted due to stage failure: Ta">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Spark SQL 读取 Parquet 失败排查：Schema 不一致 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/Fk-Nm3wSQvNQv-8G8G8VgPBBZxeK')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Spark SQL 读取 Parquet 失败排查：Schema 不一致</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/exception/">
+                                <span class="chip bg-color">exception</span>
+                            </a>
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/spark/" class="post-category">
+                                spark
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2022-10-23
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    18 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="一、问题现象"><a href="#一、问题现象" class="headerlink" title="一、问题现象"></a>一、问题现象</h2><p>在执行 Spark SQL 查询 Parquet 表时，任务直接失败，并出现如下异常：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala">
+org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>SparkException<span class="token operator">:</span> Job aborted due to <span class="token namespace">stage</span> failure<span class="token operator">:</span> Task <span class="token number">0</span> in stage <span class="token number">29.0</span> failed <span class="token number">4</span> times<span class="token punctuation">,</span> most recent failure<span class="token operator">:</span> Lost task <span class="token number">0.3</span> in stage <span class="token number">29.0</span> <span class="token punctuation">(</span>TID <span class="token number">1097</span><span class="token punctuation">,</span> rzxgzsj02<span class="token punctuation">,</span> executor <span class="token number">2</span><span class="token punctuation">)</span><span class="token operator">:</span> java<span class="token punctuation">.</span>lang<span class="token punctuation">.</span>UnsupportedOperationException<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>values<span class="token punctuation">.</span>dictionary<span class="token punctuation">.</span>PlainValuesDictionary$PlainLongDictionary
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>Dictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>Dictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">44</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>datasources<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>ParquetDictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>ParquetDictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">51</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>WritableColumnVector<span class="token punctuation">.</span>getUTF8String<span class="token punctuation">(</span>WritableColumnVector<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">375</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>catalyst<span class="token punctuation">.</span>expressions<span class="token punctuation">.</span>GeneratedClass$GeneratedIteratorForCodegenStage1<span class="token punctuation">.</span>processNext<span class="token punctuation">(</span>Unknown Source<span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>BufferedRowIterator<span class="token punctuation">.</span>hasNext<span class="token punctuation">(</span>BufferedRowIterator<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">43</span><span class="token punctuation">)</span>
+	<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Driver stacktrace<span class="token operator">:</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler<span class="token punctuation">.</span>org$apache$spark$scheduler$DAGScheduler$$failJobAndIndependentStages<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1651</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler$$anonfun$abortStage$<span class="token number">1.</span>apply<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1639</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler$$anonfun$abortStage$<span class="token number">1.</span>apply<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1638</span><span class="token punctuation">)</span>
+	at scala<span class="token punctuation">.</span>collection<span class="token punctuation">.</span>mutable<span class="token punctuation">.</span>ResizableArray$<span class="token keyword">class</span><span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>ResizableArray<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">59</span><span class="token punctuation">)</span>
+	at scala<span class="token punctuation">.</span>collection<span class="token punctuation">.</span>mutable<span class="token punctuation">.</span>ArrayBuffer<span class="token punctuation">.</span>foreach<span class="token punctuation">(</span>ArrayBuffer<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">48</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler<span class="token punctuation">.</span>abortStage<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1638</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler$$anonfun$handleTaskSetFailed$<span class="token number">1.</span>apply<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">831</span><span class="token punctuation">)</span>
+	<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Caused by<span class="token operator">:</span> java<span class="token punctuation">.</span>lang<span class="token punctuation">.</span>UnsupportedOperationException<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>values<span class="token punctuation">.</span>dictionary<span class="token punctuation">.</span>PlainValuesDictionary$PlainLongDictionary
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>Dictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>Dictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">44</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>datasources<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>ParquetDictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>ParquetDictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">51</span><span class="token punctuation">)</span>
+	<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>SparkException<span class="token operator">:</span> Job aborted due to <span class="token namespace">stage</span> failure<span class="token operator">:</span> Task <span class="token number">0</span> in stage <span class="token number">29.0</span> failed <span class="token number">4</span> times<span class="token punctuation">,</span> most recent failure<span class="token operator">:</span> Lost task <span class="token number">0.3</span> in stage <span class="token number">29.0</span> <span class="token punctuation">(</span>TID <span class="token number">1097</span><span class="token punctuation">,</span> rzxgzsj02<span class="token punctuation">,</span> executor <span class="token number">2</span><span class="token punctuation">)</span><span class="token operator">:</span> java<span class="token punctuation">.</span>lang<span class="token punctuation">.</span>UnsupportedOperationException<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>values<span class="token punctuation">.</span>dictionary<span class="token punctuation">.</span>PlainValuesDictionary$PlainLongDictionary
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>Dictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>Dictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">44</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>datasources<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>ParquetDictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>ParquetDictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">51</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>WritableColumnVector<span class="token punctuation">.</span>getUTF8String<span class="token punctuation">(</span>WritableColumnVector<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">375</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>catalyst<span class="token punctuation">.</span>expressions<span class="token punctuation">.</span>GeneratedClass$GeneratedIteratorForCodegenStage1<span class="token punctuation">.</span>processNext<span class="token punctuation">(</span>Unknown Source<span class="token punctuation">)</span>
+	<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+
+Driver stacktrace<span class="token operator">:</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler<span class="token punctuation">.</span>org$apache$spark$scheduler$DAGScheduler$$failJobAndIndependentStages<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1651</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler$$anonfun$abortStage$<span class="token number">1.</span>apply<span class="token punctuation">(</span>DAGScheduler<span class="token punctuation">.</span>scala<span class="token operator">:</span><span class="token number">1639</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>scheduler<span class="token punctuation">.</span>DAGScheduler$$anonfun$abortStage$<span class="token number">1.</span>apply
+    <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Caused by<span class="token operator">:</span> java<span class="token punctuation">.</span>lang<span class="token punctuation">.</span>UnsupportedOperationException<span class="token operator">:</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>values<span class="token punctuation">.</span>dictionary<span class="token punctuation">.</span>PlainValuesDictionary$PlainLongDictionary
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>column<span class="token punctuation">.</span>Dictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>Dictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">44</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>datasources<span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>ParquetDictionary<span class="token punctuation">.</span>decodeToBinary<span class="token punctuation">(</span>ParquetDictionary<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">51</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>WritableColumnVector<span class="token punctuation">.</span>getUTF8String<span class="token punctuation">(</span>WritableColumnVector<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">375</span><span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>catalyst<span class="token punctuation">.</span>expressions<span class="token punctuation">.</span>GeneratedClass$GeneratedIteratorForCodegenStage1<span class="token punctuation">.</span>processNext<span class="token punctuation">(</span>Unknown Source<span class="token punctuation">)</span>
+	at org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>BufferedRowIterator<span class="token punctuation">.</span>hasNext<span class="token punctuation">(</span>BufferedRowIterator<span class="token punctuation">.</span>java<span class="token operator">:</span><span class="token number">43</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>单看这个报错信息，其实很难直接判断问题本质。但结合完整的堆栈信息，可以发现几个非常关键的调用路径：</p>
+<ul>
+<li>WritableColumnVector.getUTF8String</li>
+<li>ParquetDictionary.decodeToBinary</li>
+<li>Dictionary.decodeToBinary</li>
+</ul>
+<p>这些方法串联起来，已经明确反映了当前的执行逻辑：</p>
+<ul>
+<li>Spark 正在尝试将某个字段按字符串类型读取</li>
+<li>在读取过程中进入了 getUTF8String() 路径</li>
+<li>底层数据却来自 PlainLongDictionary（long 类型的字典编码）</li>
+<li>在进行字符串解码时发生类型不匹配，最终抛出异常</li>
+</ul>
+<p>因此，这个问题并不是执行过程中的偶发失败，也不是资源或环境问题，而是一个非常典型的读取逻辑与底层数据类型不一致的问题。</p>
+<p>从本质上看，Spark 将该字段当作 string 类型处理，但 Parquet 文件中该字段实际存储为 long &#x2F; bigint 类型，在解码阶段发生了冲突，最终导致任务失败。</p>
+<p>在生产环境中，这类问题通常具有比较明显的特征：</p>
+<ul>
+<li>表历史上可以正常查询，但在某个时间点之后开始报错</li>
+<li>查询整表失败，但部分分区单独查询可能正常</li>
+<li>报错看起来像 Parquet 编码或兼容性问题，但根因通常是 schema 发生变化</li>
+<li>调整读取参数（例如关闭 vectorized reader）后表现可能发生变化，但问题本身并没有消失</li>
+</ul>
+<p>这类问题的核心不在于“执行失败”，而在于数据 schema、存储结构和读取逻辑之间出现了不一致。</p>
+<h2 id="二、从原理理解这个错误"><a href="#二、从原理理解这个错误" class="headerlink" title="二、从原理理解这个错误"></a>二、从原理理解这个错误</h2><p>很多 Spark 错误如果只看异常信息，会让人感觉很随机。但实际上，只要把底层读取流程想清楚，这个错误是非常有规律的。</p>
+<h3 id="1-Parquet-的存储机制"><a href="#1-Parquet-的存储机制" class="headerlink" title="1. Parquet 的存储机制"></a>1. Parquet 的存储机制</h3><p>Parquet 是一种列式存储格式。所谓列式存储，意思是：</p>
+<ul>
+<li>一张表的数据不是按“整行”连续存储</li>
+<li>而是按“列”分别存储</li>
+<li>每一列都有自己的物理类型、编码方式和统计信息</li>
+</ul>
+<p>例如，一张表里有如下字段：</p>
+<ul>
+<li><code>id bigint</code></li>
+<li><code>name string</code></li>
+<li><code>age int</code></li>
+</ul>
+<p>那么在 Parquet 文件中：</p>
+<ul>
+<li><code>id</code> 这一列会按它自己的物理类型单独存储</li>
+<li><code>name</code> 这一列也会按它自己的物理类型单独存储</li>
+<li><code>age</code> 同样如此</li>
+</ul>
+<p>这样做的好处是：</p>
+<ul>
+<li>压缩率高</li>
+<li>查询某几列时不需要扫描整行</li>
+<li>对分析型场景非常友好</li>
+</ul>
+<p>同时，Parquet 为了进一步提升压缩率，还会使用多种编码方式，其中一种非常常见的就是 <strong>Dictionary Encoding（字典编码）</strong>。</p>
+<p>你可以把字典编码理解成：</p>
+<ul>
+<li>先把某列中重复出现的值收集起来形成字典</li>
+<li>实际存储时不直接写原始值，而是写字典索引</li>
+</ul>
+<p>如果某一列是 <code>long</code> 类型，那么字典中存储的也是 long 值，对应的实现就可能是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">PlainLongDictionary<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>也就是说，看到 <code>PlainLongDictionary</code> 并不说明 Parquet 文件坏了，恰恰说明：</p>
+<p><strong>底层这列本来就是按 long 类型并且用了字典编码来存储。</strong></p>
+<h3 id="2-Spark-是如何读取-Parquet-的"><a href="#2-Spark-是如何读取-Parquet-的" class="headerlink" title="2. Spark 是如何读取 Parquet 的"></a>2. Spark 是如何读取 Parquet 的</h3><p>Spark 读取 Parquet 时，并不是“看到什么就读什么”，它实际上同时依赖两套信息：</p>
+<ol>
+<li><p><strong>读取端 schema</strong></p>
+<ul>
+<li>可能来自 Hive Metastore 表定义</li>
+<li>也可能来自 DataFrame 的显式 schema</li>
+<li>或者来自 Spark 推断出的 schema</li>
+</ul>
+</li>
+<li><p><strong>Parquet 文件实际 schema</strong></p>
+<ul>
+<li>来自底层文件 footer 中保存的真实字段类型信息</li>
+</ul>
+</li>
+</ol>
+<p>正常情况下，这两套 schema 应该是一致的。</p>
+<p>比如：</p>
+<ul>
+<li>Spark 认为 <code>id</code> 是 <code>bigint</code></li>
+<li>Parquet 文件里 <code>id</code> 也确实是 <code>INT64</code></li>
+</ul>
+<p>那么 Spark 就能顺利读取。</p>
+<p>但如果出现下面这种情况：</p>
+<ul>
+<li>Spark 认为 <code>id</code> 是 <code>string</code></li>
+<li>Parquet 文件里 <code>id</code> 实际是 <code>INT64</code></li>
+</ul>
+<p>那读取时就会出问题。</p>
+<h3 id="3-为什么会报-getUTF8String-decodeToBinary-PlainLongDictionary"><a href="#3-为什么会报-getUTF8String-decodeToBinary-PlainLongDictionary" class="headerlink" title="3. 为什么会报 getUTF8String -&gt; decodeToBinary -&gt; PlainLongDictionary"></a>3. 为什么会报 <code>getUTF8String -&gt; decodeToBinary -&gt; PlainLongDictionary</code></h3><p>现在回到你的报错链路：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">getUTF8String → decodeToBinary → PlainLongDictionary<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这条链路非常关键。</p>
+<h4 id="第一步：Spark-调用了-getUTF8String"><a href="#第一步：Spark-调用了-getUTF8String" class="headerlink" title="第一步：Spark 调用了 getUTF8String"></a>第一步：Spark 调用了 <code>getUTF8String</code></h4><p>这说明 Spark 当前把这个字段当成了字符串列来读取。</p>
+<p>因为如果 Spark 认为它是 <code>long</code>，通常就会走数值类型的读取路径，而不是 <code>UTF8String</code>。</p>
+<h4 id="第二步：Spark-进一步调用-decodeToBinary"><a href="#第二步：Spark-进一步调用-decodeToBinary" class="headerlink" title="第二步：Spark 进一步调用 decodeToBinary"></a>第二步：Spark 进一步调用 <code>decodeToBinary</code></h4><p>这说明 Spark 期望底层字典能够“解码成二进制&#x2F;字符串表示”。</p>
+<p>对于字符串类型，底层通常会以类似 <code>BYTE_ARRAY</code> 的形式存在，这样解码成字符串是合理的。</p>
+<h4 id="第三步：底层真实对象却是-PlainLongDictionary"><a href="#第三步：底层真实对象却是-PlainLongDictionary" class="headerlink" title="第三步：底层真实对象却是 PlainLongDictionary"></a>第三步：底层真实对象却是 <code>PlainLongDictionary</code></h4><p>这一步就彻底暴露问题了。</p>
+<p>底层数据字典根本不是字符串字典，而是 long 字典。也就是说，Spark 预期的是“把这个字段当字符串读”，但真实数据是“一个 long 编码列”。</p>
+<p>于是最终结果就是：</p>
+<ul>
+<li>预期：字符串读取路径</li>
+<li>实际：long 类型字典</li>
+<li>结果：类型不兼容，抛异常</li>
+</ul>
+<p>所以这个错误并不是 Parquet “不能读 long”，而是：</p>
+<p><strong>Spark 用错了读法。</strong></p>
+<p>而 Spark 为什么会用错读法？答案就是：</p>
+<h2 id="Schema-不一致"><a href="#Schema-不一致" class="headerlink" title="Schema 不一致"></a><strong>Schema 不一致</strong></h2><p>这也是这类问题最核心的根因。</p>
+<h2 id="三、常见触发场景"><a href="#三、常见触发场景" class="headerlink" title="三、常见触发场景"></a>三、常见触发场景</h2><p>知道原理之后，再看线上问题就会非常清楚。这个错误几乎不会无缘无故出现，通常都对应某种数据演化或元数据失真。</p>
+<h3 id="场景-1：Hive-表结构与-Parquet-文件不一致"><a href="#场景-1：Hive-表结构与-Parquet-文件不一致" class="headerlink" title="场景 1：Hive 表结构与 Parquet 文件不一致"></a>场景 1：Hive 表结构与 Parquet 文件不一致</h3><p>这是最常见的场景之一。</p>
+<p>例如：</p>
+<ul>
+<li>Hive 表字段定义成了 <code>string</code></li>
+<li>但底层 Parquet 文件实际写入的是 <code>bigint</code></li>
+</ul>
+<p>这类问题很容易出现在：</p>
+<ul>
+<li>建表时手工写错字段类型</li>
+<li>开发同学参考旧表结构复制建表语句时没改全</li>
+<li>同一路径底层文件被其他任务按不同 schema 写入</li>
+</ul>
+<p>表面上看，Hive 表能正常创建、字段名也都对，但只要字段类型和底层物理类型不匹配，Spark 在扫描时就可能炸掉。</p>
+<p>这类问题最麻烦的地方在于：</p>
+<ul>
+<li>表 schema 看起来“合法”</li>
+<li>Parquet 文件本身也“没有坏”</li>
+<li>但两边拼在一起就出错</li>
+</ul>
+<h3 id="场景-2：同一张表不同分区类型不一致"><a href="#场景-2：同一张表不同分区类型不一致" class="headerlink" title="场景 2：同一张表不同分区类型不一致"></a>场景 2：同一张表不同分区类型不一致</h3><p>这也是生产环境非常典型的问题。</p>
+<p>例如分区表按天写入：</p>
+<ul>
+<li><code>dt=2023-01-01</code> 分区中，某列是 <code>bigint</code></li>
+<li><code>dt=2023-02-01</code> 分区中，同一列被写成了 <code>string</code></li>
+</ul>
+<p>如果你只查一个正常分区，可能不会报错；但一旦：</p>
+<ul>
+<li>查整张表</li>
+<li>或者查跨多个分区</li>
+<li>或者 Spark 触发 schema merge &#x2F; 统一读取逻辑</li>
+</ul>
+<p>就会把这些不一致的分区放到一起解释，最终报错。</p>
+<p>这种问题最容易发生在：</p>
+<ul>
+<li>分区长期由不同版本程序写入</li>
+<li>历史代码没有严格锁定 schema</li>
+<li>中间层数据清洗逻辑发生了变化</li>
+</ul>
+<p>所以当你发现“某张表有时候能查、有时候不能查”时，一定要高度怀疑是不是分区之间 schema 演化失控了。</p>
+<h3 id="场景-3：历史数据与新版本代码的字段类型变更"><a href="#场景-3：历史数据与新版本代码的字段类型变更" class="headerlink" title="场景 3：历史数据与新版本代码的字段类型变更"></a>场景 3：历史数据与新版本代码的字段类型变更</h3><p>这个场景本质上是“数据演进管理失控”。</p>
+<p>比如最初写入逻辑是：</p>
+<ul>
+<li><code>user_id: long</code></li>
+</ul>
+<p>后来由于业务改造，开发把它改成：</p>
+<ul>
+<li><code>user_id: string</code></li>
+</ul>
+<p>如果只是代码改了，而历史数据没有回刷、目标路径没有切换，那么同一路径下就会混合存在两种类型的数据文件。</p>
+<p>对写入侧来说，这种改动可能看起来只是“小改动”；但对读取侧来说，这是一个非常严重的 schema 兼容性问题。</p>
+<p>尤其在数据湖&#x2F;ODS 层长期累积之后，这种问题会非常隐蔽：</p>
+<ul>
+<li>老分区是旧 schema</li>
+<li>新分区是新 schema</li>
+<li>表定义可能还停留在旧版本</li>
+</ul>
+<p>最后，读取侧就会在某一天突然爆炸。</p>
+<h3 id="场景-4：直接写-Parquet-路径，再通过外部表读取"><a href="#场景-4：直接写-Parquet-路径，再通过外部表读取" class="headerlink" title="场景 4：直接写 Parquet 路径，再通过外部表读取"></a>场景 4：直接写 Parquet 路径，再通过外部表读取</h3><p>例如有些任务会这样做：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala"><span class="token comment">// 写入 parquet 文件</span>
+ df<span class="token punctuation">.</span>write<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"/path/data"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>然后再单独建一个外部表：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> EXTERNAL <span class="token keyword">TABLE</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+LOCATION <span class="token string">'/path/data'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这种做法本身没问题，但前提是：</p>
+<p><strong>外部表 schema 必须和文件真实 schema 完全一致。</strong></p>
+<p>如果外部表字段类型定义错了，就会出现“元数据层认为是 string，文件层实际是 bigint”这种情况。</p>
+<p>这类问题在线上很常见，因为建表和写数的人不一定是同一个团队，最终就会出现：</p>
+<ul>
+<li>数据路径是真实的</li>
+<li>表也存在</li>
+<li>但读出来就报错</li>
+</ul>
+<h3 id="场景-5：多数据源汇总写入同一路径"><a href="#场景-5：多数据源汇总写入同一路径" class="headerlink" title="场景 5：多数据源汇总写入同一路径"></a>场景 5：多数据源汇总写入同一路径</h3><p>还有一种场景是，多个来源的数据在落地前没有做严格的 schema 对齐。</p>
+<p>比如：</p>
+<ul>
+<li>来源 A 的 <code>order_id</code> 是 bigint</li>
+<li>来源 B 的 <code>order_id</code> 是 string</li>
+<li>最终都 append 到同一张 Parquet 表路径</li>
+</ul>
+<p>这种情况在数据接入平台、ODS 汇总层、埋点日志接入层特别容易发生。</p>
+<p>如果写入前没有强制 cast 和 schema 校验，后面就非常容易在 Spark 查询时触发这类报错。</p>
+<h2 id="四、如何定位问题"><a href="#四、如何定位问题" class="headerlink" title="四、如何定位问题"></a>四、如何定位问题</h2><p>知道了原理和触发场景之后，接下来最关键的是：</p>
+<p><strong>如何高效定位到底是哪一列、哪一个分区、哪一批文件有问题。</strong></p>
+<p>这一部分决定了排查效率。</p>
+<h3 id="1-先看表结构"><a href="#1-先看表结构" class="headerlink" title="1. 先看表结构"></a>1. 先看表结构</h3><p>第一步先确认读取端认为这张表长什么样。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">DESC</span> FORMATTED table_name<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>重点关注：</p>
+<ul>
+<li>报错涉及字段的类型</li>
+<li>表是否为外部表</li>
+<li>表对应的 LOCATION</li>
+<li>分区字段定义</li>
+</ul>
+<p>如果这里已经看到某个字段被定义为 <code>string</code>，而你业务上知道它本来应该是数值型，那就要高度警惕。</p>
+<p>不过注意：</p>
+<p><code>DESC FORMATTED</code> 只能告诉你“表怎么定义”，不能证明“文件一定就是这样”。</p>
+<p>所以这一步只是第一步。</p>
+<h3 id="2-查看-Spark-侧-DataFrame-schema"><a href="#2-查看-Spark-侧-DataFrame-schema" class="headerlink" title="2. 查看 Spark 侧 DataFrame schema"></a>2. 查看 Spark 侧 DataFrame schema</h3><p>如果你是通过 Spark 表读取，可以继续：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala">spark<span class="token punctuation">.</span>table<span class="token punctuation">(</span><span class="token string">"table_name"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>printSchema<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这一步的意义是确认：</p>
+<ul>
+<li>Spark 当前真正拿到的 schema 是什么</li>
+<li>有没有经过 catalog &#x2F; 推断之后发生变化</li>
+</ul>
+<p>有时候 Hive 表定义和 Spark 实际解析出来的 schema 并不完全一样，尤其是在某些兼容配置下，printSchema 可以帮助你确认 Spark 最终使用的是哪套结构。</p>
+<h3 id="3-直接读底层-Parquet-文件"><a href="#3-直接读底层-Parquet-文件" class="headerlink" title="3. 直接读底层 Parquet 文件"></a>3. 直接读底层 Parquet 文件</h3><p>这是最关键的一步之一。</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala">spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"/path/to/data"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>printSchema<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这一步是为了看：</p>
+<p><strong>底层 Parquet 文件自己声明的真实 schema 到底是什么。</strong></p>
+<p>到这里，你就可以开始做最核心的对比了：</p>
+<ul>
+<li>表 schema 是什么</li>
+<li>Spark 读取表时看到的 schema 是什么</li>
+<li>底层 parquet 文件真实 schema 是什么</li>
+</ul>
+<p>如果三者不一致，问题基本就锁定了。</p>
+<h3 id="4-按分区缩小范围"><a href="#4-按分区缩小范围" class="headerlink" title="4. 按分区缩小范围"></a>4. 按分区缩小范围</h3><p>如果这是一张分区表，直接查整表通常信息量太大。更推荐的方法是逐个分区试。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SELECT</span> <span class="token operator">*</span> <span class="token keyword">FROM</span> table_name <span class="token keyword">WHERE</span> dt <span class="token operator">=</span> <span class="token string">'2023-01-01'</span> <span class="token keyword">LIMIT</span> <span class="token number">10</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>通过这种方式，你可以逐步缩小问题范围：</p>
+<ul>
+<li>哪些分区能查</li>
+<li>哪些分区一查就报错</li>
+<li>错误是从哪天开始出现的</li>
+</ul>
+<p>一旦定位到异常分区，再直接读对应分区路径：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala">spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"/path/to/table/dt=2023-01-01"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>printSchema<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这样往往就能非常快地发现：</p>
+<ul>
+<li>某个分区字段类型变了</li>
+<li>或者某批文件结构发生了漂移</li>
+</ul>
+<p>这一步在生产排查中非常有效，因为大部分 schema 漂移问题都不是“全表同时坏掉”，而是从某个时间点、某个分区开始出现。</p>
+<h3 id="5-关闭向量化读取辅助定位"><a href="#5-关闭向量化读取辅助定位" class="headerlink" title="5. 关闭向量化读取辅助定位"></a>5. 关闭向量化读取辅助定位</h3><pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">set</span> spark<span class="token punctuation">.</span><span class="token keyword">sql</span><span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>enableVectorizedReader<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这一步不是为了解决根因，而是为了验证问题是否和向量化读取路径有关。</p>
+<p>如果关闭后：</p>
+<ul>
+<li>查询能跑通</li>
+<li>或者报错形式发生变化</li>
+</ul>
+<p>那么通常说明：</p>
+<ul>
+<li>底层数据确实存在类型问题</li>
+<li>vectorized reader 在当前场景下更容易触发这个异常</li>
+</ul>
+<p>它的意义主要有两个：</p>
+<ol>
+<li>帮助你确认问题不是“资源&#x2F;网络&#x2F;任务调度”层面的</li>
+<li>作为临时手段辅助读取并进一步分析数据</li>
+</ol>
+<p>但要强调的是：</p>
+<p><strong>关闭 vectorized reader 不是根治，只是辅助定位或短期规避。</strong></p>
+<h3 id="6-必要时直接读单个文件"><a href="#6-必要时直接读单个文件" class="headerlink" title="6. 必要时直接读单个文件"></a>6. 必要时直接读单个文件</h3><p>如果分区里也混了多种 schema，甚至同一分区下只有个别文件坏掉，那么还需要继续缩小到单文件级别。</p>
+<p>这一步通常适用于：</p>
+<ul>
+<li>历史回灌</li>
+<li>多任务并发写入</li>
+<li>某次异常任务只污染了一小批文件</li>
+</ul>
+<p>通过逐步读取更小范围的数据路径，可以定位到具体异常文件。</p>
+<h2 id="五、解决方案"><a href="#五、解决方案" class="headerlink" title="五、解决方案"></a>五、解决方案</h2><p>定位清楚后，修复方案就会比较明确。一般来说，解决这类问题的核心思路只有一个：</p>
+<p><strong>让读取端 schema 和底层文件 schema 保持一致。</strong></p>
+<p>但具体做法取决于问题在哪一层。</p>
+<h3 id="方案一：修正表-schema（推荐）"><a href="#方案一：修正表-schema（推荐）" class="headerlink" title="方案一：修正表 schema（推荐）"></a>方案一：修正表 schema（推荐）</h3><p>如果确认底层 Parquet 文件的类型是正确的，而表定义错了，那么最直接的修复方式就是修改表 schema。</p>
+<p>例如：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> table_name CHANGE <span class="token keyword">COLUMN</span> col_name col_name <span class="token keyword">BIGINT</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这个方案适用于：</p>
+<ul>
+<li>文件一直是对的</li>
+<li>只是 Hive&#x2F;外部表定义错了</li>
+<li>全部历史分区都保持相同物理类型</li>
+</ul>
+<p>它的优点是：</p>
+<ul>
+<li>成本低</li>
+<li>不需要重写数据</li>
+<li>修复速度快</li>
+</ul>
+<p>但要注意一个前提：</p>
+<p><strong>必须确认所有底层文件都确实是这个类型。</strong></p>
+<p>否则你把表 schema 改过来以后，可能只是把当前错误换成另一个错误。</p>
+<h3 id="方案二：重写异常分区"><a href="#方案二：重写异常分区" class="headerlink" title="方案二：重写异常分区"></a>方案二：重写异常分区</h3><p>如果问题只存在于部分分区，那么最稳妥的方式往往是重写这些异常分区。</p>
+<p>例如：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala"><span class="token keyword">import</span> <span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>spark<span class="token punctuation">.</span>sql<span class="token punctuation">.</span>functions<span class="token punctuation">.</span>col</span>
+
+<span class="token keyword">val</span> df <span class="token operator">=</span> spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"/bad_partition"</span><span class="token punctuation">)</span>
+
+<span class="token comment">// 统一字段类型</span>
+<span class="token keyword">val</span> newDf <span class="token operator">=</span> df<span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span><span class="token string">"col_name"</span><span class="token punctuation">,</span> col<span class="token punctuation">(</span><span class="token string">"col_name"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>cast<span class="token punctuation">(</span><span class="token string">"string"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+newDf<span class="token punctuation">.</span>write<span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"overwrite"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parquet<span class="token punctuation">(</span><span class="token string">"/bad_partition"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个方案的核心思想是：</p>
+<ul>
+<li>先把坏分区读出来</li>
+<li>按目标 schema 做显式类型转换</li>
+<li>再覆盖写回去</li>
+</ul>
+<p>它适用于：</p>
+<ul>
+<li>少量分区异常</li>
+<li>分区间 schema 不一致</li>
+<li>历史数据中混入了错误类型</li>
+</ul>
+<p>相较于直接改表 schema，这个方案更重，但也更稳。</p>
+<h3 id="方案三：统一写入逻辑（根治）"><a href="#方案三：统一写入逻辑（根治）" class="headerlink" title="方案三：统一写入逻辑（根治）"></a>方案三：统一写入逻辑（根治）</h3><p>如果问题反复出现，那就说明不是单次事故，而是数据生产链路本身有问题。</p>
+<p>这时不能只修消费端，而应该在写入侧根治。</p>
+<p>需要做到：</p>
+<ul>
+<li>字段类型不随版本随意变化</li>
+<li>写入前统一 cast</li>
+<li>多来源数据汇总前统一 schema</li>
+<li>在写入任务中增加 schema 校验</li>
+</ul>
+<p>例如在写入前就强制：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala"><span class="token keyword">val</span> normalizedDf <span class="token operator">=</span> rawDf
+  <span class="token punctuation">.</span>withColumn<span class="token punctuation">(</span><span class="token string">"col_name"</span><span class="token punctuation">,</span> col<span class="token punctuation">(</span><span class="token string">"col_name"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>cast<span class="token punctuation">(</span><span class="token string">"bigint"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这类治理措施看起来“麻烦”，但它们是从根源上避免此类问题再次发生的关键。</p>
+<h3 id="方案四：临时规避（不推荐长期使用）"><a href="#方案四：临时规避（不推荐长期使用）" class="headerlink" title="方案四：临时规避（不推荐长期使用）"></a>方案四：临时规避（不推荐长期使用）</h3><pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">set</span> spark<span class="token punctuation">.</span><span class="token keyword">sql</span><span class="token punctuation">.</span>parquet<span class="token punctuation">.</span>enableVectorizedReader<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这个方案适合：</p>
+<ul>
+<li>紧急恢复查询</li>
+<li>临时做数据排查</li>
+<li>在根修复完成前先让任务跑通</li>
+</ul>
+<p>但它的局限也很明确：</p>
+<ul>
+<li>只是 workaround</li>
+<li>不能消除 schema 不一致</li>
+<li>还可能影响查询性能</li>
+</ul>
+<p>所以它只能作为临时手段，不适合作为长期方案。</p>
+<h3 id="方案五：重建表或切换新路径"><a href="#方案五：重建表或切换新路径" class="headerlink" title="方案五：重建表或切换新路径"></a>方案五：重建表或切换新路径</h3><p>如果历史包袱太重，比如：</p>
+<ul>
+<li>同一路径混了太多版本的数据</li>
+<li>表 schema 多次变更</li>
+<li>分区大量污染</li>
+</ul>
+<p>那么最干净的方式有时不是修修补补，而是：</p>
+<ul>
+<li>按统一 schema 写入新路径</li>
+<li>重新建表</li>
+<li>让新表只承接清洗后的规范数据</li>
+</ul>
+<p>这在生产中也是非常常见的决策。</p>
+<p>因为当历史数据已经非常脏时，继续在原路径上修可能成本更高。</p>
+<h2 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h2><p>这个问题如果只看报错名称，会显得很奇怪；但从原理上讲，它其实非常简单：</p>
+<p><strong>Spark 读取 schema 与 Parquet 实际 schema 不一致</strong></p>
+<p>具体表现就是：</p>
+<ul>
+<li>Spark 把字段当成 <code>string</code> 去读</li>
+<li>底层实际却是 <code>long/bigint</code></li>
+<li>最终在字典解码阶段失败</li>
+</ul>
+<p>所以，看到下面这些关键词时：</p>
+<ul>
+<li><code>getUTF8String</code></li>
+<li><code>decodeToBinary</code></li>
+<li><code>PlainLongDictionary</code></li>
+</ul>
+<p>第一反应就应该是：</p>
+<p><strong>先查 schema，不要先怀疑机器。</strong></p>
+<h3 id="最佳实践"><a href="#最佳实践" class="headerlink" title="最佳实践"></a>最佳实践</h3><p>为了尽量避免这类问题，生产环境里建议做到：</p>
+<ul>
+<li>表 schema 和底层文件 schema 保持一致</li>
+<li>避免历史版本随意修改字段类型</li>
+<li>写入前统一 schema</li>
+<li>多数据源汇总时先做类型对齐</li>
+<li>对分区表定期做 schema 巡检</li>
+</ul>
+<h3 id="一套可执行的排查顺序"><a href="#一套可执行的排查顺序" class="headerlink" title="一套可执行的排查顺序"></a>一套可执行的排查顺序</h3><p>如果以后再遇到类似错误，可以按下面的顺序快速处理：</p>
+<ol>
+<li>先看堆栈关键词，判断是不是类型读错</li>
+<li>查看表 schema</li>
+<li>直接读 parquet 文件看真实 schema</li>
+<li>按分区缩小范围</li>
+<li>必要时关闭 vectorized reader 辅助定位</li>
+<li>选择改表、重写分区或统一写入逻辑中的一种修复方式</li>
+</ol>
+<p>这类问题在 Spark + Parquet 场景中非常常见，但本质上都不是“代码写错了”，而是：</p>
+<p><strong>数据一致性和元数据治理出了问题。</strong></p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/aea8ea3b.html">https://www.hnbian.cn/posts/aea8ea3b.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/exception/">
+                                    <span class="chip bg-color">exception</span>
+                                </a>
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/a25456cf.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/Fo_nbdsX7tMNODCJZc2777wy_M1c" class="responsive-img" alt="Scala Maven Plugin 编译报错：Cannot run program ... jre\bin\javac">
+                        
+                        <span class="card-title">Scala Maven Plugin 编译报错：Cannot run program ... jre\bin\javac</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2022-11-02
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Scala/" class="post-category">
+                                    Scala
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Scala/">
+                        <span class="chip bg-color">Scala</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/d8fad075.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/FmYAX6cP7IMdDACZG15u6PXdGNek" class="responsive-img" alt="Spark 数据倾斜分析与解决思路">
+                        
+                        <span class="card-title">Spark 数据倾斜分析与解决思路</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2022-08-08
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/spark/" class="post-category">
+                                    spark
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/exception/">
+                        <span class="chip bg-color">exception</span>
+                    </a>
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

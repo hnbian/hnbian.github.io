@@ -1,0 +1,2038 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Redis 系列 6. Sentinel 哨兵高可用机制, hnbian">
+    <meta name="description" content="1. Sentinel 是什么上一篇讲了 Redis 主从复制。普通主从有一个明显问题：master 宕机后，replica 不会自动升级为新 master。
+Redis Sentinel 是 Redis 的分布式监控与故障转移系统。它持续">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Redis 系列 6. Sentinel 哨兵高可用机制 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-4e6eb4677fa2fb0cc1d4f16aa1ad40fb.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Redis 系列 6. Sentinel 哨兵高可用机制</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/redis/">
+                                <span class="chip bg-color">redis</span>
+                            </a>
+                        
+                            <a href="/tags/sentinel/">
+                                <span class="chip bg-color">sentinel</span>
+                            </a>
+                        
+                            <a href="/tags/high-availability/">
+                                <span class="chip bg-color">high-availability</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/redis/" class="post-category">
+                                redis
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2024-10-22
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    19 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-Sentinel-是什么"><a href="#1-Sentinel-是什么" class="headerlink" title="1. Sentinel 是什么"></a>1. Sentinel 是什么</h2><p>上一篇讲了 Redis 主从复制。普通主从有一个明显问题：master 宕机后，replica 不会自动升级为新 master。</p>
+<p>Redis Sentinel 是 Redis 的分布式监控与故障转移系统。它持续监控 master、replica 和其他 Sentinel 的状态。如果 master 被判断为不可用，Sentinel 会自动完成故障转移，把某个 replica 提升为新的 master，并让其他 replica 改为复制新 master。</p>
+<p>这里可以先明确一点：Sentinel 是支撑 Redis 自动化故障转移的核心组件。</p>
+<h2 id="2-Sentinel-能做什么"><a href="#2-Sentinel-能做什么" class="headerlink" title="2. Sentinel 能做什么"></a>2. Sentinel 能做什么</h2><p>Sentinel 主要提供四类能力：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>监控</td>
+<td>持续检查 master、replica、其他 Sentinel 是否正常</td>
+</tr>
+<tr>
+<td>通知</td>
+<td>发现故障或切换后，可以向客户端或脚本通知</td>
+</tr>
+<tr>
+<td>自动故障转移</td>
+<td>master 异常时，选择 replica 晋升为新 master</td>
+</tr>
+<tr>
+<td>配置中心</td>
+<td>客户端可以通过 Sentinel 获取当前 master 地址</td>
+</tr>
+</tbody></table>
+<p>注意：Sentinel 本身不存业务数据，它只负责监控、选举和切换。但 Sentinel 会持久化监控状态和拓扑变更，因此 sentinel.conf 不是纯静态配置文件。</p>
+<h2 id="3-实验架构"><a href="#3-实验架构" class="headerlink" title="3. 实验架构"></a>3. 实验架构</h2><p>一个典型 Sentinel 实验环境：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>数量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>master</td>
+<td>1</td>
+<td>负责写</td>
+</tr>
+<tr>
+<td>replica</td>
+<td>2</td>
+<td>从 master 复制数据</td>
+</tr>
+<tr>
+<td>sentinel</td>
+<td>3</td>
+<td>监控主从并负责故障转移</td>
+</tr>
+</tbody></table>
+<p><img src="https://images.hnbian.cn/new/n-6a7cfcfdb15453943214790b8a715030.png" alt="Redis Sentinel 架构"></p>
+<p>生产上 Sentinel 应该分布在不同机器上。学习环境可以把 3 个 Sentinel 放在一台机器的不同端口，但这不能代表真正高可用。</p>
+<h2 id="4-Sentinel-配置文件"><a href="#4-Sentinel-配置文件" class="headerlink" title="4. Sentinel 配置文件"></a>4. Sentinel 配置文件</h2><p>假设 master 地址是 192.168.10.101:6379，密码是 111111，新建：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/myredis/sentinel26379.conf
+/myredis/sentinel26380.conf
+/myredis/sentinel26381.conf<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>以 sentinel26379.conf 为例：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">bind 0.0.0.0
+protected-mode no
+port 26379
+daemonize yes
+logfile &quot;&#x2F;myredis&#x2F;sentinel26379.log&quot;
+pidfile &#x2F;var&#x2F;run&#x2F;redis-sentinel26379.pid
+dir &#x2F;myredis
+
+sentinel monitor mymaster 192.168.10.101 6379 2
+sentinel auth-pass mymaster 111111
+sentinel down-after-milliseconds mymaster 5000
+sentinel parallel-syncs mymaster 1
+sentinel failover-timeout mymaster 60000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里容易写错成 sentinei monitor，实际应该是：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">sentinel monitor mymaster 192.168.10.101 6379 2<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>关键参数说明：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>mymaster</td>
+<td>给被监控 master 起的逻辑名</td>
+</tr>
+<tr>
+<td>192.168.10.101 6379</td>
+<td>master 地址和端口</td>
+</tr>
+<tr>
+<td>2</td>
+<td>quorum，至少几个 Sentinel 同意才认为 master 客观下线</td>
+</tr>
+<tr>
+<td>auth-pass</td>
+<td>Sentinel 连接 master&#x2F;replica 使用的密码</td>
+</tr>
+<tr>
+<td>down-after-milliseconds</td>
+<td>多久无有效响应后认为主观下线</td>
+</tr>
+<tr>
+<td>parallel-syncs</td>
+<td>故障转移后允许几个 replica 同步新 master</td>
+</tr>
+<tr>
+<td>failover-timeout</td>
+<td>故障转移超时时间</td>
+</tr>
+</tbody></table>
+<p>quorum 只决定多少个 Sentinel 同意后可以进入客观下线判断，它不等于故障转移已经开始。真正执行 failover 之前，还需要 Sentinel 之间完成 Leader 选举，并获得本轮故障转移的授权。</p>
+<p>down-after-milliseconds 会影响 SDOWN 判定敏感度。配置太小容易因为短暂网络抖动误判；配置太大则会拉长故障发现时间。</p>
+<p>如果 Redis 节点后续可能会被 Sentinel 配置成 replica，需要提前配置 masterauth：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 主机 6379</span>
+<span class="token comment"># 如果 master 设置了密码，replica 在同步前需要先进行认证。</span>
+<span class="token comment"># 否则 master 会拒绝 replica 的同步请求。</span>
+<span class="token comment"># masterauth &lt;master-password></span>
+<span class="token comment"># 设置访问 master 的密码</span>
+<span class="token comment"># 这里的密码需要和 master 的 requirepass 保持一致</span>
+masterauth <span class="token string">"111111"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>当它作为 replica 去连接新的 master 时，会使用 masterauth 中配置的密码进行认证。如果 master 设置了访问密码，而 replica 没有配置 masterauth，主从复制可能会失败，并出现类似状态：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">master_link_status:down<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>所以在主从复制环境中，如果主节点配置了 requirepass 111111，从节点一般也需要配置 masterauth “111111”。如果使用 Redis 6 及以上版本，生产环境更推荐使用 ACL 管理复制用户和客户端用户，而不是所有组件共享一个密码。</p>
+<h2 id="5-启动-Sentinel"><a href="#5-启动-Sentinel" class="headerlink" title="5. 启动 Sentinel"></a>5. 启动 Sentinel</h2><p>先启动 Redis 一主二从，并确认复制关系正常：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6381</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>再启动 3 个 Sentinel：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-sentinel /myredis/sentinel26379.conf
+redis-sentinel /myredis/sentinel26380.conf
+redis-sentinel /myredis/sentinel26381.conf<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>也可以使用：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-server /myredis/sentinel26379.conf <span class="token parameter variable">--sentinel</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Sentinel 启动</span>
+<span class="token punctuation">[</span>root@hadoop100 ~<span class="token punctuation">]</span><span class="token comment"># redis-sentinel /myredis/sentinel26379.conf</span>
+<span class="token punctuation">[</span>root@hadoop100 ~<span class="token punctuation">]</span><span class="token comment"># redis-sentinel /myredis/sentinel26380.conf</span>
+<span class="token punctuation">[</span>root@hadoop100 ~<span class="token punctuation">]</span><span class="token comment"># redis-sentinel /myredis/sentinel26381.conf</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="6-查看-Sentinel-状态"><a href="#6-查看-Sentinel-状态" class="headerlink" title="6. 查看 Sentinel 状态"></a>6. 查看 Sentinel 状态</h2><p>连接 Sentinel：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">26379</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel masters<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看指定 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel master mymaster<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看 replica：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel replicas mymaster<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看其他 Sentinel：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel sentinels mymaster<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>获取当前 master 地址：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel get-master-addr-by-name mymaster<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>应用客户端通常就是通过 Sentinel 获取当前 master，而不是把 master IP 写死。</p>
+<h2 id="7-模拟-master-故障"><a href="#7-模拟-master-故障" class="headerlink" title="7. 模拟 master 故障"></a>7. 模拟 master 故障</h2><p>手动关闭 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> <span class="token function">shutdown</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Sentinel 会经历：</p>
+<ol>
+<li>某个 Sentinel 先认为 master 主观下线。</li>
+<li>多个 Sentinel 达成一致，认为 master 客观下线。</li>
+<li>Sentinel 之间选出 Leader。</li>
+<li>Leader Sentinel 选择一个 replica 晋升为新 master。</li>
+<li>其他 replica 改为复制新 master。</li>
+<li>旧 master 恢复后，会被改造成新 master 的 replica。</li>
+</ol>
+<p>这里的切换由 Leader Sentinel 执行，不是所有 Sentinel 同时对 Redis 节点下发切换命令。</p>
+<p>故障切换后，可以通过 INFO replication 观察角色变化：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">1</span>></span> info replication                         <span class="token comment"># 查看 6381 节点的主从复制信息</span>
+<span class="token comment"># Replication</span>
+role:master                                              <span class="token comment"># 当前 6381 节点已经成为 master，说明发生了主从切换/上位</span>
+connected_slaves:1                                       <span class="token comment"># 当前 master 下连接了 1 个从库</span>
+slave0:ip<span class="token operator">=</span><span class="token number">192.168</span>.10.102,port<span class="token operator">=</span><span class="token number">6380</span>,state<span class="token operator">=</span>online,offset<span class="token operator">=</span><span class="token number">103602</span>,lag<span class="token operator">=</span><span class="token number">1</span>
+                                                           <span class="token comment"># 从库信息：IP 为 192.168.10.102，端口 6380，状态 online</span>
+master_failover_state:no-failover                        <span class="token comment"># 当前没有正在进行的故障转移</span>
+master_replid:1467fce583a04419127f0c99dda1f4a0f4c5e8c0
+master_replid2:1cdd22a0fd4fb6b5a7b5c7783e4314f814e9a877
+master_repl_offset:103888                                <span class="token comment"># 当前 master 的复制偏移量</span>
+second_repl_offset:90197
+repl_backlog_active:1                                    <span class="token comment"># 复制积压缓冲区已开启</span>
+repl_backlog_size:1048576                                <span class="token comment"># 复制积压缓冲区大小，默认约 1MB</span>
+repl_backlog_first_byte_offset:43
+repl_backlog_histlen:103846                              <span class="token comment"># 当前复制积压缓冲区中保存的数据长度</span>
+
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> info replication                         <span class="token comment"># 查看 6380 节点的主从复制信息</span>
+<span class="token comment"># Replication</span>
+role:slave                                               <span class="token comment"># 当前 6380 节点是 slave，从属于新的 master</span>
+master_host:192.168.10.103                               <span class="token comment"># 当前从库连接的 master 地址是 192.168.10.103</span>
+master_port:6381                                         <span class="token comment"># 当前从库连接的 master 端口是 6381</span>
+master_link_status:up                                    <span class="token comment"># 主从连接状态正常</span>
+master_last_io_seconds_ago:0                             <span class="token comment"># 距离上次和 master 通信过去 0 秒</span>
+master_sync_in_progress:0                                <span class="token comment"># 当前没有正在进行全量同步</span>
+slave_read_repl_offset:102301                            <span class="token comment"># 从库读取到的复制偏移量</span>
+slave_repl_offset:102301                                 <span class="token comment"># 从库当前复制偏移量</span>
+slave_priority:100                                       <span class="token comment"># 从库优先级，哨兵选主时会参考该值</span>
+slave_read_only:1                                        <span class="token comment"># 从库只读</span>
+replica_announced:1                                      <span class="token comment"># 当前 replica 会被正常通告</span>
+connected_slaves:0                                       <span class="token comment"># 当前从库下面没有再挂其他从库</span>
+master_failover_state:no-failover                        <span class="token comment"># 当前没有正在进行故障转移</span>
+master_replid:1467fce583a04419127f0c99dda1f4a0f4c5e8c0
+master_replid2:1cdd22a0fd4fb6b5a7b5c7783e4314f814e9a877
+master_repl_offset:102301
+second_repl_offset:90197
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:15
+repl_backlog_histlen:102287<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>6381 已经上位成为新的 master，而 6380 已经变成它的从库，并且 master_link_status:up 表示主从复制链路正常。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:637<span class="token operator"><span class="token file-descriptor important">9</span>></span> info replication                         <span class="token comment"># 查看 6379 节点的主从复制信息</span>
+Error: Server closed the connection                       <span class="token comment"># Redis 服务端关闭了连接，通常表示当前连接的节点重启或连接中断</span>
+
+not connected<span class="token operator">></span> info replication                           <span class="token comment"># 当前 redis-cli 还没有重新连接成功</span>
+<span class="token comment"># Replication</span>
+role:slave                                                <span class="token comment"># 当前 6379 节点已经变成从节点</span>
+master_host:192.168.10.103                                <span class="token comment"># 当前从属于新的 master，master IP 为 192.168.10.103</span>
+master_port:6381                                          <span class="token comment"># 新 master 的端口是 6381</span>
+master_link_status:up                                     <span class="token comment"># 主从复制链路正常</span>
+master_last_io_seconds_ago:0                              <span class="token comment"># 距离上次和 master 通信过去 0 秒</span>
+master_sync_in_progress:0                                 <span class="token comment"># 当前没有正在进行全量同步</span>
+slave_read_repl_offset:146834                             <span class="token comment"># 从节点已读取的复制偏移量</span>
+slave_repl_offset:146834                                  <span class="token comment"># 从节点当前复制偏移量</span>
+slave_priority:100                                        <span class="token comment"># 从节点优先级，哨兵选主时会参考该值</span>
+slave_read_only:1                                         <span class="token comment"># 从节点只读</span>
+replica_announced:1                                       <span class="token comment"># 当前 replica 会被正常通告</span>
+connected_slaves:0                                        <span class="token comment"># 当前节点下面没有其他从节点</span>
+master_failover_state:no-failover                         <span class="token comment"># 当前没有正在进行故障转移</span>
+master_replid:1467fce583a04419127f0c99dda1f4a0f4c5e8c0     <span class="token comment"># 当前 master 的复制 ID</span>
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:146834                                 <span class="token comment"># 当前 master 的复制偏移量</span>
+second_repl_offset:-1
+repl_backlog_active:1                                     <span class="token comment"># 复制积压缓冲区已开启</span>
+repl_backlog_size:1048576                                 <span class="token comment"># 复制积压缓冲区大小，约 1MB</span>
+repl_backlog_first_byte_offset:128096
+repl_backlog_histlen:18739<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Sentinel 日志：主节点 192.168.10.101:6379 宕机后，哨兵开始故障转移</span>
+
+<span class="token number">3915</span>:X * +sentinel sentinel 75cda70eb27d0f071b1c2f82fe76b2fd7af2efa3 <span class="token number">192.168</span>.10.101 <span class="token number">26381</span> @ mymaster <span class="token number">192.168</span>.10.101 <span class="token number">6379</span>
+<span class="token number">3915</span>:X * Sentinel new configuration saved on disk
+
+<span class="token number">3915</span>:X <span class="token comment"># +sdown master mymaster 192.168.10.101 6379</span>
+<span class="token comment"># sdown：主观下线。当前 Sentinel 认为 master 192.168.10.101:6379 已经不可用。</span>
+
+<span class="token number">3915</span>:X * Sentinel new configuration saved on disk
+<span class="token number">3915</span>:X <span class="token comment"># +new-epoch 1</span>
+<span class="token comment"># 开始新的故障转移纪元 epoch，用于标识一次新的选举 / 故障转移过程。</span>
+
+<span class="token number">3915</span>:X * Sentinel new configuration saved on disk
+
+<span class="token number">3915</span>:X <span class="token comment"># +vote-for-leader 57b67e7ae0dd18f15af247aee7068ebe3c8b027c 1</span>
+<span class="token comment"># Sentinel 投票选举 leader，由 leader 负责执行后续 failover。</span>
+
+<span class="token number">3915</span>:X <span class="token comment"># +odown master mymaster 192.168.10.101 6379 #quorum 2/2</span>
+<span class="token comment"># odown：客观下线。达到 quorum 票数，确认 master 真的下线。</span>
+
+<span class="token number">3915</span>:X <span class="token comment"># Next failover delay: the next failover will not start before the configured retry time</span>
+<span class="token comment"># 设置下一次故障转移的最早时间，避免频繁触发 failover。</span>
+
+<span class="token number">3915</span>:X <span class="token comment"># +config-update-from sentinel 57b67e7ae0dd18f15af247aee7068ebe3c8b027c 192.168.10.101 26380 @ mymaster 192.168.10.101 6379</span>
+<span class="token comment"># 从其他 Sentinel 接收到新的配置更新。</span>
+
+<span class="token number">3915</span>:X <span class="token comment"># +switch-master mymaster 192.168.10.101 6379 192.168.10.103 6381</span>
+<span class="token comment"># 主从切换完成：原 master 是 192.168.10.101:6379，新 master 变为 192.168.10.103:6381。</span>
+
+<span class="token number">3915</span>:X * +slave slave <span class="token number">192.168</span>.10.102:6380 <span class="token number">192.168</span>.10.102 <span class="token number">6380</span> @ mymaster <span class="token number">192.168</span>.10.103 <span class="token number">6381</span>
+<span class="token comment"># 6380 节点成为新 master 6381 的从节点。</span>
+
+<span class="token number">3915</span>:X * +slave slave <span class="token number">192.168</span>.10.101:6379 <span class="token number">192.168</span>.10.101 <span class="token number">6379</span> @ mymaster <span class="token number">192.168</span>.10.103 <span class="token number">6381</span>
+<span class="token comment"># 原来的 master 6379 被记录为新 master 6381 的从节点。</span>
+
+<span class="token number">3915</span>:X * Sentinel new configuration saved on disk
+
+<span class="token number">3915</span>:X <span class="token comment"># +sdown slave 192.168.10.101:6379 192.168.10.101 6379 @ mymaster 192.168.10.103 6381</span>
+<span class="token comment"># 原 master 6379 作为从节点时仍然处于主观下线状态。</span>
+
+<span class="token number">3915</span>:X <span class="token comment"># -sdown slave 192.168.10.101:6379 192.168.10.101 6379 @ mymaster 192.168.10.103 6381</span>
+<span class="token comment"># 6379 节点恢复连接，取消主观下线状态。</span>
+
+<span class="token number">3915</span>:X * +convert-to-slave slave <span class="token number">192.168</span>.10.101:6379 <span class="token number">192.168</span>.10.101 <span class="token number">6379</span> @ mymaster <span class="token number">192.168</span>.10.103 <span class="token number">6381</span>
+<span class="token comment"># 6379 重启恢复后，被转换为新 master 6381 的从节点。</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="8-配置文件会被-Sentinel-改写"><a href="#8-配置文件会被-Sentinel-改写" class="headerlink" title="8. 配置文件会被 Sentinel 改写"></a>8. 配置文件会被 Sentinel 改写</h2><p>Sentinel 运行期间会动态改写自己的配置文件。故障转移后，Redis 主从配置也可能出现变化。</p>
+<p>常见变化：</p>
+<ol>
+<li>Sentinel 配置里的 master 地址变为新 master。</li>
+<li>原 master 恢复后，可能被写入 replicaof 配置。</li>
+<li>replica 指向新 master。</li>
+</ol>
+<p>所以不要把 Sentinel 配置文件当成完全静态文件。它更接近运行态配置快照，排查时要以 Sentinel 当前状态、Redis INFO replication 和配置文件共同判断。</p>
+<p>客户端也不应该硬编码 master 地址。正确做法是通过 Sentinel 客户端协议或命令查询当前 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">sentinel get-master-addr-by-name mymaster<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2 id="9-SDown-主观下线"><a href="#9-SDown-主观下线" class="headerlink" title="9. SDown 主观下线"></a>9. SDown 主观下线</h2><p>SDown，全称 Subjectively Down，表示某一个 Sentinel 从自己的视角判断 Redis 节点不可用。</p>
+<p>触发条件大致是：Sentinel 给 master、replica 或其他 Sentinel 发送 PING，在 down-after-milliseconds 时间内没有收到有效响应，就会主观判断下线。</p>
+<p>配置示例：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">sentinel down-after-milliseconds mymaster 5000<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>可能原因包括：</p>
+<ul>
+<li>Sentinel 收不到 Redis 服务的响应；</li>
+<li>Sentinel 与 Redis 服务之间网络不通；</li>
+<li>Redis 服务没有在规定时间内回复 PING；</li>
+<li>Redis 服务返回了错误响应。</li>
+</ul>
+<p>完整配置格式如下：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf"># sentinel down-after-milliseconds &lt;master-name&gt; &lt;milliseconds&gt;
+# Number of milliseconds the master (or any attached replica or sentinel) should
+# be unreachable, as in, not acceptable reply to PING, continuously, for the
+# specified period in order to consider it in S_DOWN state (Subjectively Down).
+# Default is 30 seconds.
+sentinel down-after-milliseconds mymaster 30000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>主观下线只是单个 Sentinel 的判断，不能直接触发故障转移。它需要通过 Sentinel 之间的消息交换，进一步形成客观下线判断。</p>
+<h2 id="10-ODown-客观下线"><a href="#10-ODown-客观下线" class="headerlink" title="10. ODown 客观下线"></a>10. ODown 客观下线</h2><p>ODown，全称 Objectively Down，表示多个 Sentinel 达成一致，认为 master 确实不可用。它依赖 Sentinel 之间交换故障判断结果，本质上是从“单点视角”升级为“多数视角”。</p>
+<p>sentinel monitor 最后的数字就是 quorum：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">sentinel monitor mymaster 192.168.10.101 6379 2<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这里的 2 表示至少 2 个 Sentinel 同意 master 下线，才会进入客观下线判断。</p>
+<p>需要注意，quorum 用来确认 ODown；真正执行故障转移时，还需要 Sentinel 之间完成 Leader 选举，并获得足够的投票授权。也就是说：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">SDOWN = 单个 Sentinel 的判断
+ODOWN = 达到 quorum 后的下线判断
+failover = ODOWN + Leader election + failover 执行<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="11-Leader-Sentinel-选举"><a href="#11-Leader-Sentinel-选举" class="headerlink" title="11. Leader Sentinel 选举"></a>11. Leader Sentinel 选举</h2><p>当 master 被判定为客观下线后，Sentinel 之间会选举一个 Leader Sentinel 来负责本次故障转移。</p>
+<p>可以理解为：不是所有 Sentinel 同时去切换，而是选一个负责人执行切换流程。</p>
+<p>这个过程使用类似 Raft 的 leader election 思想，但 Sentinel 不是完整的 Raft 实现。每个 Sentinel 在同一个 epoch 中只能投给一个候选者，获得足够票数的 Sentinel 成为 Leader。</p>
+<p>epoch 用来标识一轮故障转移和投票过程，避免多个 Sentinel 在同一轮中重复授权。Leader Sentinel 是一次故障转移的执行者，负责选择新 master、发起晋升，并调整其他 replica 的复制关系。</p>
+<h2 id="12-新-master-如何选择"><a href="#12-新-master-如何选择" class="headerlink" title="12. 新 master 如何选择"></a>12. 新 master 如何选择</h2><p>Leader Sentinel 会在 replica 中选择一个晋升为新 master。</p>
+<p>选择时大致按下面规则排序：</p>
+<ol>
+<li>优先选择 replica-priority 数值更小的 replica，0 表示永久不参与晋升。</li>
+<li>如果优先级相同，选择复制 offset 最大的 replica，说明它同步的数据更多，能够尽量减少故障切换后的数据丢失。</li>
+<li>如果 offset 也相同，选择 runid 字典序更小的 replica。</li>
+</ol>
+<p>配置项：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">replica-priority 100<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果设置为：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">replica-priority 0<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>表示该 replica 不参与晋升。</p>
+<p><img src="https://images.hnbian.cn/new/n-28dae8dc7bdaaa845b2dc2240ec3e4e8.png" alt="新 master 选择规则"></p>
+<h2 id="13-Sentinel-故障转移完整流程"><a href="#13-Sentinel-故障转移完整流程" class="headerlink" title="13. Sentinel 故障转移完整流程"></a>13. Sentinel 故障转移完整流程</h2><p>当 Redis 主节点宕机后，Sentinel 会自动完成故障转移，也就是从原来的从节点中选出一个新的主节点，并重新调整主从关系。</p>
+<p>一次完整的故障转移大致可以分为三步。</p>
+<h3 id="13-1-选出新的-Master"><a href="#13-1-选出新的-Master" class="headerlink" title="13.1 选出新的 Master"></a>13.1 选出新的 Master</h3><p>当 Sentinel 判断原来的 master 已经不可用后，会从多个 replica 中选择一个合适的节点作为新的 master。</p>
+<p>选中之后，Leader Sentinel 会对这个 replica 执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">replicaof no one<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>旧版本命令写法是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">slaveof no one<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这条命令的作用是让当前 replica 取消复制关系，不再作为从节点，而是升级为新的 master。</p>
+<p>这里要注意，replicaof no one 只是让 Redis 节点解除复制关系并具备 master 角色。对外可写还依赖客户端已经发现新 master，并且旧 master 不再继续被写入。</p>
+<p>简单理解：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">原来的从节点不再跟随别人，自己变成新的主节点。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="13-2-让其他从节点复制新的-Master"><a href="#13-2-让其他从节点复制新的-Master" class="headerlink" title="13.2 让其他从节点复制新的 Master"></a>13.2 让其他从节点复制新的 Master</h3><p>新的 master 选出来以后，Sentinel 会重新配置其他 replica，让它们不要再复制旧 master，而是改为复制新的 master。</p>
+<p>执行的命令类似于：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">replicaof new-master-ip new-master-port<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>旧版本命令写法是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">slaveof new-master-ip new-master-port<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>例如新的 master 是 192.168.10.103:6381，那么其他从节点会被重新配置为：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">replicaof <span class="token number">192.168</span>.10.103 <span class="token number">6381</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这样，整个主从结构就会重新恢复成：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">新 master
+   ↓
+其他 replica<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>如果原来存在链式复制，故障转移后复制树也可能被重构。排查时不要只看单个节点角色，要把新 master、所有 replica 和 Sentinel 视角一起核对。</p>
+<h3 id="13-3-旧-Master-恢复后变成-Replica"><a href="#13-3-旧-Master-恢复后变成-Replica" class="headerlink" title="13.3 旧 Master 恢复后变成 Replica"></a>13.3 旧 Master 恢复后变成 Replica</h3><p>如果原来的 master 后续重新启动，Sentinel 不会让它重新抢回 master 角色。</p>
+<p>因为此时集群中已经有了新的 master，所以旧 master 恢复后，会被 Sentinel 自动配置成新 master 的 replica。</p>
+<p>也就是说，旧 master 恢复后会执行类似下面的命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">replicaof new-master-ip new-master-port<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>例如：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">replicaof <span class="token number">192.168</span>.10.103 <span class="token number">6381</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这样旧 master 就会变成新 master 的从节点，继续从新的 master 同步数据。</p>
+<p>在网络分区或旧 master 恢复较慢的场景下，可能短时间出现客户端仍写旧 master、Sentinel 已切到新 master 的风险。这类 split-brain 风险需要靠客户端正确接入 Sentinel、网络隔离策略、min-replicas-to-write 等配置共同降低。</p>
+<h3 id="13-4-流程总结"><a href="#13-4-流程总结" class="headerlink" title="13.4 流程总结"></a>13.4 流程总结</h3><p>Sentinel 故障转移的过程可以简单理解为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">原 master 宕机
+    ↓
+Sentinel 判断主观下线和客观下线
+    ↓
+Sentinel 选举 Leader
+    ↓
+Leader Sentinel 从 replica 中选出新的 master
+    ↓
+让新的 master 执行 replicaof no one
+    ↓
+让其他 replica 复制新的 master
+    ↓
+旧 master 恢复后，也变成新 master 的 replica<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以概括为：Sentinel 故障转移的核心是选新主、重配复制关系、让旧主重新归队。</p>
+<h2 id="14-Sentinel-是否保证数据零丢失"><a href="#14-Sentinel-是否保证数据零丢失" class="headerlink" title="14. Sentinel 是否保证数据零丢失"></a>14. Sentinel 是否保证数据零丢失</h2><p>不保证。</p>
+<p>原因是 Redis 主从复制默认是异步的。master 写入成功但还没同步给 replica 时，如果 master 宕机，这部分数据就可能丢失。</p>
+<p>可以用下面配置降低风险：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">min-replicas-to-write 1
+min-replicas-max-lag 10<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>含义是：master 至少要有 1 个延迟不超过 10 秒的 replica，否则拒绝写入。</p>
+<p>但这仍然不是强一致。min-replicas-to-write 更像写安全门控，只能降低 master 在 replica 不足或延迟过高时继续写入的风险，不能保证所有已确认写入都已经复制完成。</p>
+<p>对于绝对不能丢的数据，Redis 不应该作为唯一事实来源。</p>
+<h2 id="15-Sentinel-部署建议"><a href="#15-Sentinel-部署建议" class="headerlink" title="15. Sentinel 部署建议"></a>15. Sentinel 部署建议</h2><p>生产上建议：</p>
+<ol>
+<li>Sentinel 数量使用奇数，比如 3 或 5。</li>
+<li>Sentinel 分散部署在不同机器或故障域。</li>
+<li>各 Sentinel 配置保持一致。</li>
+<li>Redis 实例和 Sentinel 都要配置认证。</li>
+<li>客户端通过 Sentinel 发现 master，而不是写死 master IP。</li>
+<li>监控 Sentinel 日志和 sentinel masters 状态。</li>
+<li>容器部署时注意端口映射和 announce 地址。</li>
+<li>Redis 6 及以上版本优先规划 ACL 用户，而不是所有组件共用一个密码。</li>
+</ol>
+<p>不建议：</p>
+<ol>
+<li>只部署 1 个 Sentinel。</li>
+<li>3 个 Sentinel 全放在同一台生产机器上。</li>
+<li>业务客户端只连固定 master 地址。</li>
+<li>把 Sentinel 当作数据节点使用。</li>
+</ol>
+<h2 id="16-常用排查命令"><a href="#16-常用排查命令" class="headerlink" title="16. 常用排查命令"></a>16. 常用排查命令</h2><pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 连接 Sentinel</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">26379</span>
+
+<span class="token comment"># 查看 master 列表</span>
+sentinel masters
+
+<span class="token comment"># 查看指定 master</span>
+sentinel master mymaster
+
+<span class="token comment"># 查看 replicas</span>
+sentinel replicas mymaster
+
+<span class="token comment"># 查看其他 sentinels</span>
+sentinel sentinels mymaster
+
+<span class="token comment"># 获取当前 master 地址</span>
+sentinel get-master-addr-by-name mymaster
+
+<span class="token comment"># 查看 Redis 自身复制状态</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6381</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>故障排查时优先看三类信息：</p>
+<ol>
+<li>Sentinel 日志中是否出现 +sdown、+odown、+vote-for-leader、+switch-master。</li>
+<li>sentinel get-master-addr-by-name 返回的 master 是否符合预期。</li>
+<li>Redis 各节点 INFO replication 中角色是否正确。</li>
+<li>Sentinel 是否进入 +tilt 状态。+tilt 通常表示 Sentinel 观察到系统时间跳变或事件循环异常，此时故障判断会变得保守。</li>
+</ol>
+<p>Sentinel 与 Cluster 的边界也要分清：Sentinel 解决的是单 master 复制组的自动故障转移；Cluster 还负责分片、槽位迁移和多 master 横向扩展。</p>
+<h2 id="17-本文小结"><a href="#17-本文小结" class="headerlink" title="17. 本文小结"></a>17. 本文小结</h2><p>Sentinel 是普通主从复制的自动故障转移方案。</p>
+<p>核心结论如下：</p>
+<ol>
+<li>主从复制只负责同步数据，Sentinel 负责监控和故障转移。</li>
+<li>SDown 是单个 Sentinel 的主观判断，ODown 是多个 Sentinel 的客观判断。</li>
+<li>quorum 用于确认客观下线，故障转移还需要选出 Leader Sentinel。</li>
+<li>新 master 优先按 replica priority、复制 offset、runid 选择。</li>
+<li>Sentinel 会动态改写配置文件，sentinel.conf 是运行态配置快照。</li>
+<li>Sentinel + 主从复制不能保证数据零丢失，网络分区下还要关注 split-brain 风险。</li>
+</ol>
+<p>下一篇继续看 Redis Cluster。Cluster 不只是高可用，还解决了单 master 容量有限的问题。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/c40b7e19.html">https://www.hnbian.cn/posts/c40b7e19.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/redis/">
+                                    <span class="chip bg-color">redis</span>
+                                </a>
+                            
+                                <a href="/tags/sentinel/">
+                                    <span class="chip bg-color">sentinel</span>
+                                </a>
+                            
+                                <a href="/tags/high-availability/">
+                                    <span class="chip bg-color">high-availability</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/9ad52c6f.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-3c4ef82f96c210d5517061f5dccc3278.jpg" class="responsive-img" alt="Redis 系列 7. Cluster 集群分片与 Spring Boot 接入">
+                        
+                        <span class="card-title">Redis 系列 7. Cluster 集群分片与 Spring Boot 接入</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2024-10-29
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/cluster/">
+                        <span class="chip bg-color">cluster</span>
+                    </a>
+                    
+                    <a href="/tags/springboot/">
+                        <span class="chip bg-color">springboot</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/f16d8a30.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-8acec5de84a18caec09c2c86f2de946d.jpg" class="responsive-img" alt="Redis 系列 5. 主从复制原理与实践">
+                        
+                        <span class="card-title">Redis 系列 5. 主从复制原理与实践</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2024-10-14
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/replica/">
+                        <span class="chip bg-color">replica</span>
+                    </a>
+                    
+                    <a href="/tags/replication/">
+                        <span class="chip bg-color">replication</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

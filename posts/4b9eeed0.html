@@ -1,0 +1,2223 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="LangChain 系列 2：在 M1 Max 上本地部署 Qwen3-14B MLX 大模型, hnbian">
+    <meta name="description" content="在开始写 LangChain 代码之前，先要准备一个可以稳定调用的大模型。
+如果模型本身还不能正常加载，后面遇到问题时，就很难判断究竟是 LangChain 代码写错了，还是模型、运行环境、网络接口出了问题。因此，本系列先从最底层开始：把模">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>LangChain 系列 2：在 M1 Max 上本地部署 Qwen3-14B MLX 大模型 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-04e6fc857843b3022b4cf238ed46a4f3.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">LangChain 系列 2：在 M1 Max 上本地部署 Qwen3-14B MLX 大模型</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/langchain/">
+                                <span class="chip bg-color">langchain</span>
+                            </a>
+                        
+                            <a href="/tags/langgraph/">
+                                <span class="chip bg-color">langgraph</span>
+                            </a>
+                        
+                            <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">
+                                <span class="chip bg-color">大模型</span>
+                            </a>
+                        
+                            <a href="/tags/qwen/">
+                                <span class="chip bg-color">qwen</span>
+                            </a>
+                        
+                            <a href="/tags/mlx/">
+                                <span class="chip bg-color">mlx</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/langchain/" class="post-category">
+                                langchain
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-11-05
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    5.2k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    21 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>在开始写 LangChain 代码之前，先要准备一个可以稳定调用的大模型。</p>
+<p>如果模型本身还不能正常加载，后面遇到问题时，就很难判断究竟是 LangChain 代码写错了，还是模型、运行环境、网络接口出了问题。因此，本系列先从最底层开始：把模型下载到本地，并确认它可以独立完成一次推理。</p>
+<p>本文使用一台配备 64GB 统一内存的 M1 Max Mac，通过 Python 3.12、ModelScope 和 MLX-LM 部署 Qwen3-14B-AWQ-4bit-MLX。这里不讨论训练、微调和生产服务，只完成本地模型下载、资源检查和推理验证。</p>
+<p>如果还不清楚 LangChain、LangGraph 和 LangSmith 分别解决什么问题，可以先阅读 LangChain 系列 1《先搞懂 LangChain、LangGraph、LangSmith 是什么》。</p>
+<p>整个部署过程可以拆成环境准备、模型下载与检查、加载与推理验证三个阶段：</p>
+<p><img src="https://images.hnbian.cn/new/n-6d389441e2cdf422f3a4e1bcdd1ceb67.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Qwen3-14B MLX 本地部署流程"></p>
+<p>这三个阶段不是只追求“命令没有报错”。最终还要确认模型文件完整、MLX-LM 能够加载、模型可以生成中文，并且资源占用在机器可接受的范围内。</p>
+<h2 id="1-先认识模型社区"><a href="#1-先认识模型社区" class="headerlink" title="1. 先认识模型社区"></a>1. 先认识模型社区</h2><h3 id="1-1-Hugging-Face"><a href="#1-1-Hugging-Face" class="headerlink" title="1.1 Hugging Face"></a>1.1 Hugging Face</h3><p><a target="_blank" rel="noopener" href="https://huggingface.co/">Hugging Face</a> 是常见的开放模型社区。开发者会把模型权重、配置、Tokenizer、数据集、示例代码和模型说明发布到 Hugging Face Hub。</p>
+<p>下载一个模型时，拿到的通常不只是一个权重文件，而是一整个模型仓库。后面会看到，模型目录中除了 .safetensors 权重，还包括 config.json、Tokenizer、聊天模板和生成参数等文件。</p>
+<h3 id="1-2-魔塔社区-ModelScope"><a href="#1-2-魔塔社区-ModelScope" class="headerlink" title="1.2 魔塔社区 ModelScope"></a>1.2 魔塔社区 ModelScope</h3><p><a target="_blank" rel="noopener" href="https://modelscope.cn/">魔塔社区 ModelScope</a> 是国内常用的模型社区和工具链，也提供模型浏览、下载、推理、训练和评测等能力。</p>
+<p>本文使用的模型位于：</p>
+<p><a target="_blank" rel="noopener" href="https://modelscope.cn/models/mlx-community/Qwen3-14B-AWQ-4bit-MLX">mlx-community&#x2F;Qwen3-14B-AWQ-4bit-MLX</a></p>
+<p>选择 ModelScope 不是因为 Hugging Face 不能下载这个模型，而是因为本次课程资料和下载代码都使用 ModelScope，并且在国内网络环境下通常更方便。</p>
+<h2 id="2-为什么选择-Qwen3-14B-AWQ-4bit-MLX"><a href="#2-为什么选择-Qwen3-14B-AWQ-4bit-MLX" class="headerlink" title="2. 为什么选择 Qwen3-14B-AWQ-4bit-MLX"></a>2. 为什么选择 Qwen3-14B-AWQ-4bit-MLX</h2><p>模型 ID 是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">mlx-community/Qwen3-14B-AWQ-4bit-MLX<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这个名称包含了本次选型的几个关键信息。</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen3</td>
+<td>模型系列</td>
+</tr>
+<tr>
+<td>14B</td>
+<td>参数规模约为 140 亿</td>
+</tr>
+<tr>
+<td>AWQ</td>
+<td>一种权重量化方式</td>
+</tr>
+<tr>
+<td>4bit</td>
+<td>模型权重主要按 4bit 保存</td>
+</tr>
+<tr>
+<td>MLX</td>
+<td>已转换为适合 Apple Silicon 使用的 MLX 格式</td>
+</tr>
+</tbody></table>
+<p>选择这个模型主要有三个原因。</p>
+<p>第一，MLX 是面向 Apple Silicon 的数组计算框架。对于 M1、M2、M3、M4 系列 Mac，使用 MLX-LM 加载已经转换好的 MLX 模型，安装和推理过程都比较直接。</p>
+<p>第二，4bit 量化可以显著降低模型权重占用。14B 模型如果使用 FP16 或 BF16，单是权重的理论体积就接近 28GB；使用 4bit 后，理论体积约为 7GB，更适合本地学习和单用户推理。</p>
+<p>第三，14B 在模型能力和本地资源之间比较均衡。更小的模型占用更低，但中文问答、代码解释和后续 Agent 实验能力也会下降；更大的模型可能有更强的能力，但加载、上下文和并发会占用更多统一内存。</p>
+<h2 id="3-部署前估算资源"><a href="#3-部署前估算资源" class="headerlink" title="3. 部署前估算资源"></a>3. 部署前估算资源</h2><p>下载模型之前，需要先判断机器能不能运行它。</p>
+<p>课程中使用过 LLaMA Factory 的显存估算工具。没有拿到课程页面中的确切地址时，也可以使用 <a target="_blank" rel="noopener" href="https://apxml.com/tools/vram-calculator">ApX VRAM Calculator</a> 做同类估算。不过在线计算器只能给出部署前的参考值，最终仍然要看本机运行日志和活动监视器。</p>
+<h3 id="3-1-模型权重的粗略计算"><a href="#3-1-模型权重的粗略计算" class="headerlink" title="3.1 模型权重的粗略计算"></a>3.1 模型权重的粗略计算</h3><p>最基础的计算公式是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">模型权重大小 ≈ 参数量 × 每个参数占用的字节数<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>常见精度可以这样估算：</p>
+<table>
+<thead>
+<tr>
+<th>精度</th>
+<th align="right">每个参数约占用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>FP32</td>
+<td align="right">4 字节</td>
+</tr>
+<tr>
+<td>FP16 &#x2F; BF16</td>
+<td align="right">2 字节</td>
+</tr>
+<tr>
+<td>INT8</td>
+<td align="right">1 字节</td>
+</tr>
+<tr>
+<td>4bit</td>
+<td align="right">0.5 字节</td>
+</tr>
+</tbody></table>
+<p>因此，Qwen3-14B 4bit 的理论权重大小约为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">14B × 0.5 byte ≈ 7GB<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="3-2-运行内存不等于模型文件大小"><a href="#3-2-运行内存不等于模型文件大小" class="headerlink" title="3.2 运行内存不等于模型文件大小"></a>3.2 运行内存不等于模型文件大小</h3><p>7GB 只是权重的粗略下限。模型运行时还需要考虑：</p>
+<table>
+<thead>
+<tr>
+<th>资源</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>量化元数据</td>
+<td>保存 scale、bias 等量化信息</td>
+</tr>
+<tr>
+<td>KV Cache</td>
+<td>保存上下文计算结果，上下文越长，占用越高</td>
+</tr>
+<tr>
+<td>Tokenizer</td>
+<td>负责文本编码和解码</td>
+</tr>
+<tr>
+<td>MLX 与 Python 运行时</td>
+<td>加载代码、张量和中间计算结果</td>
+</tr>
+<tr>
+<td>batch 与并发</td>
+<td>同时处理的请求越多，占用越高</td>
+</tr>
+<tr>
+<td>macOS 系统占用</td>
+<td>系统进程与模型共享统一内存</td>
+</tr>
+</tbody></table>
+<p>Apple Silicon 使用统一内存，因此不能简单地把 64GB 全部当成模型可用“显存”。操作系统、应用程序、模型权重和运行时缓存都使用同一块内存。</p>
+<p>统一内存的组成可以这样理解：</p>
+<p><img src="https://images.hnbian.cn/new/n-ffbc2e1146b93334ef6114e58433ca62.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地推理的统一内存组成"></p>
+<p>图中各项不是固定比例。上下文越长、batch 越大、并发请求越多，KV Cache 和运行时开销通常越高，因此目录大小只能用于部署前粗估，不能替代运行时观察。</p>
+<p>本次模型目录实测为 7.8G，MLX-LM 生成日志中的 Peak memory 为 8.522 GB。这个指标反映 MLX 运行过程中的峰值内存，不等于整台 Mac 的总统一内存占用；判断系统压力时还要结合活动监视器和 vm_stat。对 M1 Max 64GB 来说，本次单用户推理有较充足的余量，但这不代表可以无限增加上下文和并发。</p>
+<h2 id="4-项目目录"><a href="#4-项目目录" class="headerlink" title="4. 项目目录"></a>4. 项目目录</h2><p>学习代码统一放在：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">~/Documents/git/blog/source/_posts/llm_learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>第一阶段目录结构如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm_learning/
+├── .venv/
+├── model -> /Users/bianhn/Documents/git/llm/qwen3/model
+├── requirements.txt
+└── langchain/
+    └── p02_local_models/
+        ├── 01_download_model.py
+        ├── 02_test_generate.py
+        ├── README.md
+        └── requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>代码位于 langchain&#x2F;p02_local_models&#x2F;，模型入口放在项目根目录的 model&#x2F;。后续 LangChain、LangGraph 和 LangSmith 的代码都可以复用同一份模型，不需要每个阶段复制一份 7.8GB 的权重。</p>
+<p>本机的 model 是一个符号链接：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm_learning/model -> /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这表示代码访问的是 llm_learning&#x2F;model，模型文件实际仍保存在 &#x2F;Users&#x2F;bianhn&#x2F;Documents&#x2F;git&#x2F;llm&#x2F;qwen3&#x2F;model。如果是第一次部署，没有这个符号链接也没关系，下载脚本会直接创建 llm_learning&#x2F;model&#x2F; 目录。</p>
+<h2 id="5-使用-Python-3-12-创建虚拟环境"><a href="#5-使用-Python-3-12-创建虚拟环境" class="headerlink" title="5. 使用 Python 3.12 创建虚拟环境"></a>5. 使用 Python 3.12 创建虚拟环境</h2><p>进入项目目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>明确使用 Python 3.12 创建同名虚拟环境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3.12 <span class="token punctuation">\</span>
+  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm_learning .venv<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>激活虚拟环境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv/bin/activate<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>检查 Python 版本和解释器位置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-V</span>
+<span class="token function">which</span> python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>本机输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Python 3.12.11
+/Users/bianhn/Documents/git/blog/source/_posts/llm_learning/.venv/bin/python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>必须检查 which python。只看终端前面的环境名称并不可靠，尤其是在 Conda 的 (base) 环境中再次激活 venv 时，要以解释器实际路径为准。</p>
+<h2 id="6-安装并锁定依赖"><a href="#6-安装并锁定依赖" class="headerlink" title="6. 安装并锁定依赖"></a>6. 安装并锁定依赖</h2><p>先升级 pip：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-U</span> pip<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>第一阶段的 requirements.txt 内容如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">mlx-lm==0.28.3
+mlx==0.29.3
+modelscope==1.31.0
+transformers==4.57.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>安装依赖：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> langchain/p02_local_models/requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>安装完成后，使用包元数据检查真实版本：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python - <span class="token operator">&lt;&lt;</span><span class="token string">'PY'
+from importlib.metadata import version
+import platform
+import sys
+
+# 检查当前 Python，避免依赖被装到其他环境。
+print("python", platform.python_version())
+print("executable", sys.executable)
+# mlx 没有稳定的 __version__ 属性，使用包元数据读取版本。
+for package in ["mlx", "mlx-lm", "modelscope", "transformers"]:
+    print(package, version(package))
+PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本机输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">python 3.12.11
+executable /Users/bianhn/Documents/git/blog/source/_posts/llm_learning/.venv/bin/python
+mlx 0.29.3
+mlx-lm 0.28.3
+modelscope 1.31.0
+transformers 4.57.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一篇只安装本地推理需要的组件。LangChain、LangGraph 等依赖放到后续阶段安装，这样出现问题时更容易判断是模型环境还是应用框架造成的。</p>
+<h2 id="7-使用-ModelScope-下载模型"><a href="#7-使用-ModelScope-下载模型" class="headerlink" title="7. 使用 ModelScope 下载模型"></a>7. 使用 ModelScope 下载模型</h2><p>下载脚本是 langchain&#x2F;p02_local_models&#x2F;01_download_model.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+<span class="token keyword">import</span> shutil
+<span class="token keyword">import</span> sys
+<span class="token keyword">import</span> time
+
+<span class="token keyword">from</span> modelscope <span class="token keyword">import</span> snapshot_download
+
+
+<span class="token comment"># 固定模型 ID，避免后续脚本误下载到原始 FP16/BF16 或其他量化版本。</span>
+MODEL_ID <span class="token operator">=</span> <span class="token string">"mlx-community/Qwen3-14B-AWQ-4bit-MLX"</span>
+MODEL_REVISION <span class="token operator">=</span> <span class="token string">"67a0161a28eb07263a862fa6b3a63fcd84b55c14"</span>
+<span class="token comment"># 当前脚本位于 llm_learning/langchain/p02_local_models/ 下。</span>
+<span class="token comment"># parents[2] 就是 llm_learning 项目根目录，模型统一放在根目录的 model/。</span>
+ROOT_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"model"</span>
+
+<span class="token comment"># 4bit 权重约 7-8GB，但下载临时文件、缓存和日志也要占空间。</span>
+<span class="token comment"># 这里预留 25GB，磁盘不足时提前失败，比下载到一半报错更容易排查。</span>
+MIN_FREE_GB <span class="token operator">=</span> <span class="token number">25</span>
+
+
+<span class="token keyword">def</span> <span class="token function">free_gb</span><span class="token punctuation">(</span>path<span class="token punctuation">:</span> Path<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">float</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""返回指定目录所在磁盘的剩余空间，单位为 GiB。"""</span>
+    usage <span class="token operator">=</span> shutil<span class="token punctuation">.</span>disk_usage<span class="token punctuation">(</span>path<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> usage<span class="token punctuation">.</span>free <span class="token operator">/</span> <span class="token number">1024</span><span class="token operator">**</span><span class="token number">3</span>
+
+
+<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">int</span><span class="token punctuation">:</span>
+    <span class="token comment"># 模型放在项目根目录，后续 LangChain、LangGraph 等代码都可以共用这一份模型。</span>
+    ROOT_DIR<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    MODEL_DIR<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+    available <span class="token operator">=</span> free_gb<span class="token punctuation">(</span>ROOT_DIR<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Target directory: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>ROOT_DIR<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model directory:  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MODEL_DIR<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model ID:         </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MODEL_ID<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model revision:   </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MODEL_REVISION<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Free disk:        </span><span class="token interpolation"><span class="token punctuation">&#123;</span>available<span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">&#125;</span></span><span class="token string"> GiB"</span></span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> available <span class="token operator">&lt;</span> MIN_FREE_GB<span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>
+            <span class="token string-interpolation"><span class="token string">f"ERROR: free disk is lower than </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MIN_FREE_GB<span class="token punctuation">&#125;</span></span><span class="token string"> GiB. "</span></span>
+            <span class="token string">"Clean disk space before downloading the model."</span><span class="token punctuation">,</span>
+            <span class="token builtin">file</span><span class="token operator">=</span>sys<span class="token punctuation">.</span>stderr<span class="token punctuation">,</span>
+        <span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token number">2</span>
+
+    started <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+    <span class="token comment"># snapshot_download 会把模型仓库文件下载到本地目录。</span>
+    <span class="token comment"># 如果中途网络中断，保留同一个 MODEL_DIR 后重新运行，通常可以复用已下载内容。</span>
+    model_dir <span class="token operator">=</span> snapshot_download<span class="token punctuation">(</span>
+        model_id<span class="token operator">=</span>MODEL_ID<span class="token punctuation">,</span>
+        revision<span class="token operator">=</span>MODEL_REVISION<span class="token punctuation">,</span>
+        local_dir<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_DIR<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    elapsed <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> started
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Downloaded to:    </span><span class="token interpolation"><span class="token punctuation">&#123;</span>model_dir<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Elapsed seconds:  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>elapsed<span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Top-level files:"</span><span class="token punctuation">)</span>
+
+    <span class="token comment"># 下载后列出顶层文件，便于确认 safetensors、tokenizer、config 是否齐全。</span>
+    <span class="token keyword">for</span> item <span class="token keyword">in</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span>MODEL_DIR<span class="token punctuation">.</span>iterdir<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>item<span class="token punctuation">.</span>name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token number">0</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    <span class="token comment"># 用退出码表达下载结果，方便 shell、日志和后续自动化判断是否成功。</span>
+    <span class="token keyword">raise</span> SystemExit<span class="token punctuation">(</span>main<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行脚本：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
+<span class="token builtin class-name">source</span> .venv/bin/activate
+python langchain/p02_local_models/01_download_model.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>初次下载时，ModelScope SDK 共下载 15 个顶层文件，其中最耗时的是两个 .safetensors 权重分片。本次初次下载日志为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Downloading: 100%|██████████| 15/15 [49:12&lt;00:00, 196.86s/file]
+Downloaded to:    /Users/bianhn/Documents/git/llm/qwen3/model
+Elapsed seconds:  2956.4<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>初次下载约 49 分钟。实际时间会受到网络速度、ModelScope 服务状态和磁盘写入速度影响，不能把这个数据当成固定值。</p>
+<h2 id="8-模型目录中的-15-个文件"><a href="#8-模型目录中的-15-个文件" class="headerlink" title="8. 模型目录中的 15 个文件"></a>8. 模型目录中的 15 个文件</h2><p>下载完成后，可以先确认顶层文件数量：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">find</span> <span class="token parameter variable">-L</span> model <span class="token parameter variable">-maxdepth</span> <span class="token number">1</span> <span class="token parameter variable">-type</span> f <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-l</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本机输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">15<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这 15 个文件的内容和作用如下。</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th align="right">实测大小</th>
+<th>内容与作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>.gitattributes</td>
+<td align="right">2.2K</td>
+<td>Git LFS 和仓库文件属性配置。它不参与推理，但记录了模型仓库中的大文件应如何管理。</td>
+</tr>
+<tr>
+<td>README.md</td>
+<td align="right">830B</td>
+<td>模型仓库说明，通常记录模型来源、转换方式和基础用法。它不是推理必需文件。</td>
+</tr>
+<tr>
+<td>added_tokens.json</td>
+<td align="right">707B</td>
+<td>额外 token 与 token id 的映射，包括聊天、thinking 和工具调用可能使用的特殊 token。</td>
+</tr>
+<tr>
+<td>chat_template.jinja</td>
+<td align="right">4.6K</td>
+<td>聊天模板。它负责把 system、user、assistant 消息转换成模型真正接收的 prompt。</td>
+</tr>
+<tr>
+<td>config.json</td>
+<td align="right">80K</td>
+<td>模型主体配置，包括网络结构、层数、注意力头、上下文长度和量化参数等。</td>
+</tr>
+<tr>
+<td>configuration.json</td>
+<td align="right">73B</td>
+<td>ModelScope 平台使用的任务和框架元信息。</td>
+</tr>
+<tr>
+<td>generation_config.json</td>
+<td align="right">237B</td>
+<td>默认生成参数，例如 temperature、top_p、top_k 和结束 token。</td>
+</tr>
+<tr>
+<td>merges.txt</td>
+<td align="right">1.6M</td>
+<td>BPE Tokenizer 的子词合并规则，与 vocab.json 一起决定文本怎样被切成 token。</td>
+</tr>
+<tr>
+<td>model-00001-of-00002.safetensors</td>
+<td align="right">5.0G</td>
+<td>第一个模型权重分片，保存量化后的模型张量。</td>
+</tr>
+<tr>
+<td>model-00002-of-00002.safetensors</td>
+<td align="right">2.8G</td>
+<td>第二个模型权重分片。两个分片合在一起才是完整权重。</td>
+</tr>
+<tr>
+<td>model.safetensors.index.json</td>
+<td align="right">84K</td>
+<td>权重索引，记录每个张量位于哪个 .safetensors 分片中。</td>
+</tr>
+<tr>
+<td>special_tokens_map.json</td>
+<td align="right">614B</td>
+<td>定义结束符、填充符、聊天边界等特殊 token 的语义。</td>
+</tr>
+<tr>
+<td>tokenizer.json</td>
+<td align="right">11M</td>
+<td>Tokenizer 的完整序列化文件，负责把文本编码为 token，并把输出 token 解码为文本。</td>
+</tr>
+<tr>
+<td>tokenizer_config.json</td>
+<td align="right">5.3K</td>
+<td>Tokenizer 配置，记录特殊 token、解码规则和聊天模板相关设置。</td>
+</tr>
+<tr>
+<td>vocab.json</td>
+<td align="right">2.6M</td>
+<td>Tokenizer 词表，记录 token 字符串与 token id 的对应关系。</td>
+</tr>
+</tbody></table>
+<p>可以把它们简单分成四类：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>主要文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型权重</td>
+<td>model-*.safetensors</td>
+<td>保存模型参数</td>
+</tr>
+<tr>
+<td>模型结构</td>
+<td>config.json、权重索引</td>
+<td>告诉 MLX-LM 怎样构建并加载模型</td>
+</tr>
+<tr>
+<td>文本处理</td>
+<td>tokenizer*、vocab.json、merges.txt</td>
+<td>在文本和 token 之间转换</td>
+</tr>
+<tr>
+<td>对话与生成</td>
+<td>chat_template.jinja、generation_config.json</td>
+<td>组织聊天格式和默认生成参数</td>
+</tr>
+</tbody></table>
+<p>只看到两个大权重文件并不代表模型目录完整。缺少配置、索引或 Tokenizer 文件时，模型仍然可能无法加载。</p>
+<h2 id="9-使用-MLX-LM-测试模型"><a href="#9-使用-MLX-LM-测试模型" class="headerlink" title="9. 使用 MLX-LM 测试模型"></a>9. 使用 MLX-LM 测试模型</h2><p>测试脚本是 langchain&#x2F;p02_local_models&#x2F;02_test_generate.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+<span class="token keyword">import</span> subprocess
+<span class="token keyword">import</span> time
+
+<span class="token keyword">from</span> mlx_lm <span class="token keyword">import</span> generate<span class="token punctuation">,</span> load
+
+
+<span class="token comment"># 当前脚本位于 llm_learning/langchain/p02_local_models/ 下。</span>
+<span class="token comment"># 使用项目根目录的 model/，不再依赖旧的 p02_local_models/model 路径。</span>
+ROOT_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"model"</span>
+
+
+<span class="token keyword">def</span> <span class="token function">run</span><span class="token punctuation">(</span>command<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""执行系统命令并返回输出，这里只用于记录 du/vm_stat 等资源信息。"""</span>
+    result <span class="token operator">=</span> subprocess<span class="token punctuation">.</span>run<span class="token punctuation">(</span>command<span class="token punctuation">,</span> check<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> text<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> capture_output<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span>result<span class="token punctuation">.</span>stdout <span class="token keyword">or</span> result<span class="token punctuation">.</span>stderr<span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> MODEL_DIR<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">raise</span> FileNotFoundError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model directory does not exist: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MODEL_DIR<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+    model_size_path <span class="token operator">=</span> MODEL_DIR<span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">if</span> MODEL_DIR<span class="token punctuation">.</span>is_symlink<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> MODEL_DIR
+
+    <span class="token comment"># 先记录模型目录大小和加载前内存状态，方便和生成后的资源占用对比。</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model directory: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>MODEL_DIR<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> MODEL_DIR<span class="token punctuation">.</span>is_symlink<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model target: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>model_size_path<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model size: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>run<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'du'</span><span class="token punctuation">,</span> <span class="token string">'-sh'</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">(</span>model_size_path<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"vm_stat before loading:"</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>run<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"vm_stat"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    started <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+    <span class="token comment"># load 会读取 MLX 权重和 tokenizer；如果模型文件不完整，通常会在这里暴露问题。</span>
+    model<span class="token punctuation">,</span> tokenizer <span class="token operator">=</span> load<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_DIR<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    load_elapsed <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> started
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model load elapsed seconds: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>load_elapsed<span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+    messages <span class="token operator">=</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"system"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"你是一个本地运行的中文技术助手。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请用三句话说明什么是大语言模型本地部署。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">]</span>
+
+    prompt <span class="token operator">=</span> tokenizer<span class="token punctuation">.</span>apply_chat_template<span class="token punctuation">(</span>
+        messages<span class="token punctuation">,</span>
+        tokenize<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+        add_generation_prompt<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+
+        <span class="token comment"># Qwen3 默认可能先输出 &lt;think> 思考过程。</span>
+        <span class="token comment"># 连通性测试更关心模型能否快速返回答案，所以这里关闭 thinking。</span>
+        enable_thinking<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+
+    generate_started <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    response <span class="token operator">=</span> generate<span class="token punctuation">(</span>
+        model<span class="token punctuation">,</span>
+        tokenizer<span class="token punctuation">,</span>
+        prompt<span class="token operator">=</span>prompt<span class="token punctuation">,</span>
+
+        <span class="token comment"># 这里限制输出长度，避免测试脚本因为长回答占用过多时间和内存。</span>
+        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+
+        <span class="token comment"># verbose=True 会打印 token 数、生成速度和 peak memory，是本次验证的关键指标。</span>
+        verbose<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    generate_elapsed <span class="token operator">=</span> time<span class="token punctuation">.</span>time<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> generate_started
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"\nGenerated response:"</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>response<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\nGenerate elapsed seconds: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>generate_elapsed<span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"vm_stat after generation:"</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>run<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"vm_stat"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    main<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行测试：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
+<span class="token builtin class-name">source</span> .venv/bin/activate
+python langchain/p02_local_models/02_test_generate.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>本次重新运行后的关键输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Model directory: /Users/bianhn/Documents/git/blog/source/_posts/llm_learning/model
+Model target: /Users/bianhn/Documents/git/llm/qwen3/model
+Model size: 7.8G  /Users/bianhn/Documents/git/llm/qwen3/model
+Model load elapsed seconds: 4.3
+Prompt: 38 tokens, 30.039 tokens-per-sec
+Generation: 64 tokens, 33.326 tokens-per-sec
+Peak memory: 8.522 GB
+Generate elapsed seconds: 4.8<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>模型实际回答：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">大语言模型本地部署是指将大型语言模型安装在本地服务器或个人计算机上，而非依赖云端服务。这种方式可以提高数据处理的隐私性和响应速度，同时减少对外部网络的依赖。本地部署通常需要较高的硬件配置，如高性能GPU或TPU来支持模型的运行。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>回答中关于 GPU、TPU 的表述比较笼统。本文实际使用的是 Apple Silicon 的 GPU、统一内存和 MLX，并不是 CUDA GPU。不过这次测试的目的不是评估回答质量，而是确认模型文件完整、MLX-LM 可以加载模型，并且模型能够生成中文内容。</p>
+<p>到这里可以确认：模型目录可访问、15 个文件可以被正确读取、MLX-LM 能够加载权重，Tokenizer 和聊天模板也能正常工作。</p>
+<p>加载耗时和生成速度会随着机器负载、系统缓存、提示词长度和输出长度变化，因此文章记录的是本次实测值，不是性能保证。</p>
+<h2 id="10-怎样观察资源占用"><a href="#10-怎样观察资源占用" class="headerlink" title="10. 怎样观察资源占用"></a>10. 怎样观察资源占用</h2><h3 id="10-1-检查模型文件大小"><a href="#10-1-检查模型文件大小" class="headerlink" title="10.1 检查模型文件大小"></a>10.1 检查模型文件大小</h3><p>项目使用符号链接，所以检查真实目标目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">du</span> <span class="token parameter variable">-sh</span> /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">7.8G    /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="10-2-查看系统内存"><a href="#10-2-查看系统内存" class="headerlink" title="10.2 查看系统内存"></a>10.2 查看系统内存</h3><p>可以在另一个终端执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">vm_stat
+<span class="token function">top</span> <span class="token parameter variable">-o</span> mem
+<span class="token function">ps</span> aux <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">'[p]ython'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>也可以直接打开 macOS 的“活动监视器”，观察：</p>
+<ol>
+<li>内存压力是否变成黄色或红色。</li>
+<li>Python 进程占用了多少内存。</li>
+<li>Swap 使用量是否持续增加。</li>
+<li>生成结束后内存是否能够回收。</li>
+</ol>
+<p>vm_stat 中的 Swapins、Swapouts 是系统启动以来的累计计数，不能只看到非零值就判断本次推理正在大量使用 Swap。判断当前状态时，应结合活动监视器中的内存压力和 Swap 使用量。</p>
+<h2 id="11-本次遇到的问题"><a href="#11-本次遇到的问题" class="headerlink" title="11. 本次遇到的问题"></a>11. 本次遇到的问题</h2><h3 id="11-1-系统-python3-不是-Python-3-12"><a href="#11-1-系统-python3-不是-Python-3-12" class="headerlink" title="11.1 系统 python3 不是 Python 3.12"></a>11.1 系统 python3 不是 Python 3.12</h3><p>第一次直接执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3 <span class="token parameter variable">-m</span> venv .venv<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>创建出来的是 Python 3.9 环境，并出现了 urllib3 与 LibreSSL 相关警告。</p>
+<p>解决方法是删除错误环境，然后明确使用 Python 3.12：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> .venv
+python3.12 <span class="token punctuation">\</span>
+  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm_learning .venv
+<span class="token builtin class-name">source</span> .venv/bin/activate
+python <span class="token parameter variable">-V</span>
+<span class="token function">which</span> python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="11-2-未固定版本导致依赖组合发生变化"><a href="#11-2-未固定版本导致依赖组合发生变化" class="headerlink" title="11.2 未固定版本导致依赖组合发生变化"></a>11.2 未固定版本导致依赖组合发生变化</h3><p>直接执行不带版本约束的安装命令，会随着软件仓库更新而得到不同依赖组合。为了让本文环境可以复现，应使用项目锁定并经过实测的固定版本：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> --force-reinstall <span class="token punctuation">\</span>
+  <span class="token string">'mlx-lm==0.28.3'</span> <span class="token punctuation">\</span>
+  <span class="token string">'mlx==0.29.3'</span> <span class="token punctuation">\</span>
+  <span class="token string">'modelscope==1.31.0'</span> <span class="token punctuation">\</span>
+  <span class="token string">'transformers==4.57.1'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因此，后续复现应优先使用仓库中的 requirements.txt，不要无条件升级所有依赖。</p>
+<h3 id="11-3-ModelScope-大文件下载中断"><a href="#11-3-ModelScope-大文件下载中断" class="headerlink" title="11.3 ModelScope 大文件下载中断"></a>11.3 ModelScope 大文件下载中断</h3><p>下载两个权重分片时出现过网络中断和 SSL 抖动：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">IncompleteRead(...), will retry
+SSLError(1, '[SSL: WRONG_VERSION_NUMBER] wrong version number'), will retry<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>处理时不要删除已经下载的 model&#x2F;，也不要临时更换下载目录。先让 ModelScope SDK 自动重试；如果脚本最终退出，再使用相同模型 ID 和相同目录重新运行，避免重新下载已有文件。</p>
+<h3 id="11-4-Qwen3-的-thinking-占满输出长度"><a href="#11-4-Qwen3-的-thinking-占满输出长度" class="headerlink" title="11.4 Qwen3 的 thinking 占满输出长度"></a>11.4 Qwen3 的 thinking 占满输出长度</h3><p>第一次测试没有关闭 thinking，模型先生成较长的 <think>…</think>。当 max_tokens&#x3D;256 时，思考内容可能占满输出长度，真正回答反而被截断。</p>
+<p>本文只是做连通性测试，因此在聊天模板中设置：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">enable_thinking<span class="token operator">=</span><span class="token boolean">False</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这不会改变模型文件，只影响本次 prompt 的聊天模板。后续确实需要观察推理过程时，可以再开启 thinking，并相应提高 max_tokens。</p>
+<h3 id="11-5-移动项目后找不到模型"><a href="#11-5-移动项目后找不到模型" class="headerlink" title="11.5 移动项目后找不到模型"></a>11.5 移动项目后找不到模型</h3><p>模型文件很大，不适合随着每个学习目录复制。项目通过根目录的 model 符号链接复用原来的权重：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-ld</span> model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果链接失效，可以重新创建：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> model
+<span class="token function">ln</span> <span class="token parameter variable">-s</span> /Users/bianhn/Documents/git/llm/qwen3/model model<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果不是符号链接，而是正常的 model&#x2F; 目录，不要执行 rm model。先用 ls -ld model 确认第一个字符是 l，再处理链接。</p>
+<h3 id="11-6-mx-metal-device-info-弃用警告"><a href="#11-6-mx-metal-device-info-弃用警告" class="headerlink" title="11.6 mx.metal.device_info 弃用警告"></a>11.6 mx.metal.device_info 弃用警告</h3><p>运行时可能看到：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">mx.metal.device_info is deprecated and will be removed in a future version.
+Use mx.device_info instead.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这是 MLX-LM 内部调用产生的弃用警告，不会阻止当前模型加载和生成。只要后面仍然有正常回答、生成速度和峰值内存日志，就不需要为了这个警告修改业务代码。</p>
+<h2 id="12-小结"><a href="#12-小结" class="headerlink" title="12. 小结"></a>12. 小结</h2><p>这次部署完成了四件事：</p>
+<ol>
+<li>使用 Python 3.12 创建独立的 llm_learning 虚拟环境。</li>
+<li>使用 ModelScope 下载 Qwen3-14B-AWQ-4bit-MLX 的 15 个模型文件。</li>
+<li>使用 MLX-LM 直接加载本地模型并生成中文回答。</li>
+<li>记录模型大小、加载时间、生成速度、峰值内存和实际报错处理过程。</li>
+</ol>
+<p>对于 M1 Max 64GB，14B MLX 4bit 模型能够在保留较多系统余量的情况下完成本地单用户推理。这里验证的是“模型本身可以工作”。下一篇再把它启动为 OpenAI 兼容服务，分别使用 OpenAI Python SDK 和 LangChain 进行调用。</p>
+<h2 id="13-最终部署结果"><a href="#13-最终部署结果" class="headerlink" title="13. 最终部署结果"></a>13. 最终部署结果</h2><p>完成环境安装、模型下载和推理测试后，将本次实际部署数据整理如下。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>实测结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>机器</td>
+<td>Apple M1 Max，64GB 统一内存</td>
+</tr>
+<tr>
+<td>系统</td>
+<td>macOS 15，arm64</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.12.11</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>mlx-community&#x2F;Qwen3-14B-AWQ-4bit-MLX</td>
+</tr>
+<tr>
+<td>模型格式</td>
+<td>MLX，AWQ 4bit 量化</td>
+</tr>
+<tr>
+<td>模型目录大小</td>
+<td>7.8G</td>
+</tr>
+<tr>
+<td>模型文件数量</td>
+<td>15 个顶层文件</td>
+</tr>
+<tr>
+<td>初次下载耗时</td>
+<td>2956.4 秒，约 49 分钟</td>
+</tr>
+<tr>
+<td>MLX-LM</td>
+<td>0.28.3</td>
+</tr>
+<tr>
+<td>MLX</td>
+<td>0.29.3</td>
+</tr>
+<tr>
+<td>ModelScope</td>
+<td>1.31.0</td>
+</tr>
+<tr>
+<td>transformers</td>
+<td>4.57.1</td>
+</tr>
+<tr>
+<td>本次复测加载耗时</td>
+<td>4.3 秒</td>
+</tr>
+<tr>
+<td>本次复测生成速度</td>
+<td>33.326 tokens&#x2F;s</td>
+</tr>
+<tr>
+<td>本次复测 MLX-LM Peak memory</td>
+<td>8.522 GB</td>
+</tr>
+</tbody></table>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/4b9eeed0.html">https://www.hnbian.cn/posts/4b9eeed0.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/langchain/">
+                                    <span class="chip bg-color">langchain</span>
+                                </a>
+                            
+                                <a href="/tags/langgraph/">
+                                    <span class="chip bg-color">langgraph</span>
+                                </a>
+                            
+                                <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">
+                                    <span class="chip bg-color">大模型</span>
+                                </a>
+                            
+                                <a href="/tags/qwen/">
+                                    <span class="chip bg-color">qwen</span>
+                                </a>
+                            
+                                <a href="/tags/mlx/">
+                                    <span class="chip bg-color">mlx</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/8927fa0f.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-a484fa4f0389a4a01c8268bb6c0e62b1.jpg" class="responsive-img" alt="LangChain 系列 3：用 OpenAI 兼容接口连接本地 Qwen3 LLM">
+                        
+                        <span class="card-title">LangChain 系列 3：用 OpenAI 兼容接口连接本地 Qwen3 LLM</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-11-09
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langchain/" class="post-category">
+                                    langchain
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/qwen/">
+                        <span class="chip bg-color">qwen</span>
+                    </a>
+                    
+                    <a href="/tags/mlx/">
+                        <span class="chip bg-color">mlx</span>
+                    </a>
+                    
+                    <a href="/tags/openai/">
+                        <span class="chip bg-color">openai</span>
+                    </a>
+                    
+                    <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/">
+                        <span class="chip bg-color">本地大模型</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/21697cbf.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-0797b481d0b2470f33c120cbd531e96e.jpg" class="responsive-img" alt="LangChain 系列 1：先搞懂 LangChain、LangGraph、LangSmith 是什么">
+                        
+                        <span class="card-title">LangChain 系列 1：先搞懂 LangChain、LangGraph、LangSmith 是什么</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-11-01
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langchain/" class="post-category">
+                                    langchain
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/langgraph/">
+                        <span class="chip bg-color">langgraph</span>
+                    </a>
+                    
+                    <a href="/tags/langsmith/">
+                        <span class="chip bg-color">langsmith</span>
+                    </a>
+                    
+                    <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">
+                        <span class="chip bg-color">大模型</span>
+                    </a>
+                    
+                    <a href="/tags/agent/">
+                        <span class="chip bg-color">agent</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

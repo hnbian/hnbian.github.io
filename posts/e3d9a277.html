@@ -1,0 +1,2082 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="RAG 系列 2：本地部署 Qwen3 Embedding 并接入 LangChain, hnbian">
+    <meta name="description" content="上一篇介绍了向量、One-Hot 和余弦相似度，但使用的都是手工设置的二维向量。
+本文开始使用真正的 Embedding 模型。我们会在 M1 Max 上下载 Qwen&amp;#x2F;Qwen3-Embedding-0.6B，使用 Senten">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>RAG 系列 2：本地部署 Qwen3 Embedding 并接入 LangChain | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-5b9849e8e791c02306639c37ecd38e3e.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">RAG 系列 2：本地部署 Qwen3 Embedding 并接入 LangChain</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/langchain/">
+                                <span class="chip bg-color">langchain</span>
+                            </a>
+                        
+                            <a href="/tags/rag/">
+                                <span class="chip bg-color">rag</span>
+                            </a>
+                        
+                            <a href="/tags/embeddings/">
+                                <span class="chip bg-color">embeddings</span>
+                            </a>
+                        
+                            <a href="/tags/qwen3/">
+                                <span class="chip bg-color">qwen3</span>
+                            </a>
+                        
+                            <a href="/tags/sentence-transformers/">
+                                <span class="chip bg-color">sentence-transformers</span>
+                            </a>
+                        
+                            <a href="/tags/apple-silicon/">
+                                <span class="chip bg-color">apple-silicon</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/rag/" class="post-category">
+                                rag
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2026-01-23
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.2k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    17 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>上一篇介绍了向量、One-Hot 和余弦相似度，但使用的都是手工设置的二维向量。</p>
+<p>本文开始使用真正的 Embedding 模型。我们会在 M1 Max 上下载 Qwen&#x2F;Qwen3-Embedding-0.6B，使用 SentenceTransformer 生成 1024 维向量，比较几句话的语义相似度，最后通过 LangChain 的标准 Embeddings 接口调用同一个本地模型。</p>
+<p>整个过程不需要外部模型密钥，也不会启动 HTTP 服务。Python 程序会直接从本地目录加载模型。</p>
+<h2 id="1-为什么选择-Qwen3-Embedding-0-6B"><a href="#1-为什么选择-Qwen3-Embedding-0-6B" class="headerlink" title="1. 为什么选择 Qwen3-Embedding-0.6B"></a>1. 为什么选择 Qwen3-Embedding-0.6B</h2><p>Qwen3 Embedding 系列提供 0.6B、4B 和 8B 等不同规模。模型越大，下载、内存和推理成本通常也越高。</p>
+<p>本文选择 0.6B，主要考虑以下几点：</p>
+<ul>
+<li>适合在个人电脑上学习和反复运行。</li>
+<li>模型权重约 1.19 GB，下载和加载压力较小。</li>
+<li>默认输出 1024 维向量。</li>
+<li>支持中文和英文等多种语言。</li>
+<li>官方模型目录已经包含 SentenceTransformer 所需的池化、归一化和查询提示配置。</li>
+</ul>
+<p>本文使用的模型页为：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://modelscope.cn/models/Qwen/Qwen3-Embedding-0.6B">ModelScope：Qwen&#x2F;Qwen3-Embedding-0.6B</a></li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/Qwen/Qwen3-Embedding-0.6B">Hugging Face：Qwen&#x2F;Qwen3-Embedding-0.6B</a></li>
+</ul>
+<p>需要注意，这是 Embedding 模型，不是前面部署的 Qwen3-14B 聊天模型。它的输出是向量，不能用来生成聊天回答。</p>
+<h2 id="2-本地调用流程"><a href="#2-本地调用流程" class="headerlink" title="2. 本地调用流程"></a>2. 本地调用流程</h2><p><img src="https://images.hnbian.cn/new/n-e973720ea1fa0c99d351c77f1cbd9944.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地 Qwen3 Embedding 调用流程"></p>
+<p>本文的数据流可以分成五步：</p>
+<ol>
+<li>从 ModelScope 把模型下载到博客仓库之外的固定目录。</li>
+<li>在学习项目根目录建立 embedding_model 符号链接，作为统一模型入口。</li>
+<li>直接调用 SentenceTransformer，或者通过 LangChain 的 HuggingFaceEmbeddings 调用它。</li>
+<li>SentenceTransformer 从本地目录加载 Qwen3 Embedding，并使用 Apple MPS 推理。</li>
+<li>模型生成 1024 维归一化向量，再用于点积或余弦相似度计算。</li>
+</ol>
+<p>HuggingFaceEmbeddings 不是另一套模型运行时，它在内部仍然使用 SentenceTransformer 加载同一个本地模型。这个阶段也不需要把模型启动成网络服务：每个 Python 脚本启动时加载模型，生成向量后结束。</p>
+<h2 id="3-为什么使用独立虚拟环境"><a href="#3-为什么使用独立虚拟环境" class="headerlink" title="3. 为什么使用独立虚拟环境"></a>3. 为什么使用独立虚拟环境</h2><p>当前 llm_learning 主环境已经安装 MLX-LM、MLX Whisper 和 Gradio，它的依赖组合需要继续服务前面的示例。</p>
+<p>本文固定使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">langchain==1.0.3
+langchain-core==1.0.2
+langchain-huggingface==1.0.0
+sentence-transformers==5.1.2
+transformers==4.57.6
+modelscope==1.34.0
+torch==2.9.1
+numpy==2.2.6<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果直接安装到主环境，pip 可能调整已经安装的 Transformers 和 Hugging Face Hub 版本，影响前面的示例。因此新建 .venv_embedding：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+
+python3.12 <span class="token parameter variable">-m</span> venv <span class="token punctuation">\</span>
+  <span class="token parameter variable">--prompt</span> llm_learning_embedding <span class="token punctuation">\</span>
+  .venv_embedding
+
+.venv_embedding/bin/python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-U</span> pip
+.venv_embedding/bin/python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> rag/p02_local_qwen3_embeddings/requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>安装完成后检查依赖：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_embedding/bin/python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本机真实结果为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本次最终使用的主要版本为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">langchain==1.0.3
+langchain-core==1.0.2
+langchain-huggingface==1.0.0
+sentence-transformers==5.1.2
+transformers==4.57.6
+modelscope==1.34.0
+torch==2.9.1
+numpy==2.2.6<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="4-使用代码下载模型"><a href="#4-使用代码下载模型" class="headerlink" title="4. 使用代码下载模型"></a>4. 使用代码下载模型</h2><p>模型保存到独立于博客仓库的目录：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/Users/bianhn/Documents/git/llm/qwen3-embedding/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这样不会把 1 GB 以上的模型权重提交到博客仓库，也不会因为移动学习代码而重复下载模型。</p>
+<p>代码文件为 01_download_embedding_model.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件使用 ModelScope SDK 下载 Qwen3-Embedding-0.6B。</span>
+<span class="token comment"># 模型统一保存到 ~/Documents/git/llm/qwen3-embedding/model。</span>
+
+<span class="token keyword">import</span> os
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+
+<span class="token comment"># 本地下载不经过系统代理，避免 VPN 导致连接中断或下载不完整。</span>
+os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>setdefault<span class="token punctuation">(</span><span class="token string">"NO_PROXY"</span><span class="token punctuation">,</span> <span class="token string">"*"</span><span class="token punctuation">)</span>
+os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>setdefault<span class="token punctuation">(</span><span class="token string">"no_proxy"</span><span class="token punctuation">,</span> <span class="token string">"*"</span><span class="token punctuation">)</span>
+
+<span class="token keyword">from</span> modelscope <span class="token keyword">import</span> snapshot_download
+
+
+MODEL_ID <span class="token operator">=</span> <span class="token string">"Qwen/Qwen3-Embedding-0.6B"</span>
+MODEL_REVISION <span class="token operator">=</span> <span class="token string">"6a58e49965123c0a3012d9576414b8c920faef7e"</span>
+MODEL_DIR <span class="token operator">=</span> Path<span class="token punctuation">.</span>home<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token string">"Documents/git/llm/qwen3-embedding/model"</span>
+MODEL_DIR<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+model_dir <span class="token operator">=</span> snapshot_download<span class="token punctuation">(</span>
+    model_id<span class="token operator">=</span>MODEL_ID<span class="token punctuation">,</span>
+    revision<span class="token operator">=</span>MODEL_REVISION<span class="token punctuation">,</span>
+    local_dir<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_DIR<span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型下载完成："</span><span class="token punctuation">,</span> model_dir<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_embedding/bin/python <span class="token punctuation">\</span>
+  rag/p02_local_qwen3_embeddings/01_download_embedding_model.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>ModelScope SDK 会检查并下载 13 个文件。下载完成后的真实输出为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Downloading 13 files from Qwen/Qwen3-Embedding-0.6B@6a58e49965123c0a3012d9576414b8c920faef7e
+Downloading: 100%|██████████| 13/13
+模型下载完成： /Users/bianhn/Documents/git/llm/qwen3-embedding/model<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>检查目录大小：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">du</span> <span class="token parameter variable">-sh</span> /Users/bianhn/Documents/git/llm/qwen3-embedding/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本机结果为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">1.1G    /Users/bianhn/Documents/git/llm/qwen3-embedding/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>其中 model.safetensors 的实际字节数为 1,191,586,416。网页常用十进制 GB，du -sh 在 macOS 上显示的是约 1.1 GiB，因此显示值会有差别。</p>
+<h3 id="4-1-13-个文件分别有什么作用"><a href="#4-1-13-个文件分别有什么作用" class="headerlink" title="4.1 13 个文件分别有什么作用"></a>4.1 13 个文件分别有什么作用</h3><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>.gitattributes</td>
+<td>模型仓库的 Git LFS 和文件属性配置，不参与推理</td>
+</tr>
+<tr>
+<td>README.md</td>
+<td>模型说明、使用示例、限制和引用信息</td>
+</tr>
+<tr>
+<td>config.json</td>
+<td>模型架构配置，包括 qwen3、隐藏层维度、数据类型和最大位置长度</td>
+</tr>
+<tr>
+<td>configuration.json</td>
+<td>ModelScope 识别模型任务和框架时使用的补充配置</td>
+</tr>
+<tr>
+<td>generation_config.json</td>
+<td>Transformers 的生成配置；该模型主要用于向量计算，不是聊天生成</td>
+</tr>
+<tr>
+<td>model.safetensors</td>
+<td>约 1.19 GB 的核心模型权重</td>
+</tr>
+<tr>
+<td>tokenizer.json</td>
+<td>完整 tokenizer 定义，用于把文本转换成 token</td>
+</tr>
+<tr>
+<td>tokenizer_config.json</td>
+<td>tokenizer 的特殊 token、填充方向和其他参数</td>
+</tr>
+<tr>
+<td>vocab.json</td>
+<td>tokenizer 使用的词表</td>
+</tr>
+<tr>
+<td>merges.txt</td>
+<td>BPE tokenizer 的子词合并规则</td>
+</tr>
+<tr>
+<td>modules.json</td>
+<td>SentenceTransformer 模块顺序，包括 Transformer、Pooling 和 Normalize</td>
+</tr>
+<tr>
+<td>config_sentence_transformers.json</td>
+<td>SentenceTransformer 的 query&#x2F;document prompt 和相似度配置</td>
+</tr>
+<tr>
+<td>1_Pooling&#x2F;config.json</td>
+<td>池化配置，当前模型使用最后一个 token 形成 1024 维句向量</td>
+</tr>
+</tbody></table>
+<p>modules.json 还声明了一个 2_Normalize 模块。它本身没有额外参数文件，因此目录中不需要出现单独的配置文件。</p>
+<h3 id="4-2-下载速度过慢时怎么办"><a href="#4-2-下载速度过慢时怎么办" class="headerlink" title="4.2 下载速度过慢时怎么办"></a>4.2 下载速度过慢时怎么办</h3><p>本次 ModelScope 下载配置文件很快，但主权重下载到约 341 MB 后速度下降到 0.3-0.5 MB&#x2F;s。中止进程不会破坏已经下载的部分，临时文件名为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">model.safetensors.incomplete<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果重新运行下载脚本，ModelScope 会继续检查并下载。也可以从 Qwen 官方 Hugging Face 地址断点续传同一个权重文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">mv</span> <span class="token punctuation">\</span>
+  /Users/bianhn/Documents/git/llm/qwen3-embedding/model/model.safetensors.incomplete <span class="token punctuation">\</span>
+  /Users/bianhn/Documents/git/llm/qwen3-embedding/model/model.safetensors
+
+<span class="token function">curl</span> <span class="token parameter variable">--location</span> --continue-at - <span class="token punctuation">\</span>
+  <span class="token parameter variable">--output</span> /Users/bianhn/Documents/git/llm/qwen3-embedding/model/model.safetensors <span class="token punctuation">\</span>
+  https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/resolve/c54f2e6e80b2d7b7de06f51cec4959f6b3e03418/model.safetensors<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>ModelScope 和 Hugging Face 分别使用各自的仓库 revision，因此两个地址中的提交 ID 不相同。这里固定的是 Hugging Face 模型仓库中的权重版本；下载完成后仍要重新运行 ModelScope 下载脚本，让 13 个文件重新接受完整性检查。</p>
+<p>本次从 341 MB 继续下载剩余约 811 MB，用时约 56 秒，平均速度约 14.4 MB&#x2F;s。完成后重新运行 ModelScope 下载脚本，13 个文件全部通过检查。</p>
+<p>网络环境不同，ModelScope 和 Hugging Face 的速度也会不同。不要看到进度慢就删除整个目录，优先保留临时文件并尝试续传。</p>
+<h2 id="5-在项目中建立统一模型入口"><a href="#5-在项目中建立统一模型入口" class="headerlink" title="5. 在项目中建立统一模型入口"></a>5. 在项目中建立统一模型入口</h2><p>进入 llm_learning 根目录，建立符号链接：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ln</span> <span class="token parameter variable">-s</span> <span class="token punctuation">\</span>
+  /Users/bianhn/Documents/git/llm/qwen3-embedding/model <span class="token punctuation">\</span>
+  embedding_model<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>检查：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-l</span> embedding_model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>真实结果为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">embedding_model -> /Users/bianhn/Documents/git/llm/qwen3-embedding/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>后面的代码都从 embedding_model 加载模型，不需要在每个文件中重复写外部模型目录。</p>
+<p>如果链接已经存在，不要重复执行 ln -s。可以使用 readlink embedding_model 检查它是否指向预期目录；模型目录迁移后，只需要更新这一处链接。</p>
+<h2 id="6-使用-SentenceTransformer-生成向量"><a href="#6-使用-SentenceTransformer-生成向量" class="headerlink" title="6. 使用 SentenceTransformer 生成向量"></a>6. 使用 SentenceTransformer 生成向量</h2><p>先检查 PyTorch 是否支持 Apple MPS：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">import</span> torch
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_built<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本机两个结果都是 True，因此可以使用 M1 Max 的 GPU。</p>
+<p>代码文件为 02_test_sentence_transformer.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件使用 SentenceTransformer 直接加载本地 Qwen3 Embedding 模型。</span>
+<span class="token comment"># 程序会打印运行设备、向量形状、维度、前五个数值和向量范数。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
+<span class="token keyword">import</span> torch
+<span class="token keyword">from</span> sentence_transformers <span class="token keyword">import</span> SentenceTransformer
+
+
+<span class="token comment"># embedding_model 是项目根目录中指向真实模型目录的符号链接。</span>
+MODEL_PATH <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">/</span> <span class="token string">"embedding_model"</span>
+device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span>
+
+model <span class="token operator">=</span> SentenceTransformer<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_PATH<span class="token punctuation">)</span><span class="token punctuation">,</span> device<span class="token operator">=</span>device<span class="token punctuation">)</span>
+
+texts <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token string">"今天阳光很好，适合去公园散步。"</span><span class="token punctuation">,</span>
+    <span class="token string">"汽车需要定期进行保养。"</span><span class="token punctuation">,</span>
+<span class="token punctuation">]</span>
+
+<span class="token comment"># normalize_embeddings=True 会把每个向量归一化到长度约为 1。</span>
+embeddings <span class="token operator">=</span> model<span class="token punctuation">.</span>encode<span class="token punctuation">(</span>texts<span class="token punctuation">,</span> normalize_embeddings<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"运行设备："</span><span class="token punctuation">,</span> device<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"返回类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>embeddings<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"向量形状："</span><span class="token punctuation">,</span> embeddings<span class="token punctuation">.</span>shape<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"单条向量维度："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>embeddings<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"第一条向量前五个值："</span><span class="token punctuation">,</span> embeddings<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">5</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tolist<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"第一条向量范数："</span><span class="token punctuation">,</span> <span class="token builtin">float</span><span class="token punctuation">(</span>np<span class="token punctuation">.</span>linalg<span class="token punctuation">.</span>norm<span class="token punctuation">(</span>embeddings<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>使用 &#x2F;usr&#x2F;bin&#x2F;time -l 同时记录耗时和内存：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/usr/bin/time <span class="token parameter variable">-l</span> <span class="token punctuation">\</span>
+  .venv_embedding/bin/python <span class="token punctuation">\</span>
+  rag/p02_local_qwen3_embeddings/02_test_sentence_transformer.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>真实输出为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">运行设备： mps
+返回类型： ndarray
+向量形状： (2, 1024)
+单条向量维度： 1024
+第一条向量前五个值：
+[-0.026383759453892708, 0.017712516710162163,
+ 0.0002087365573970601, 3.1363568268716335e-05,
+ 0.07342326641082764]
+第一条向量范数： 1.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>(2, 1024) 表示输入了两条文本，每条文本得到一个 1024 维向量。</p>
+<p>设置 normalize_embeddings&#x3D;True 后，第一条向量的范数为 1.0。后续两个归一化向量的点积就可以作为余弦相似度。</p>
+<p>首次独立进程加载模型并生成两条向量耗时 31.14 秒，最大常驻内存为 3,974,922,240 字节，约 3.70 GiB，系统报告 0 swaps。</p>
+<h2 id="7-使用真实向量比较语义"><a href="#7-使用真实向量比较语义" class="headerlink" title="7. 使用真实向量比较语义"></a>7. 使用真实向量比较语义</h2><p>Qwen3 Embedding 会区分“查询”和“候选文本”。模型目录中的 config_sentence_transformers.json 定义了名为 query 的提示：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Instruct: Given a web search query, retrieve relevant passages that answer the query
+Query:<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>查询端使用这个 prompt，候选文本不增加 prompt。提示只帮助模型理解当前文本是查询，不会出现在最终向量中。</p>
+<p>更准确地说，Query Prompt 会参与查询向量的计算，因此会改变最终向量；但它不会作为独立文本保存在向量中，也不能从向量中还原出来。查询和候选文档仍然由同一个模型编码到兼容的 1024 维空间。</p>
+<p><img src="https://images.hnbian.cn/new/n-62e4f8ab9913c53045214a287fb63622.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="查询向量与文档向量的编码流程"></p>
+<p>图中两条路径的差别只发生在模型输入前：查询端增加任务说明，文档端保持原文。两侧都使用同一个模型并执行相同的归一化，得到向量后才能进行点积或余弦相似度排序。</p>
+<p>代码文件为 03_compare_semantic_similarity.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件使用真实 Qwen3 Embedding 向量比较一句查询和多条文本的语义相似度。</span>
+<span class="token comment"># 查询使用模型内置的 query prompt，候选文本不增加查询提示。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">import</span> torch
+<span class="token keyword">from</span> sentence_transformers <span class="token keyword">import</span> SentenceTransformer
+
+
+MODEL_PATH <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">/</span> <span class="token string">"embedding_model"</span>
+device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span>
+model <span class="token operator">=</span> SentenceTransformer<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_PATH<span class="token punctuation">)</span><span class="token punctuation">,</span> device<span class="token operator">=</span>device<span class="token punctuation">)</span>
+
+query <span class="token operator">=</span> <span class="token string">"我想找一个适合周末散步的地方。"</span>
+documents <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token string">"西湖边有步道和树荫，很适合慢慢散步。"</span><span class="token punctuation">,</span>
+    <span class="token string">"汽车需要定期更换机油和检查轮胎。"</span><span class="token punctuation">,</span>
+    <span class="token string">"苹果是一种常见的水果。"</span><span class="token punctuation">,</span>
+<span class="token punctuation">]</span>
+
+<span class="token comment"># Qwen3 Embedding 官方建议在检索查询一侧使用 query prompt。</span>
+query_embedding <span class="token operator">=</span> model<span class="token punctuation">.</span>encode<span class="token punctuation">(</span>
+    <span class="token punctuation">[</span>query<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    prompt_name<span class="token operator">=</span><span class="token string">"query"</span><span class="token punctuation">,</span>
+    normalize_embeddings<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+document_embeddings <span class="token operator">=</span> model<span class="token punctuation">.</span>encode<span class="token punctuation">(</span>
+    documents<span class="token punctuation">,</span>
+    normalize_embeddings<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+scores <span class="token operator">=</span> model<span class="token punctuation">.</span>similarity<span class="token punctuation">(</span>query_embedding<span class="token punctuation">,</span> document_embeddings<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tolist<span class="token punctuation">(</span><span class="token punctuation">)</span>
+results <span class="token operator">=</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span><span class="token builtin">zip</span><span class="token punctuation">(</span>documents<span class="token punctuation">,</span> scores<span class="token punctuation">)</span><span class="token punctuation">,</span> key<span class="token operator">=</span><span class="token keyword">lambda</span> item<span class="token punctuation">:</span> item<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> reverse<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"查询："</span><span class="token punctuation">,</span> query<span class="token punctuation">)</span>
+<span class="token keyword">for</span> index<span class="token punctuation">,</span> <span class="token punctuation">(</span>document<span class="token punctuation">,</span> score<span class="token punctuation">)</span> <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>results<span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string">. </span><span class="token interpolation"><span class="token punctuation">&#123;</span>score<span class="token punctuation">:</span><span class="token format-spec">.4f</span><span class="token punctuation">&#125;</span></span><span class="token string">  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>document<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>真实输出为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">查询： 我想找一个适合周末散步的地方。
+1. 0.5894  西湖边有步道和树荫，很适合慢慢散步。
+2. 0.1805  苹果是一种常见的水果。
+3. 0.1605  汽车需要定期更换机油和检查轮胎。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>查询中没有“西湖”“步道”或“树荫”，模型仍然把散步场景排在第一位。这就是语义向量和关键字机械匹配的重要区别。</p>
+<p>模型文件已经进入系统文件缓存后，这个独立进程总耗时为 5.99 秒，最大常驻内存约 3.70 GiB。</p>
+<h2 id="8-接入-LangChain-Embeddings-接口"><a href="#8-接入-LangChain-Embeddings-接口" class="headerlink" title="8. 接入 LangChain Embeddings 接口"></a>8. 接入 LangChain Embeddings 接口</h2><p>直接使用 SentenceTransformer 已经可以生成向量，但后续 LangChain 组件期望接收统一的 Embeddings 对象。</p>
+<p>LangChain 的 Embeddings 接口把不同厂商和不同本地模型统一为两个核心方法：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">embed_query<span class="token punctuation">(</span>text<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">float</span><span class="token punctuation">]</span>
+embed_documents<span class="token punctuation">(</span>texts<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">float</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>两者不是重复方法。embed_query() 面向一条查询，可以增加查询任务提示；embed_documents() 面向一批候选文本，不应套用查询端提示。上层代码只依赖这两个方法，不需要知道底层使用的是 Qwen3、OpenAI 还是其他 Embedding 模型。</p>
+<p>langchain-huggingface&#x3D;&#x3D;1.0.0 提供 HuggingFaceEmbeddings，并支持分别设置：</p>
+<ul>
+<li>encode_kwargs：文档编码参数。</li>
+<li>query_encode_kwargs：查询编码参数。</li>
+</ul>
+<p>因此不需要再手写一个继承 Embeddings 的包装类。</p>
+<p>代码文件为 04_test_langchain_embeddings.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件演示如何通过 LangChain 的标准 Embeddings 接口使用本地 Qwen3 模型。</span>
+<span class="token comment"># embed_documents() 处理多条文本，embed_query() 处理一条查询。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">import</span> torch
+<span class="token keyword">from</span> langchain_huggingface <span class="token keyword">import</span> HuggingFaceEmbeddings
+
+
+MODEL_PATH <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">/</span> <span class="token string">"embedding_model"</span>
+device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span>
+
+<span class="token comment"># 文档和查询都做归一化；查询另外使用模型内置的 query prompt。</span>
+embeddings_model <span class="token operator">=</span> HuggingFaceEmbeddings<span class="token punctuation">(</span>
+    model_name<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_PATH<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    model_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"device"</span><span class="token punctuation">:</span> device<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    encode_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"normalize_embeddings"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    query_encode_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+        <span class="token string">"prompt_name"</span><span class="token punctuation">:</span> <span class="token string">"query"</span><span class="token punctuation">,</span>
+        <span class="token string">"normalize_embeddings"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+query <span class="token operator">=</span> <span class="token string">"我想找一个适合周末散步的地方。"</span>
+documents <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token string">"西湖边有步道和树荫，很适合慢慢散步。"</span><span class="token punctuation">,</span>
+    <span class="token string">"汽车需要定期更换机油和检查轮胎。"</span><span class="token punctuation">,</span>
+    <span class="token string">"苹果是一种常见的水果。"</span><span class="token punctuation">,</span>
+<span class="token punctuation">]</span>
+
+query_vector <span class="token operator">=</span> embeddings_model<span class="token punctuation">.</span>embed_query<span class="token punctuation">(</span>query<span class="token punctuation">)</span>
+document_vectors <span class="token operator">=</span> embeddings_model<span class="token punctuation">.</span>embed_documents<span class="token punctuation">(</span>documents<span class="token punctuation">)</span>
+
+<span class="token comment"># 向量已经归一化，因此点积就是余弦相似度。</span>
+scores <span class="token operator">=</span> <span class="token punctuation">[</span>
+    <span class="token builtin">sum</span><span class="token punctuation">(</span>query_value <span class="token operator">*</span> document_value <span class="token keyword">for</span> query_value<span class="token punctuation">,</span> document_value <span class="token keyword">in</span> <span class="token builtin">zip</span><span class="token punctuation">(</span>query_vector<span class="token punctuation">,</span> vector<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">for</span> vector <span class="token keyword">in</span> document_vectors
+<span class="token punctuation">]</span>
+results <span class="token operator">=</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span><span class="token builtin">zip</span><span class="token punctuation">(</span>documents<span class="token punctuation">,</span> scores<span class="token punctuation">)</span><span class="token punctuation">,</span> key<span class="token operator">=</span><span class="token keyword">lambda</span> item<span class="token punctuation">:</span> item<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> reverse<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"查询向量类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>query_vector<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"文档向量类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>document_vectors<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"查询向量维度："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>query_vector<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"文档数量："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>document_vectors<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">for</span> index<span class="token punctuation">,</span> <span class="token punctuation">(</span>document<span class="token punctuation">,</span> score<span class="token punctuation">)</span> <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>results<span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string">. </span><span class="token interpolation"><span class="token punctuation">&#123;</span>score<span class="token punctuation">:</span><span class="token format-spec">.4f</span><span class="token punctuation">&#125;</span></span><span class="token string">  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>document<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>真实输出为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">查询向量类型： list
+文档向量类型： list
+查询向量维度： 1024
+文档数量： 3
+1. 0.5894  西湖边有步道和树荫，很适合慢慢散步。
+2. 0.1805  苹果是一种常见的水果。
+3. 0.1605  汽车需要定期更换机油和检查轮胎。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>LangChain 结果和直接使用 SentenceTransformer 的结果一致，但返回类型发生了变化：</p>
+<ul>
+<li>embed_query() 返回 list[float]。</li>
+<li>embed_documents() 返回 list[list[float]]。</li>
+</ul>
+<p>LangChain 使用统一接口隐藏了底层模型差异。以后更换 Embedding 提供商时，上层代码仍然围绕这两个方法工作。</p>
+<p>这个脚本实测总耗时为 7.21 秒，最大常驻内存约 3.72 GiB，系统报告 0 swaps。</p>
+<h2 id="9-常见问题"><a href="#9-常见问题" class="headerlink" title="9. 常见问题"></a>9. 常见问题</h2><h3 id="9-1-报错-KeyError-qwen3"><a href="#9-1-报错-KeyError-qwen3" class="headerlink" title="9.1 报错 KeyError: qwen3"></a>9.1 报错 KeyError: qwen3</h3><p>通常是 Transformers 版本过旧。Qwen3 Embedding 要求 Transformers 至少支持 Qwen3 架构，本文固定使用 transformers&#x3D;&#x3D;4.57.6。</p>
+<h3 id="9-2-找不到-embedding-model"><a href="#9-2-找不到-embedding-model" class="headerlink" title="9.2 找不到 embedding_model"></a>9.2 找不到 embedding_model</h3><p>检查是否在 llm_learning 根目录建立了符号链接：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-l</span> embedding_model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>链接目标必须是包含 config.json 和 model.safetensors 的模型目录。</p>
+<h3 id="9-3-MPS-不可用"><a href="#9-3-MPS-不可用" class="headerlink" title="9.3 MPS 不可用"></a>9.3 MPS 不可用</h3><p>脚本会在 MPS 不可用时自动使用 CPU：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>CPU 也能运行 0.6B 模型，但速度通常会更慢。不要为了强制使用 MPS 删除 CPU 回退逻辑。</p>
+<h3 id="9-4-第一次运行明显更慢"><a href="#9-4-第一次运行明显更慢" class="headerlink" title="9.4 第一次运行明显更慢"></a>9.4 第一次运行明显更慢</h3><p>第一次需要读取约 1.19 GB 权重并初始化模型，文件还没有进入系统缓存，因此本次冷启动用了 31.14 秒。后续独立进程缩短到约 6-7 秒，这是正常的文件缓存差异。</p>
+<h3 id="9-5-查询和文档应该使用相同参数吗"><a href="#9-5-查询和文档应该使用相同参数吗" class="headerlink" title="9.5 查询和文档应该使用相同参数吗"></a>9.5 查询和文档应该使用相同参数吗</h3><p>归一化方式需要保持一致，但 Qwen3 Embedding 官方建议查询端增加任务提示，文档端不增加。本文分别使用 query_encode_kwargs 和 encode_kwargs，不要把 prompt_name&#x3D;”query” 同时应用到候选文档，也不要让查询向量与文档向量来自不同模型版本。</p>
+<h3 id="9-6-能否用-Qwen3-14B-聊天模型代替"><a href="#9-6-能否用-Qwen3-14B-聊天模型代替" class="headerlink" title="9.6 能否用 Qwen3-14B 聊天模型代替"></a>9.6 能否用 Qwen3-14B 聊天模型代替</h3><p>不能直接代替。聊天模型主要生成回答，Embedding 模型专门输出可以比较的固定长度向量。二者模型目录和调用方式都不同。</p>
+<h2 id="10-小结"><a href="#10-小结" class="headerlink" title="10. 小结"></a>10. 小结</h2><p>本文已经完成 Qwen3 Embedding 的真实本地部署和验证：</p>
+<ol>
+<li>使用独立 Python 3.12 环境隔离依赖。</li>
+<li>下载并校验 Qwen3-Embedding-0.6B 的 13 个文件。</li>
+<li>在 M1 Max 的 MPS 上生成 1024 维归一化向量。</li>
+<li>使用真实向量完成生活化文本的语义排序。</li>
+<li>使用 HuggingFaceEmbeddings 接入 LangChain 标准接口。</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>本机真实结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>模型</td>
+<td>Qwen&#x2F;Qwen3-Embedding-0.6B</td>
+</tr>
+<tr>
+<td>模型文件数量</td>
+<td>13</td>
+</tr>
+<tr>
+<td>模型目录大小</td>
+<td>du -sh 显示 1.1G</td>
+</tr>
+<tr>
+<td>权重文件大小</td>
+<td>1,191,586,416 字节</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.12</td>
+</tr>
+<tr>
+<td>推理设备</td>
+<td>Apple MPS</td>
+</tr>
+<tr>
+<td>输出维度</td>
+<td>1024</td>
+</tr>
+<tr>
+<td>归一化后范数</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td>冷启动和两条文本编码</td>
+<td>31.14 秒</td>
+</tr>
+<tr>
+<td>热文件缓存下直接调用</td>
+<td>5.99 秒</td>
+</tr>
+<tr>
+<td>热文件缓存下 LangChain 调用</td>
+<td>7.21 秒</td>
+</tr>
+<tr>
+<td>最大常驻内存</td>
+<td>约 3.70-3.72 GiB</td>
+</tr>
+<tr>
+<td>Swap</td>
+<td>0</td>
+</tr>
+<tr>
+<td>最相关文本</td>
+<td>西湖散步文本，余弦相似度 0.5894</td>
+</tr>
+<tr>
+<td>embed_query() 返回类型</td>
+<td>list[float]</td>
+</tr>
+<tr>
+<td>embed_documents() 返回类型</td>
+<td>list[list[float]]</td>
+</tr>
+</tbody></table>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/e3d9a277.html">https://www.hnbian.cn/posts/e3d9a277.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/langchain/">
+                                    <span class="chip bg-color">langchain</span>
+                                </a>
+                            
+                                <a href="/tags/rag/">
+                                    <span class="chip bg-color">rag</span>
+                                </a>
+                            
+                                <a href="/tags/embeddings/">
+                                    <span class="chip bg-color">embeddings</span>
+                                </a>
+                            
+                                <a href="/tags/qwen3/">
+                                    <span class="chip bg-color">qwen3</span>
+                                </a>
+                            
+                                <a href="/tags/sentence-transformers/">
+                                    <span class="chip bg-color">sentence-transformers</span>
+                                </a>
+                            
+                                <a href="/tags/apple-silicon/">
+                                    <span class="chip bg-color">apple-silicon</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/95a118ab.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-bb5f77f88253ac2794d27b9eaac9be75.jpg" class="responsive-img" alt="RAG 系列 3：使用 Qwen3 Embedding 实现评论数据语义搜索">
+                        
+                        <span class="card-title">RAG 系列 3：使用 Qwen3 Embedding 实现评论数据语义搜索</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2026-01-29
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/rag/" class="post-category">
+                                    rag
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/qwen/">
+                        <span class="chip bg-color">qwen</span>
+                    </a>
+                    
+                    <a href="/tags/rag/">
+                        <span class="chip bg-color">rag</span>
+                    </a>
+                    
+                    <a href="/tags/embedding/">
+                        <span class="chip bg-color">embedding</span>
+                    </a>
+                    
+                    <a href="/tags/semantic-search/">
+                        <span class="chip bg-color">semantic-search</span>
+                    </a>
+                    
+                    <a href="/tags/pandas/">
+                        <span class="chip bg-color">pandas</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e8d42419.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f74cf4dcf8ef4e08a115bcadaefbd479.jpg" class="responsive-img" alt="RAG 系列 1：Embeddings 从向量到语义相似度">
+                        
+                        <span class="card-title">RAG 系列 1：Embeddings 从向量到语义相似度</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2026-01-09
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/rag/" class="post-category">
+                                    rag
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/rag/">
+                        <span class="chip bg-color">rag</span>
+                    </a>
+                    
+                    <a href="/tags/embeddings/">
+                        <span class="chip bg-color">embeddings</span>
+                    </a>
+                    
+                    <a href="/tags/one-hot/">
+                        <span class="chip bg-color">one-hot</span>
+                    </a>
+                    
+                    <a href="/tags/cosine-similarity/">
+                        <span class="chip bg-color">cosine-similarity</span>
+                    </a>
+                    
+                    <a href="/tags/%E5%90%91%E9%87%8F/">
+                        <span class="chip bg-color">向量</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

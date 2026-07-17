@@ -1,0 +1,2374 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 15：Hive 集成 Hudi 与 Hive Sync 实战, hnbian">
+    <meta name="description" content="前面 14 篇已经把 Hudi 的概念、写入、索引、Spark、Flink、CDC、调优和底层原理基本串起来了。这一篇作为当前 Hudi 学习笔记主线的收尾，回到一个很现实的问题：Hudi 表已经写在 HDFS 上了，Hive 怎么查？
+H">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 15：Hive 集成 Hudi 与 Hive Sync 实战 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-2f1eded11e3f5b35f990c56eb9db5fff.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 15：Hive 集成 Hudi 与 Hive Sync 实战</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/hive/">
+                                <span class="chip bg-color">hive</span>
+                            </a>
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/mor/">
+                                <span class="chip bg-color">mor</span>
+                            </a>
+                        
+                            <a href="/tags/query/">
+                                <span class="chip bg-color">query</span>
+                            </a>
+                        
+                            <a href="/tags/hive-sync/">
+                                <span class="chip bg-color">hive-sync</span>
+                            </a>
+                        
+                            <a href="/tags/metastore/">
+                                <span class="chip bg-color">metastore</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-10-30
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    7k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    30 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面 14 篇已经把 Hudi 的概念、写入、索引、Spark、Flink、CDC、调优和底层原理基本串起来了。这一篇作为当前 Hudi 学习笔记主线的收尾，回到一个很现实的问题：Hudi 表已经写在 HDFS 上了，Hive 怎么查？</p>
+<p>Hive 集成 Hudi 容易被误解成“在 Hive 里建一张外表就行”。实际没有这么简单。Hive 需要知道表 schema、分区、Location、InputFormat、SerDe，还要知道 MOR 表到底查读优化视图还是实时视图。这些元数据如果手工维护，很容易和 Hudi 表真实状态不一致，所以生产里通常要用 Hive Sync。</p>
+<h2 id="1-Hive-集成基础"><a href="#1-Hive-集成基础" class="headerlink" title="1. Hive 集成基础"></a>1. Hive 集成基础</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>Hudi 表本质上是文件系统上的一张事务表。它的真实状态在：</p>
+<ol>
+<li>HDFS &#x2F; S3 上的 Base File 和 Log File。</li>
+<li><code>.hoodie</code> 目录里的 Timeline。</li>
+<li><code>hoodie.properties</code> 里的表配置。</li>
+<li>分区目录和 FileGroup。</li>
+</ol>
+<p>Hive 要查询这张表，不能只知道 Parquet 文件路径，还要知道如何构造 Hudi 文件视图。尤其是 MOR 表，Hive 如果只读 Parquet，就会漏掉 Log File 里的更新。</p>
+<p>所以 Hive 集成 Hudi 的核心问题不是“创建一张 Hive 外表”，而是：</p>
+<ol>
+<li>如何把 Hudi 表结构同步到 Hive Metastore。</li>
+<li>COW 表应该使用什么 InputFormat。</li>
+<li>MOR 表应该同步成 ro 表还是 rt 表。</li>
+<li>Hudi 表新增分区后 Hive 如何感知。</li>
+<li>Hive 查询执行引擎和 Hudi Hadoop MR bundle 是否兼容。</li>
+</ol>
+<h3 id="1-2-Hive-Sync-的作用"><a href="#1-2-Hive-Sync-的作用" class="headerlink" title="1.2 Hive Sync 的作用"></a>1.2 Hive Sync 的作用</h3><p>Hive Sync 的作用可以理解为：把 Hudi 的文件视图翻译成 Hive 能理解的元数据。</p>
+<p><img src="https://images.hnbian.cn/new/n-ed9aa7090547ab0d4740f8b7545828d7.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Hudi Hive Sync 流程"></p>
+<p>这张图主要说明 Hive Sync 不搬运数据，而是把 Hudi 表的 schema、分区、InputFormat、SerDe 和 ro &#x2F; rt 视图信息同步到 Hive Metastore。</p>
+<p>它同步的不是数据本身，而是这些内容：</p>
+<table>
+<thead>
+<tr>
+<th>元数据</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>database</td>
+<td>Hive 中的数据库</td>
+</tr>
+<tr>
+<td>table</td>
+<td>Hive 中的外部表</td>
+</tr>
+<tr>
+<td>schema</td>
+<td>字段、类型、Hudi meta 字段</td>
+</tr>
+<tr>
+<td>partition</td>
+<td>分区字段和分区路径</td>
+</tr>
+<tr>
+<td>InputFormat</td>
+<td>Hive 读取 Hudi 表时使用的 reader</td>
+</tr>
+<tr>
+<td>SerDe</td>
+<td>Hive 反序列化 Parquet 数据</td>
+</tr>
+<tr>
+<td>table properties</td>
+<td>Hudi 表名、ro &#x2F; rt 视图等属性</td>
+</tr>
+</tbody></table>
+<p>如果没有 Hive Sync，就要手工维护这些信息。小表测试还可以，生产环境不建议长期手写。</p>
+<p>Hive Sync 成功时，通常会在 Hive 中生成这些表视图：</p>
+<table>
+<thead>
+<tr>
+<th>Hudi 表类型</th>
+<th>Hive 中常见结果</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>COW</td>
+<td>一个 Hive 外表</td>
+<td>读取最新 Base File</td>
+</tr>
+<tr>
+<td>MOR + RO</td>
+<td><code>table_ro</code> 或按 <code>skip-ro-suffix</code> 保留原表名</td>
+<td>只读 Base File，查询更轻</td>
+</tr>
+<tr>
+<td>MOR + RT</td>
+<td><code>table_rt</code></td>
+<td>读取 Base File + Log File，能看到实时更新</td>
+</tr>
+</tbody></table>
+<p>这里的 ro &#x2F; rt 只是 Hive Metastore 中的查询视图，不会改变 HDFS 上 Hudi 表本身的文件布局。</p>
+<h3 id="1-3-Hive-需要的-Hudi-依赖"><a href="#1-3-Hive-需要的-Hudi-依赖" class="headerlink" title="1.3 Hive 需要的 Hudi 依赖"></a>1.3 Hive 需要的 Hudi 依赖</h3><p>Hive 侧的 Hudi 依赖要分成两类看，不建议把所有 jar 一股脑丢进 <code>$HIVE_HOME/lib</code>。</p>
+<table>
+<thead>
+<tr>
+<th>依赖</th>
+<th>主要用途</th>
+<th>放置建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hudi-hadoop-mr-bundle</code></td>
+<td>Hive 查询 Hudi 表，提供 InputFormat &#x2F; RealtimeInputFormat</td>
+<td>放到 HiveServer2 可加载路径</td>
+</tr>
+<tr>
+<td><code>hudi-hive-sync-bundle</code></td>
+<td>Hive Sync Tool 同步表元数据</td>
+<td>优先放到同步命令的 classpath</td>
+</tr>
+<tr>
+<td><code>hudi-utilities-bundle</code></td>
+<td>包含 DeltaStreamer、部分工具类，当前环境里也能找到 <code>HiveSyncTool</code></td>
+<td>用于单独执行工具命令</td>
+</tr>
+</tbody></table>
+<p>Hive 查询 Hudi 表时，最关键的是 Hadoop MR bundle：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/hudi-1.0.2/lib/hudi-hadoop-mr-bundle-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>测试时可以在 Beeline 会话里临时加载：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">ADD</span> JAR <span class="token operator">/</span>opt<span class="token operator">/</span>module<span class="token operator">/</span>hudi<span class="token operator">-</span><span class="token number">1.0</span><span class="token number">.2</span><span class="token operator">/</span>lib<span class="token operator">/</span>hudi<span class="token operator">-</span>hadoop<span class="token operator">-</span>mr<span class="token operator">-</span>bundle<span class="token operator">-</span><span class="token number">1.0</span><span class="token number">.2</span><span class="token punctuation">.</span>jar<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>生产环境更常见的做法是把它放到 HiveServer2 能加载的路径，比如：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> <span class="token variable">$HIVE_HOME</span>/auxlib
+<span class="token function">cp</span> /opt/module/hudi-1.0.2/lib/hudi-hadoop-mr-bundle-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token variable">$HIVE_HOME</span>/auxlib/<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>然后重启 HiveServer2：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hive <span class="token parameter variable">--service</span> hiveserver2<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这一步解决的是 Hive 运行时找不到 Hudi InputFormat 的问题。如果缺少这个包，常见报错是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">ClassNotFoundException: org.apache.hudi.hadoop.HoodieParquetInputFormat<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Hive Sync Tool 的依赖不要和查询依赖混为一谈。比如当前环境里我用 <code>hudi-utilities-bundle</code> 执行 <code>HiveSyncTool</code>，如果你的 Hudi 包里提供了独立的 <code>hudi-hive-sync-bundle</code>，也可以把 <code>HUDI_HIVE_SYNC_JAR</code> 替换成对应 jar。关键是把同步工具依赖放进同步命令的 classpath，而不是直接加入 HiveServer2 的运行时目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HUDI_HIVE_SYNC_JAR</span><span class="token operator">=</span><span class="token string">"/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar"</span>
+<span class="token builtin class-name">export</span> <span class="token assign-left variable">HUDI_HIVE_SYNC_CLASSPATH</span><span class="token operator">=</span><span class="token string">"<span class="token variable">$HUDI_HIVE_SYNC_JAR</span>:<span class="token variable">$HIVE_HOME</span>/lib/*:<span class="token variable">$HADOOP_HOME</span>/etc/hadoop:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/common/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/common/lib/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/hdfs/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/mapreduce/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/yarn/*"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这样做的好处是：HiveServer2 负责查询，Hive Sync Tool 负责同步元数据，两条 classpath 分开，排查 <code>ClassNotFoundException</code>、<code>NoSuchMethodError</code>、Guava &#x2F; HiveConf 冲突时会更直接。</p>
+<p>如果 <code>$HIVE_HOME/auxlib</code> 没有被当前 HiveServer2 自动加载，需要显式设置 <code>HIVE_AUX_JARS_PATH</code>，或者在启动 HiveServer2 时通过 <code>--auxpath</code> 指定 Hudi MR bundle。还要注意，classpath 分开不代表版本兼容问题消失，Hive Sync Tool 仍然需要与当前 HiveConf &#x2F; HMS API 兼容。</p>
+<h3 id="1-4-COW-与-MOR-在-Hive-中的视图差异"><a href="#1-4-COW-与-MOR-在-Hive-中的视图差异" class="headerlink" title="1.4 COW 与 MOR 在 Hive 中的视图差异"></a>1.4 COW 与 MOR 在 Hive 中的视图差异</h3><p>COW 表比较简单，最新数据已经在 Base File 里。Hive 外表通常使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.hadoop.HoodieParquetInputFormat<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>MOR 表更复杂，因为它有 Base File 和 Log File。Hive 里一般有两类视图：</p>
+<p><img src="https://images.hnbian.cn/new/n-dbf32663e07212f0739045640ab3fa20.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Hive 中的 COW 与 MOR 表视图"></p>
+<p>这张图主要说明 COW 在 Hive 中通常只有一个查询视图，而 MOR 往往要区分 Read Optimized &#x2F; ro 和 Real Time &#x2F; rt 两种视图。</p>
+<table>
+<thead>
+<tr>
+<th>视图</th>
+<th>常见后缀</th>
+<th>读取内容</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Read Optimized</td>
+<td><code>_ro</code></td>
+<td>只读 Base File</td>
+<td>查询快，但可能看不到 Log File 里的最新更新</td>
+</tr>
+<tr>
+<td>Real Time</td>
+<td><code>_rt</code></td>
+<td>Base File + Log File</td>
+<td>能看到最新更新，但读取成本更高</td>
+</tr>
+</tbody></table>
+<p>本文后面会沿用第 14 篇创建的 MOR 表验证这个差异。<code>order_id=15001</code> 在 Base File 里是 <code>CREATED</code>，后来多次更新写进 Log File，实时视图能看到 <code>FINISHED</code>，读优化视图只能看到旧状态。</p>
+<h3 id="1-5-Hive-Sync-Tool-命令"><a href="#1-5-Hive-Sync-Tool-命令" class="headerlink" title="1.5 Hive Sync Tool 命令"></a>1.5 Hive Sync Tool 命令</h3><p>Hudi 提供了 <code>HiveSyncTool</code>。本文环境里这个类在 <code>hudi-utilities-bundle</code> 中：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">jar tf /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> org/apache/hudi/hive/HiveSyncTool<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org/apache/hudi/hive/HiveSyncTool.class<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看参数：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">java</span> <span class="token parameter variable">-cp</span> <span class="token string">"/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar:<span class="token variable">$HIVE_HOME</span>/lib/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/common/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/common/lib/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/hdfs/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/mapreduce/*:<span class="token variable">$HADOOP_HOME</span>/share/hadoop/yarn/*"</span> <span class="token punctuation">\</span>
+  org.apache.hudi.hive.HiveSyncTool <span class="token punctuation">\</span>
+  <span class="token parameter variable">--help</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>以下参数来自本文环境中 <code>HiveSyncTool --help</code> 的实际输出，升级 Hudi 后需要重新核对参数名和取值：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">--base-path
+--database
+--table
+--partitioned-by
+--partition-value-extractor
+--metastore-uris
+--jdbc-url
+--sync-mode
+--sync-strategy
+--skip-ro-suffix<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>HMS 模式同步命令示例：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">java</span> <span class="token parameter variable">-cp</span> <span class="token string">"<span class="token variable">$HUDI_HIVE_SYNC_CLASSPATH</span>"</span> <span class="token punctuation">\</span>
+  org.apache.hudi.hive.HiveSyncTool <span class="token punctuation">\</span>
+  --sync-mode hms <span class="token punctuation">\</span>
+  --metastore-uris thrift://localhost:9083 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--database</span> hudi_demo <span class="token punctuation">\</span>
+  <span class="token parameter variable">--table</span> hive_cow_orders <span class="token punctuation">\</span>
+  --base-path hdfs:///hudi/demo_spark_ds_orders <span class="token punctuation">\</span>
+  --partitioned-by dt <span class="token punctuation">\</span>
+  --partition-value-extractor org.apache.hudi.hive.MultiPartKeysValueExtractor <span class="token punctuation">\</span>
+  --auto-create-database <span class="token punctuation">\</span>
+  --sync-strategy ALL<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>MOR 表如果希望同步 ro 和 rt 两个视图，可以使用：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">java</span> <span class="token parameter variable">-cp</span> <span class="token string">"<span class="token variable">$HUDI_HIVE_SYNC_CLASSPATH</span>"</span> <span class="token punctuation">\</span>
+  org.apache.hudi.hive.HiveSyncTool <span class="token punctuation">\</span>
+  --sync-mode hms <span class="token punctuation">\</span>
+  --metastore-uris thrift://localhost:9083 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--database</span> hudi_demo <span class="token punctuation">\</span>
+  <span class="token parameter variable">--table</span> hive_mor_orders <span class="token punctuation">\</span>
+  --base-path hdfs:///hudi/demo_hudi_internal_orders <span class="token punctuation">\</span>
+  --partitioned-by dt <span class="token punctuation">\</span>
+  --partition-value-extractor org.apache.hudi.hive.MultiPartKeysValueExtractor <span class="token punctuation">\</span>
+  --auto-create-database <span class="token punctuation">\</span>
+  --sync-strategy ALL<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>--sync-strategy</code> 常见取值：</p>
+<table>
+<thead>
+<tr>
+<th>参数值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>RO</code></td>
+<td>只同步读优化视图</td>
+</tr>
+<tr>
+<td><code>RT</code></td>
+<td>只同步实时视图</td>
+</tr>
+<tr>
+<td><code>ALL</code></td>
+<td>ro &#x2F; rt 都同步</td>
+</tr>
+</tbody></table>
+<p>这里的 <code>RO</code>、<code>RT</code>、<code>ALL</code> 只影响 Hive Metastore 中同步出的查询视图，不会改变 Hudi MOR 表的数据写入方式。</p>
+<p><code>--sync-mode</code> 决定 Hive Sync Tool 怎么和 Hive 交互：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>连接方式</th>
+<th>使用建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hms</code></td>
+<td>直接访问 Hive Metastore Thrift 服务</td>
+<td>最常用，链路短，适合服务端同步</td>
+</tr>
+<tr>
+<td><code>jdbc</code></td>
+<td>通过 HiveServer2 JDBC 执行同步</td>
+<td>适合只开放 HiveServer2 的环境，需要配置 JDBC URL、用户名和密码</td>
+</tr>
+<tr>
+<td><code>hiveql</code></td>
+<td>生成或执行 Hive SQL</td>
+<td>更像兜底方案，不作为首选</td>
+</tr>
+</tbody></table>
+<p>还有一个容易忽略的参数是 <code>--skip-ro-suffix</code>。MOR 表默认可能同步出 <code>表名_ro</code> 和 <code>表名_rt</code> 两个视图；如果历史系统已经约定不带 <code>_ro</code> 后缀，可以用这个参数兼容旧表名。但新环境我更建议保留清晰后缀，否则后面排查“为什么查不到 Log File 里的更新”会很绕。</p>
+<p>有些安装包会提供 <code>run_sync_tool.sh</code> 这类封装脚本，本质上还是在拼 <code>HiveSyncTool</code> 的 classpath。遇到依赖冲突时，不要只改脚本参数，要把最终执行的 <code>java -cp</code> 打出来检查，确认 Hadoop、Hive、Hudi 三类依赖都在正确位置。</p>
+<h3 id="1-6-当前环境中的-Hive-Sync-兼容问题"><a href="#1-6-当前环境中的-Hive-Sync-兼容问题" class="headerlink" title="1.6 当前环境中的 Hive Sync 兼容问题"></a>1.6 当前环境中的 Hive Sync 兼容问题</h3><p>需要注意的是，上面这些 Hive Sync Tool 命令在本文的 Hudi 1.0.2 + Hive 4.0.1 组合中没有最终跑通。我在当前组合里实际执行 Hive Sync，COW 和 MOR 都触发了同一个错误：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Exception in thread "main" java.lang.NoSuchFieldError: METASTOREURIS
+    at org.apache.hudi.hive.HiveSyncTool.&lt;init>(HiveSyncTool.java:119)
+    at org.apache.hudi.hive.HiveSyncTool.&lt;init>(HiveSyncTool.java:108)
+    at org.apache.hudi.hive.HiveSyncTool.main(HiveSyncTool.java:547)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个问题不是 Hudi 表坏了，而是 Hudi 1.0.2 的 Hive Sync Tool 在访问 HiveConf 字段时，和 Hive 4.0.1 的 API 不完全兼容。也就是说，Hive 4.0.1 作为“比较新”的版本，并不代表和 Hudi 1.0.2 的所有 Hive 集成路径都稳定。</p>
+<p>我的处理方式是：</p>
+<ol>
+<li>保留 Hive 4.0.1 的真实失败记录。</li>
+<li>不把文章写成“全部顺利跑通”。</li>
+<li>用手工 Hive 外表验证 HiveServer2 读取 Hudi 的核心机制。</li>
+<li>在结论里明确：生产环境如果要重度使用 Hive Sync，更建议优先选择 Hudi 官方文档和自己测试环境中都验证通过的 Hive 3.x 组合，或者先完整验证 Hive 4.x。</li>
+</ol>
+<p>如果团队的核心诉求是 Hive 报表稳定查询 Hudi，优先选择已经完整验证 Hive Sync、ro &#x2F; rt 查询、MR &#x2F; Tez 查询和 schema evolution 的组合，而不是只看组件版本新旧。</p>
+<h2 id="2-手工表和查询验证"><a href="#2-手工表和查询验证" class="headerlink" title="2. 手工表和查询验证"></a>2. 手工表和查询验证</h2><h3 id="2-1-手工创建-COW-Hive-外表"><a href="#2-1-手工创建-COW-Hive-外表" class="headerlink" title="2.1 手工创建 COW Hive 外表"></a>2.1 手工创建 COW Hive 外表</h3><p>本文用第 7 篇创建的 COW 表：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hdfs:///hudi/demo_spark_ds_orders<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>表属性确认如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-cat</span> /hudi/demo_spark_ds_orders/.hoodie/hoodie.properties <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">egrep</span> <span class="token string">"hoodie.table.name|hoodie.table.type|hoodie.table.partition.fields|hoodie.table.recordkey.fields"</span> <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">sort</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hoodie.table.name=demo_spark_ds_orders
+hoodie.table.partition.fields=dt
+hoodie.table.recordkey.fields=order_id
+hoodie.table.type=COPY_ON_WRITE<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因为这张表的分区目录是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/hudi/demo_spark_ds_orders/2025-08-05
+/hudi/demo_spark_ds_orders/2025-08-06<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>不是 Hive 风格的 <code>dt=2025-08-05</code>，所以手工验证时我没有直接用 <code>MSCK REPAIR TABLE</code>。<code>MSCK REPAIR TABLE</code> 更适合 Hive 风格分区目录，例如 <code>dt=2025-08-05</code>；本文 Hudi 表目录是非 Hive 风格分区路径，直接 repair 不能按预期生成 <code>dt</code> 分区。为了避免 Hive 分区字段和 Parquet 文件里的业务字段 <code>dt</code> 重名，我用 <code>pt</code> 作为 Hive 分区列，保留文件里的 <code>dt</code> 字段。</p>
+<p>DDL 如下：</p>
+<p>下面的 <code>pt</code> 是手工验证时使用的 Hive 分区列名，用来避开文件内业务字段 <code>dt</code> 与 Hive 分区字段重名导致的投影问题；生产中应优先依赖 Hive Sync 正确生成表结构。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">ADD</span> JAR <span class="token operator">/</span>opt<span class="token operator">/</span>module<span class="token operator">/</span>hudi<span class="token operator">-</span><span class="token number">1.0</span><span class="token number">.2</span><span class="token operator">/</span>lib<span class="token operator">/</span>hudi<span class="token operator">-</span>hadoop<span class="token operator">-</span>mr<span class="token operator">-</span>bundle<span class="token operator">-</span><span class="token number">1.0</span><span class="token number">.2</span><span class="token punctuation">.</span>jar<span class="token punctuation">;</span>
+
+<span class="token keyword">SET</span> hive<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>enabled<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hive<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>reduce<span class="token punctuation">.</span>enabled<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hive<span class="token punctuation">.</span>input<span class="token punctuation">.</span>format<span class="token operator">=</span>org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>hive<span class="token punctuation">.</span>ql<span class="token punctuation">.</span>io<span class="token punctuation">.</span>HiveInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hive<span class="token punctuation">.</span><span class="token keyword">fetch</span><span class="token punctuation">.</span>task<span class="token punctuation">.</span>conversion<span class="token operator">=</span>more<span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">DATABASE</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> hudi_demo<span class="token punctuation">;</span>
+
+<span class="token keyword">DROP</span> <span class="token keyword">TABLE</span> <span class="token keyword">IF</span> <span class="token keyword">EXISTS</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3<span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> EXTERNAL <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3 <span class="token punctuation">(</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_seqno<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_record_key<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_partition_path<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_file_name<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  order_id <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  user_id string<span class="token punctuation">,</span>
+  amount <span class="token keyword">double</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> string<span class="token punctuation">,</span>
+  ts <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  dt string
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>pt string<span class="token punctuation">)</span>
+<span class="token keyword">ROW</span> FORMAT SERDE <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"</span>
+STORED <span class="token keyword">AS</span> INPUTFORMAT <span class="token string">"org.apache.hudi.hadoop.HoodieParquetInputFormat"</span>
+OUTPUTFORMAT <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"</span>
+LOCATION <span class="token string">"hdfs:///hudi/demo_spark_ds_orders"</span>
+TBLPROPERTIES <span class="token punctuation">(</span><span class="token string">"hoodie.table.name"</span><span class="token operator">=</span><span class="token string">"demo_spark_ds_orders"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-08-05"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_spark_ds_orders/2025-08-05"</span><span class="token punctuation">;</span>
+
+<span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-08-06"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_spark_ds_orders/2025-08-06"</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>DESCRIBE FORMATTED</code> 里能看到关键元数据：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Location:       hdfs://localhost:9000/hudi/demo_spark_ds_orders
+Table Type:     EXTERNAL_TABLE
+SerDe Library:  org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+InputFormat:    org.apache.hudi.hadoop.HoodieParquetInputFormat
+OutputFormat:   org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>查询：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt<span class="token punctuation">,</span> pt
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3
+<span class="token keyword">LIMIT</span> <span class="token number">10</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>真实输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+-----------+----------+-------------+-------------+
+| order_id  |  status  |     dt      |     pt      |
++-----------+----------+-------------+-------------+
+| 7002      | PAID     | 2025-08-05  | 2025-08-05  |
+| 7001      | CREATED  | 2025-08-05  | 2025-08-05  |
+| 7003      | CREATED  | 2025-08-06  | 2025-08-06  |
+| 7004      | CREATED  | 2025-08-06  | 2025-08-06  |
++-----------+----------+-------------+-------------+
+4 rows selected (1.206 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这说明 HiveServer2 在 fetch 查询路径上已经可以通过 Hudi InputFormat 读取 COW 表。不过这只说明 fetch 查询路径可用，不代表聚合、排序等 MR 执行路径也已经稳定，后面会单独说明。</p>
+<h3 id="2-2-手工创建-MOR-实时视图"><a href="#2-2-手工创建-MOR-实时视图" class="headerlink" title="2.2 手工创建 MOR 实时视图"></a>2.2 手工创建 MOR 实时视图</h3><p>接着用第 14 篇创建的 MOR 表：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hdfs:///hudi/demo_hudi_internal_orders<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>表属性：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hoodie.table.name=demo_hudi_internal_orders
+hoodie.table.partition.fields=dt
+hoodie.table.recordkey.fields=order_id
+hoodie.table.type=MERGE_ON_READ<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>实时视图使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>DDL：</p>
+<p>以下 SQL 仍然依赖第 7 节中已经执行过的 <code>ADD JAR</code> 和 Hive 会话参数。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">DROP</span> <span class="token keyword">TABLE</span> <span class="token keyword">IF</span> <span class="token keyword">EXISTS</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3<span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> EXTERNAL <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3 <span class="token punctuation">(</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_seqno<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_record_key<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_partition_path<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_file_name<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  order_id <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  user_id string<span class="token punctuation">,</span>
+  amount <span class="token keyword">decimal</span><span class="token punctuation">(</span><span class="token number">38</span><span class="token punctuation">,</span><span class="token number">18</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> string<span class="token punctuation">,</span>
+  ts <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  dt string
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>pt string<span class="token punctuation">)</span>
+<span class="token keyword">ROW</span> FORMAT SERDE <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"</span>
+STORED <span class="token keyword">AS</span> INPUTFORMAT <span class="token string">"org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat"</span>
+OUTPUTFORMAT <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"</span>
+LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders"</span>
+TBLPROPERTIES <span class="token punctuation">(</span>
+  <span class="token string">"hoodie.table.name"</span><span class="token operator">=</span><span class="token string">"demo_hudi_internal_orders"</span><span class="token punctuation">,</span>
+  <span class="token string">"hoodie.query.as.ro.table"</span><span class="token operator">=</span><span class="token string">"false"</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-10-19"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders/2025-10-19"</span><span class="token punctuation">;</span>
+
+<span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-10-20"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders/2025-10-20"</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>MOR 表中的 <code>amount</code> 在当前写入 schema 中被映射为 <code>decimal(38,18)</code>，因此 Hive DDL 按实际 Parquet schema 设置；COW 示例表则使用 <code>double</code>。</p>
+<p>查询：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt<span class="token punctuation">,</span> pt
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3
+<span class="token keyword">LIMIT</span> <span class="token number">10</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+-----------+-----------+-------------+-------------+
+| order_id  |  status   |     dt      |     pt      |
++-----------+-----------+-------------+-------------+
+| 15001     | FINISHED  | 2025-10-19  | 2025-10-19  |
+| 15002     | CREATED   | 2025-10-19  | 2025-10-19  |
+| 15003     | CREATED   | 2025-10-20  | 2025-10-20  |
++-----------+-----------+-------------+-------------+
+3 rows selected (1.981 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>15001</code> 能看到 <code>FINISHED</code>，说明实时视图确实合并了 Log File 中的更新。这里验证的是 HiveServer2 fetch 查询路径下的实时视图读取能力，不能等同于所有 Hive 执行路径都已经稳定。</p>
+<h3 id="2-3-手工创建-MOR-读优化视图"><a href="#2-3-手工创建-MOR-读优化视图" class="headerlink" title="2.3 手工创建 MOR 读优化视图"></a>2.3 手工创建 MOR 读优化视图</h3><p>读优化视图使用普通 Parquet Hudi InputFormat：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.hadoop.HoodieParquetInputFormat<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>DDL：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">DROP</span> <span class="token keyword">TABLE</span> <span class="token keyword">IF</span> <span class="token keyword">EXISTS</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_ro_pt3<span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> EXTERNAL <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_ro_pt3 <span class="token punctuation">(</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_seqno<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_record_key<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_partition_path<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  <span class="token identifier"><span class="token punctuation">`</span>_hoodie_file_name<span class="token punctuation">`</span></span> string<span class="token punctuation">,</span>
+  order_id <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  user_id string<span class="token punctuation">,</span>
+  amount <span class="token keyword">decimal</span><span class="token punctuation">(</span><span class="token number">38</span><span class="token punctuation">,</span><span class="token number">18</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> string<span class="token punctuation">,</span>
+  ts <span class="token keyword">bigint</span><span class="token punctuation">,</span>
+  dt string
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>pt string<span class="token punctuation">)</span>
+<span class="token keyword">ROW</span> FORMAT SERDE <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"</span>
+STORED <span class="token keyword">AS</span> INPUTFORMAT <span class="token string">"org.apache.hudi.hadoop.HoodieParquetInputFormat"</span>
+OUTPUTFORMAT <span class="token string">"org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"</span>
+LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders"</span>
+TBLPROPERTIES <span class="token punctuation">(</span>
+  <span class="token string">"hoodie.table.name"</span><span class="token operator">=</span><span class="token string">"demo_hudi_internal_orders"</span><span class="token punctuation">,</span>
+  <span class="token string">"hoodie.query.as.ro.table"</span><span class="token operator">=</span><span class="token string">"true"</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>补充分区：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_ro_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-10-19"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders/2025-10-19"</span><span class="token punctuation">;</span>
+
+<span class="token keyword">ALTER</span> <span class="token keyword">TABLE</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_ro_pt3
+  <span class="token keyword">ADD</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> <span class="token keyword">PARTITION</span> <span class="token punctuation">(</span>pt<span class="token operator">=</span><span class="token string">"2025-10-20"</span><span class="token punctuation">)</span>
+  LOCATION <span class="token string">"hdfs:///hudi/demo_hudi_internal_orders/2025-10-20"</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>补充分区后查询：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt<span class="token punctuation">,</span> pt
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_ro_pt3
+<span class="token keyword">LIMIT</span> <span class="token number">10</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+-----------+----------+-------------+-------------+
+| order_id  |  status  |     dt      |     pt      |
++-----------+----------+-------------+-------------+
+| 15001     | CREATED  | 2025-10-19  | 2025-10-19  |
+| 15002     | CREATED  | 2025-10-19  | 2025-10-19  |
+| 15003     | CREATED  | 2025-10-20  | 2025-10-20  |
++-----------+----------+-------------+-------------+
+3 rows selected (0.33 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里 <code>15001</code> 是 <code>CREATED</code>，不是 <code>FINISHED</code>。原因是读优化视图只读 Base File，而 <code>FINISHED</code> 在 Log File 里。这个结果刚好说明 ro &#x2F; rt 的差异：</p>
+<table>
+<thead>
+<tr>
+<th>表</th>
+<th><code>15001</code> 状态</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hive_mor_orders_ro_pt3</code></td>
+<td><code>CREATED</code></td>
+<td>只读 Base File</td>
+</tr>
+<tr>
+<td><code>hive_mor_orders_rt_pt3</code></td>
+<td><code>FINISHED</code></td>
+<td>合并 Base File + Log File</td>
+</tr>
+</tbody></table>
+<p>手工建表只适合排查和验证。生产中 Hudi schema 变更、新增分区、ro &#x2F; rt 视图、InputFormat 和表属性都需要持续同步，长期手工维护很容易出现 Hive 元数据与 Hudi Timeline 不一致的问题。</p>
+<h3 id="2-4-Hive-查询-Hudi-的执行链路"><a href="#2-4-Hive-查询-Hudi-的执行链路" class="headerlink" title="2.4 Hive 查询 Hudi 的执行链路"></a>2.4 Hive 查询 Hudi 的执行链路</h3><p>Hive 查询 Hudi 表时，大致经过下面几步：</p>
+<p><img src="https://images.hnbian.cn/new/n-3d9312dc3565691b5ee40645ab94191c.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Hive 查询 Hudi 表流程"></p>
+<p>这张图主要说明 Hive 查询 Hudi 表时，Hive Metastore 先提供表结构和分区路径，Hudi InputFormat 再在这些路径范围内根据 Timeline 构造正确的文件视图。</p>
+<ol>
+<li>Beeline 提交 SQL。</li>
+<li>HiveServer2 从 Hive Metastore 读取表结构。</li>
+<li>表结构里包含 Hudi InputFormat。</li>
+<li>InputFormat 在 Hive 已知的表 Location &#x2F; 分区路径范围内，根据 Hudi Timeline 和文件视图选择有效 Base File &#x2F; Log File。</li>
+<li>COW 读取 Base File。</li>
+<li>MOR rt 读取 Base File + Log File。</li>
+<li>MOR ro 只读取 Base File。</li>
+</ol>
+<p>这也是为什么 Hive Sync 很重要。Hive 外表里如果 InputFormat、SerDe、分区、Location 任何一个写错，都可能出现读不到数据、读到旧数据、MR 执行失败。</p>
+<h3 id="2-5-Hive-4-0-1-下遇到的真实问题"><a href="#2-5-Hive-4-0-1-下遇到的真实问题" class="headerlink" title="2.5 Hive 4.0.1 下遇到的真实问题"></a>2.5 Hive 4.0.1 下遇到的真实问题</h3><h4 id="2-5-1-Hive-Sync-Tool-报-NoSuchFieldError-METASTOREURIS"><a href="#2-5-1-Hive-Sync-Tool-报-NoSuchFieldError-METASTOREURIS" class="headerlink" title="2.5.1 Hive Sync Tool 报 NoSuchFieldError: METASTOREURIS"></a>2.5.1 Hive Sync Tool 报 <code>NoSuchFieldError: METASTOREURIS</code></h4><p>现象：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Exception in thread "main" java.lang.NoSuchFieldError: METASTOREURIS
+    at org.apache.hudi.hive.HiveSyncTool.&lt;init>(HiveSyncTool.java:119)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>原因分析：</p>
+<p>Hudi 1.0.2 的 Hive Sync Tool 访问 HiveConf 中的字段时，和 Hive 4.0.1 的 API 不完全兼容。</p>
+<p>处理建议：</p>
+<ol>
+<li>如果生产强依赖 Hive Sync，优先选择经过验证的 Hive 3.x 组合。</li>
+<li>如果必须使用 Hive 4.x，要先在测试环境验证 Hudi Hive Sync Tool、Spark Hive Sync、Flink HMS Catalog。</li>
+<li>不要只验证 Hive Metastore 能启动，还要验证 sync、查询、分区更新、MOR rt 查询。</li>
+</ol>
+<h4 id="2-5-2-VectorizedRowBatch-cannot-be-cast-to-ArrayWritable"><a href="#2-5-2-VectorizedRowBatch-cannot-be-cast-to-ArrayWritable" class="headerlink" title="2.5.2 VectorizedRowBatch cannot be cast to ArrayWritable"></a>2.5.2 <code>VectorizedRowBatch cannot be cast to ArrayWritable</code></h4><p>第一次跑 Hive MR 查询时，YARN 日志里出现：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.lang.ClassCastException:
+class org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch
+cannot be cast to class org.apache.hadoop.io.ArrayWritable<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>修复方向：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> hive<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>enabled<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hive<span class="token punctuation">.</span>vectorized<span class="token punctuation">.</span>execution<span class="token punctuation">.</span>reduce<span class="token punctuation">.</span>enabled<span class="token operator">=</span><span class="token boolean">false</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这个问题说明在本文当前环境中，Hive 4 的向量化执行路径和当前 Hudi MR reader 组合不稳。它属于执行引擎读取路径兼容问题，不是 Hudi 表数据损坏。</p>
+<h4 id="2-5-3-手工分区表字段投影不匹配"><a href="#2-5-3-手工分区表字段投影不匹配" class="headerlink" title="2.5.3 手工分区表字段投影不匹配"></a>2.5.3 手工分区表字段投影不匹配</h4><p>当我把 <code>dt</code> 同时作为 Hive 分区字段处理时，MR 日志里出现：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.lang.ArrayIndexOutOfBoundsException: Index 10 out of bounds for length 10
+    at org.apache.hudi.hadoop.utils.HoodieArrayWritableAvroUtils.lambda$projectRecord$1(HoodieArrayWritableAvroUtils.java:60)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>原因是手工 Hive DDL 的字段投影和 Hudi 文件 schema 没有完全对齐。测试时我用 <code>pt</code> 做 Hive 分区列，保留文件中的业务字段 <code>dt</code>，才让 fetch 查询成功。这也是第 7、8、9 节手工建表时使用 <code>pt</code> 作为 Hive 分区列，而不是直接使用 <code>dt</code> 作为 Hive 分区列的原因。</p>
+<p>生产中不要靠这种手工 workaround 长期维护，应该让 Hive Sync 正确处理分区字段和 partition extractor。</p>
+<h4 id="2-5-4-ORDER-BY-触发-MR-后失败"><a href="#2-5-4-ORDER-BY-触发-MR-后失败" class="headerlink" title="2.5.4 ORDER BY 触发 MR 后失败"></a>2.5.4 <code>ORDER BY</code> 触发 MR 后失败</h4><p><code>LIMIT</code> 查询可以通过 fetch task 成功：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> hive<span class="token punctuation">.</span><span class="token keyword">fetch</span><span class="token punctuation">.</span>task<span class="token punctuation">.</span>conversion<span class="token operator">=</span>more<span class="token punctuation">;</span>
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt<span class="token punctuation">,</span> pt
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3
+<span class="token keyword">LIMIT</span> <span class="token number">10</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>但 <code>ORDER BY</code> 会触发 MapReduce，本文当前组合仍失败：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">FAILED: Execution Error, return code 2 from org.apache.hadoop.hive.ql.exec.mr.MapRedTask<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这里没有继续展开 MR 失败根因，因为本文重点是 Hive 集成路径。生产验证时需要继续查看 YARN container 日志，确认到底是向量化、schema 投影、InputFormat split 还是依赖冲突。这个现象已经足够说明：HiveServer2 本地读取和 Hive MR 执行路径不是一回事。生产验证不能只跑 <code>LIMIT 10</code>，还要跑聚合、排序、分区过滤、JOIN 等真正会进入执行引擎的 SQL。</p>
+<h3 id="2-6-当前环境验证结果总表"><a href="#2-6-当前环境验证结果总表" class="headerlink" title="2.6 当前环境验证结果总表"></a>2.6 当前环境验证结果总表</h3><table>
+<thead>
+<tr>
+<th>验证项</th>
+<th>结果</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HiveServer2 启动</td>
+<td>成功</td>
+<td>可用 Beeline 连接</td>
+</tr>
+<tr>
+<td>COW fetch 查询</td>
+<td>成功</td>
+<td><code>LIMIT</code> 查询可返回数据</td>
+</tr>
+<tr>
+<td>MOR rt fetch 查询</td>
+<td>成功</td>
+<td><code>15001</code> 可看到 <code>FINISHED</code></td>
+</tr>
+<tr>
+<td>MOR ro fetch 查询</td>
+<td>成功</td>
+<td><code>15001</code> 只能看到 <code>CREATED</code></td>
+</tr>
+<tr>
+<td>Hive Sync Tool</td>
+<td>失败</td>
+<td><code>NoSuchFieldError: METASTOREURIS</code></td>
+</tr>
+<tr>
+<td>Hive MR <code>ORDER BY</code></td>
+<td>失败</td>
+<td>外层报 <code>return code 2</code>，需要继续看 YARN 日志</td>
+</tr>
+<tr>
+<td>Hive 增量查询</td>
+<td>未完整验证</td>
+<td>建议兼容性验证后再使用</td>
+</tr>
+</tbody></table>
+<h2 id="3-扩展能力和生产建议"><a href="#3-扩展能力和生产建议" class="headerlink" title="3. 扩展能力和生产建议"></a>3. 扩展能力和生产建议</h2><h3 id="3-1-扩展：Spark-写入时同步-Hive"><a href="#3-1-扩展：Spark-写入时同步-Hive" class="headerlink" title="3.1 扩展：Spark 写入时同步 Hive"></a>3.1 扩展：Spark 写入时同步 Hive</h3><p>Spark 写 Hudi 时可以直接开启 Hive Sync，典型参数如下：</p>
+<pre class="line-numbers language-scala" data-language="scala"><code class="language-scala">df<span class="token punctuation">.</span>write<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.table.name"</span><span class="token punctuation">,</span> <span class="token string">"orders"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.write.table.type"</span><span class="token punctuation">,</span> <span class="token string">"COPY_ON_WRITE"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.write.recordkey.field"</span><span class="token punctuation">,</span> <span class="token string">"order_id"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.write.partitionpath.field"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.write.precombine.field"</span><span class="token punctuation">,</span> <span class="token string">"ts"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.enable"</span><span class="token punctuation">,</span> <span class="token string">"true"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.mode"</span><span class="token punctuation">,</span> <span class="token string">"hms"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.metastore.uris"</span><span class="token punctuation">,</span> <span class="token string">"thrift://localhost:9083"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.database"</span><span class="token punctuation">,</span> <span class="token string">"hudi_demo"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.table"</span><span class="token punctuation">,</span> <span class="token string">"orders"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.hive_sync.partition_fields"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>option<span class="token punctuation">(</span>
+    <span class="token string">"hoodie.datasource.hive_sync.partition_extractor_class"</span><span class="token punctuation">,</span>
+    <span class="token string">"org.apache.hudi.hive.MultiPartKeysValueExtractor"</span>
+  <span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>mode<span class="token punctuation">(</span><span class="token string">"append"</span><span class="token punctuation">)</span>
+  <span class="token punctuation">.</span>save<span class="token punctuation">(</span><span class="token string">"hdfs:///hudi/orders"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这些参数名以本文 Hudi 1.0.2 环境为准，升级 Hudi 后需要重新核对 Hive Sync 参数是否有迁移。需要注意，本文环境中 standalone HiveSyncTool 已经因为 Hive 4.0.1 兼容问题失败；Spark 写入时开启 Hive Sync 也需要单独验证，不能默认一定能绕开该兼容问题。</p>
+<p>如果是 MOR 表，还要注意同步策略和表名后缀。很多查询引擎默认更适合读 ro 表，实时查询才读 rt 表。</p>
+<h3 id="3-2-扩展：Flink-使用-HiveCatalog-HMS-Catalog"><a href="#3-2-扩展：Flink-使用-HiveCatalog-HMS-Catalog" class="headerlink" title="3.2 扩展：Flink 使用 HiveCatalog &#x2F; HMS Catalog"></a>3.2 扩展：Flink 使用 HiveCatalog &#x2F; HMS Catalog</h3><p>Flink 侧有三种常见方式，它们不是必须同时使用：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>目标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Flink HiveCatalog</td>
+<td>访问 Hive Metastore 里已经存在的表</td>
+<td>适合查询或管理已同步到 HMS 的表</td>
+</tr>
+<tr>
+<td>Hudi Catalog HMS mode</td>
+<td>用 Hudi Catalog 对接 HMS 管理 Hudi 表</td>
+<td>配置项随 Hudi &#x2F; Flink 版本变化较多</td>
+</tr>
+<tr>
+<td>Flink 写 Hudi 时开启 hive_sync</td>
+<td>写入 Hudi 后同步 Hive 元数据</td>
+<td>依赖 checkpoint、Hive Sync 参数和 HMS 兼容性</td>
+</tr>
+</tbody></table>
+<p>第一种是 Flink 直接使用 HiveCatalog。这个方式不是 Hudi Catalog，而是让 Flink SQL 直接访问 Hive Metastore，适合查询或管理普通 Hive 表，也可以看到已经同步到 Hive 的 Hudi 外表。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> CATALOG hive_catalog <span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'type'</span> <span class="token operator">=</span> <span class="token string">'hive'</span><span class="token punctuation">,</span>
+  <span class="token string">'default-database'</span> <span class="token operator">=</span> <span class="token string">'default'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive-conf-dir'</span> <span class="token operator">=</span> <span class="token string">'/opt/module/hive/conf'</span><span class="token punctuation">,</span>
+  <span class="token string">'hadoop-conf-dir'</span> <span class="token operator">=</span> <span class="token string">'/opt/module/hadoop-3.4.1/etc/hadoop'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">USE</span> CATALOG hive_catalog<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 Flink 启动时报 Guava 或 Hadoop 类冲突，优先检查 <code>$FLINK_HOME/lib</code> 里 Hive connector、Hadoop 依赖和 Hudi bundle 是否重复。Flink 这条链路对 jar 版本很敏感，能进入 SQL Client 不代表真正查询时不会冲突。</p>
+<p>第二种是 Hudi Catalog 的 HMS mode：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> CATALOG hudi_hms <span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'type'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'mode'</span> <span class="token operator">=</span> <span class="token string">'hms'</span><span class="token punctuation">,</span>
+  <span class="token string">'catalog.path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/catalog'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive.conf.dir'</span> <span class="token operator">=</span> <span class="token string">'/opt/module/hive/conf'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.external'</span> <span class="token operator">=</span> <span class="token string">'true'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">USE</span> CATALOG hudi_hms<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这段是配置思路示例，本文没有把 Hudi Catalog HMS mode 作为稳定链路完整验证。Flink Hudi Catalog 的参数名随版本变化较多，实际使用前需要以当前 Flink 1.20.1 + Hudi 1.0.2 SQL Client 的 <code>SHOW CATALOGS</code>、<code>SHOW TABLES</code> 和写入结果为准。</p>
+<p>第三种是在 Flink Hudi 表参数里开启 Hive 同步。下面是 HMS 模式的写法，参数名以当前 Hudi 1.0.x 生态为准，升级时要重新核对：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> flink_hive_sync_orders <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/flink_hive_sync_orders'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'precombine.field'</span> <span class="token operator">=</span> <span class="token string">'ts'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.enable'</span> <span class="token operator">=</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.mode'</span> <span class="token operator">=</span> <span class="token string">'hms'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.metastore.uris'</span> <span class="token operator">=</span> <span class="token string">'thrift://localhost:9083'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.db'</span> <span class="token operator">=</span> <span class="token string">'hudi_demo'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.table'</span> <span class="token operator">=</span> <span class="token string">'flink_hive_sync_orders'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.partition_fields'</span> <span class="token operator">=</span> <span class="token string">'dt'</span><span class="token punctuation">,</span>
+  <span class="token string">'hive_sync.partition_extractor_class'</span> <span class="token operator">=</span> <span class="token string">'org.apache.hudi.hive.MultiPartKeysValueExtractor'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果使用 <code>jdbc</code> 模式，还要补充 HiveServer2 的 JDBC URL、用户名和密码。能用 <code>hms</code> 时我会优先选 <code>hms</code>，因为它少绕一层 HiveServer2，问题定位更清晰。</p>
+<p>无论哪种方式，核心都还是：</p>
+<ol>
+<li>Hive Metastore 地址。</li>
+<li>database &#x2F; table。</li>
+<li>partition fields。</li>
+<li>partition extractor。</li>
+<li>ro &#x2F; rt 视图策略。</li>
+</ol>
+<p>Flink 实时写入时尤其要注意 checkpoint。Hive Metastore 里能看到表，不代表数据已经形成 completed instant；要结合 <code>.hoodie/timeline</code> 判断。</p>
+<h3 id="3-3-扩展：Hive-增量查询"><a href="#3-3-扩展：Hive-增量查询" class="headerlink" title="3.3 扩展：Hive 增量查询"></a>3.3 扩展：Hive 增量查询</h3><p>这一节主要整理 Hive 增量查询的配置思路，本文当前环境没有把 Hive 增量查询作为稳定生产路径验证通过。Hive 增量查询不是只设置一个 <code>consume.mode</code> 就结束。表类型不同，InputFormat 和查询表也不一样。</p>
+<p>COW 表的增量查询一般在 COW 外表上设置表级消费参数，并用 <code>_hoodie_commit_time</code> 做过滤：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> hive<span class="token punctuation">.</span>input<span class="token punctuation">.</span>format<span class="token operator">=</span>org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>hive<span class="token punctuation">.</span>ql<span class="token punctuation">.</span>io<span class="token punctuation">.</span>HiveInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_cow_orders_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span><span class="token keyword">mode</span><span class="token operator">=</span>INCREMENTAL<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_cow_orders_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span>max<span class="token punctuation">.</span>commits<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_cow_orders_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span><span class="token keyword">start</span><span class="token punctuation">.</span><span class="token keyword">timestamp</span><span class="token operator">=</span><span class="token number">20250805163300000</span><span class="token punctuation">;</span>
+
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span>
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_cow_orders_pt3
+<span class="token keyword">WHERE</span> <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span> <span class="token operator">></span> <span class="token string">'20250805163300000'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>MOR 表如果要做增量查询，应该针对 rt 表，并切到 Hudi 的 Combine InputFormat：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> hive<span class="token punctuation">.</span>input<span class="token punctuation">.</span>format<span class="token operator">=</span>org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hudi<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>hive<span class="token punctuation">.</span>HoodieCombineHiveInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_mor_orders_rt_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span><span class="token keyword">mode</span><span class="token operator">=</span>INCREMENTAL<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_mor_orders_rt_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span>max<span class="token punctuation">.</span>commits<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_mor_orders_rt_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span><span class="token keyword">start</span><span class="token punctuation">.</span><span class="token keyword">timestamp</span><span class="token operator">=</span><span class="token number">20251019182700000</span><span class="token punctuation">;</span>
+
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span>
+<span class="token keyword">FROM</span> hudi_demo<span class="token punctuation">.</span>hive_mor_orders_rt_pt3
+<span class="token keyword">WHERE</span> <span class="token identifier"><span class="token punctuation">`</span>_hoodie_commit_time<span class="token punctuation">`</span></span> <span class="token operator">></span> <span class="token string">'20251019182700000'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 <code>consume.start.timestamp</code> 应该使用 Hudi Timeline 中的 completed instant 时间，不是业务字段 <code>ts</code>，也不是文章发布时间。<code>consume.start.timestamp</code> 决定 Hudi InputFormat 从哪个 instant 开始消费，<code>WHERE</code> 条件更多是结果层面的二次过滤和展示，二者不要混淆。</p>
+<p>查完以后要把会话参数恢复掉，避免影响后续普通 Hive 查询：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> hive<span class="token punctuation">.</span>input<span class="token punctuation">.</span>format<span class="token operator">=</span>org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>hive<span class="token punctuation">.</span>ql<span class="token punctuation">.</span>io<span class="token punctuation">.</span>HiveInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">SET</span> hoodie<span class="token punctuation">.</span>hive_mor_orders_rt_pt3<span class="token punctuation">.</span>consume<span class="token punctuation">.</span><span class="token keyword">mode</span><span class="token operator">=</span><span class="token keyword">SNAPSHOT</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>更稳妥的方式是重新打开 Beeline 会话，或者显式清理 &#x2F; 覆盖所有相关的 <code>consume.*</code> 参数，包括 COW 和 MOR 表上的 <code>consume.mode</code>、<code>consume.max.commits</code>、<code>consume.start.timestamp</code>。</p>
+<p>这里还有一个坑：如果没有设置合适的 <code>hive.input.format</code>，实时视图查询可能会出现类似下面的错误：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">HoodieRealtimeReader can only work on RealTimeSplit<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这不是数据坏了，而是 Hive 执行计划没有按 Hudi realtime split 组织输入。COW、MOR ro、MOR rt、MOR incremental 的 InputFormat 不要混用。</p>
+<p>这类查询适合按 commit 拉取变化，但我更倾向于把 Hive 增量查询放在“兼容性验证通过以后再使用”。原因是 Hive 本身不是流式消费引擎，如果要做稳定的增量 pipeline，Spark Incremental Query 或 Flink Streaming Query 通常更可控。</p>
+<p>Hive 更适合作为查询入口、兼容老数仓报表、验证 Hudi 表可见性，而不是作为复杂增量消费的主力。</p>
+<h3 id="3-4-生产建议"><a href="#3-4-生产建议" class="headerlink" title="3.4 生产建议"></a>3.4 生产建议</h3><p>如果生产环境要接 Hive，我会按下面顺序验证：</p>
+<ol>
+<li>先确认 Hudi 表本身能被 Spark 正常读取。</li>
+<li>再确认 Hive Metastore、HiveServer2、Beeline 可用。</li>
+<li>加载 <code>hudi-hadoop-mr-bundle</code>，确认 HiveServer2 能找到 Hudi InputFormat。</li>
+<li>单独准备 Hive Sync classpath，确认 <code>hudi-hive-sync-bundle</code> 或 <code>hudi-utilities-bundle</code> 可执行。</li>
+<li>在兼容版本组合中，用 Hive Sync 同步 COW 表。</li>
+<li>查询 COW 表的 <code>LIMIT</code>、分区过滤、聚合、排序。</li>
+<li>在兼容版本组合中，同步 MOR 表的 ro 和 rt 视图。</li>
+<li>验证 ro &#x2F; rt 是否符合预期。</li>
+<li>验证 Hive 增量查询所需的 <code>consume.mode</code> 和 <code>hive.input.format</code>。</li>
+<li>跑一次新增分区同步。</li>
+<li>跑一次 schema 变更同步。</li>
+<li>不要只用 <code>LIMIT 10</code> 验证，必须验证会触发执行引擎的 SQL，例如 <code>COUNT</code>、<code>GROUP BY</code>、<code>ORDER BY</code>、分区过滤、JOIN。</li>
+<li>最后再评估是否让报表或调度任务依赖 Hive 查询 Hudi。</li>
+</ol>
+<p>在版本选择上，本文的结论比较明确：在本文当前测试环境中，Hadoop 3.4.1、Hudi 1.0.2、Hive 4.0.1 这个组合可以启动 HiveServer2，也可以通过 fetch 路径读到 Hudi 数据，但 Hive Sync Tool 和 Hive MR 查询路径存在兼容问题。如果当前版本组合 Hive Sync 无法跑通，就不要进入生产依赖。生产里不能因为 Hive 4.0.1 更新，就默认它是 Hudi 1.0.2 的最佳选择。稳定性优先时，Hive 3.x 仍然值得作为备选组合验证。</p>
+<h2 id="4-使用边界与总结"><a href="#4-使用边界与总结" class="headerlink" title="4. 使用边界与总结"></a>4. 使用边界与总结</h2><h3 id="4-1-Hive-集成使用边界"><a href="#4-1-Hive-集成使用边界" class="headerlink" title="4.1 Hive 集成使用边界"></a>4.1 Hive 集成使用边界</h3><p>Hive 集成 Hudi 的核心不是“Hive 能不能读 Parquet”，而是“Hive 能不能按 Hudi 的文件视图读对数据”。</p>
+<p>COW 表的查询路径比 MOR 简单，最新状态主要落在 Base File 中，但 Hive 仍然应该通过 Hudi InputFormat 按 Timeline 读取，而不是简单当作普通 Parquet 目录处理。MOR 表不一样，Base File 只是某个压缩点的状态，Log File 才保存了后续更新。如果 Hive 只读 ro 表，看到的是读优化结果；如果业务要最新状态，就必须读 rt 表。</p>
+<p>Hive Sync 的价值就在这里：它把 Hudi 的表视图翻译成 Hive 能理解的表。但这个翻译层高度依赖版本兼容。Hudi、Hive、Hadoop、Spark&#x2F;Flink 这些组件任何一个版本变化，都可能影响同步工具或查询路径。</p>
+<p>所以我对 Hive 集成的态度是：可以接，但要谨慎。Hive 适合承接老数仓查询和报表生态，不适合作为验证 Hudi 是否正确的唯一入口。Hudi 表的第一真相仍然应该回到 Timeline、HDFS 文件和 Spark&#x2F;Flink 读写结果上。</p>
+<h3 id="4-2-总结"><a href="#4-2-总结" class="headerlink" title="4.2 总结"></a>4.2 总结</h3><p>这篇主要完成了 Hudi 系列最后一块内容：</p>
+<ol>
+<li>Hive Sync 的本质是同步 Hudi 表元数据，不是搬运数据。</li>
+<li>COW 表在 Hive 中通常对应一个外表。</li>
+<li>MOR 表在 Hive 中要区分 ro 和 rt 视图。</li>
+<li>rt 视图能看到 Log File 中的最新更新，ro 视图只能看到 Base File。</li>
+<li>Hive 查询 Hudi 依赖 <code>hudi-hadoop-mr-bundle</code>、InputFormat、SerDe、Location 和分区。</li>
+<li>Hive Sync 还要单独关注 <code>hudi-hive-sync-bundle</code>、sync mode、sync strategy 和 classpath。</li>
+<li>Hive 增量查询要区分 COW、MOR rt、InputFormat 和 <code>_hoodie_commit_time</code> 过滤。</li>
+<li>当前 Hudi 1.0.2 + Hive 4.0.1 组合中，HiveServer2 fetch 路径可以读 COW 和 MOR ro &#x2F; rt 表，但 Hive Sync Tool 和触发 MR 的查询路径仍存在兼容问题。</li>
+<li>生产环境要优先选择实测稳定的组合，不要盲目追组件版本新旧。</li>
+</ol>
+<p>这 15 篇 Hudi 学习笔记从 Hudi 是什么，到核心概念、表类型、索引、写入、Spark、Flink、CDC、调优、底层原理，再到 Hive 集成。后续如果继续扩展，我会更倾向于单独写 Hudi 1.x 新特性、Hudi 与 Trino 查询、Hudi on S3、以及生产故障案例。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/d7a4c2f5.html">https://www.hnbian.cn/posts/d7a4c2f5.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/hive/">
+                                    <span class="chip bg-color">hive</span>
+                                </a>
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/mor/">
+                                    <span class="chip bg-color">mor</span>
+                                </a>
+                            
+                                <a href="/tags/query/">
+                                    <span class="chip bg-color">query</span>
+                                </a>
+                            
+                                <a href="/tags/hive-sync/">
+                                    <span class="chip bg-color">hive-sync</span>
+                                </a>
+                            
+                                <a href="/tags/metastore/">
+                                    <span class="chip bg-color">metastore</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/21697cbf.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-0797b481d0b2470f33c120cbd531e96e.jpg" class="responsive-img" alt="LangChain 系列 1：先搞懂 LangChain、LangGraph、LangSmith 是什么">
+                        
+                        <span class="card-title">LangChain 系列 1：先搞懂 LangChain、LangGraph、LangSmith 是什么</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-11-01
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langchain/" class="post-category">
+                                    langchain
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/langgraph/">
+                        <span class="chip bg-color">langgraph</span>
+                    </a>
+                    
+                    <a href="/tags/langsmith/">
+                        <span class="chip bg-color">langsmith</span>
+                    </a>
+                    
+                    <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">
+                        <span class="chip bg-color">大模型</span>
+                    </a>
+                    
+                    <a href="/tags/agent/">
+                        <span class="chip bg-color">agent</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/c3e5a7d9.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-6e8bbb90be846c9243b2eb52c2e56fb8.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 14：Hudi 底层读写原理解析">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 14：Hudi 底层读写原理解析</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-10-19
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/compaction/">
+                        <span class="chip bg-color">compaction</span>
+                    </a>
+                    
+                    <a href="/tags/internals/">
+                        <span class="chip bg-color">internals</span>
+                    </a>
+                    
+                    <a href="/tags/clean/">
+                        <span class="chip bg-color">clean</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

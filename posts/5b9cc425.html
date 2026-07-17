@@ -1,0 +1,2135 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="LangChain 系列 9：支持图片和音频的多模态聊天数字人, hnbian">
+    <meta name="description" content="上一章使用 Whisper 把语音转换成文字，再交给 Qwen3 回答。这个过程可以实现语音输入，但 Qwen3 实际接收到的仍然只有文字。
+如果还希望程序理解图片，就需要增加真正的多模态模型。本文在 M1 Max 上部署 mlx-comm">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>LangChain 系列 9：支持图片和音频的多模态聊天数字人 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-a2730b536c21c87a02b5101aa0e339b3.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">LangChain 系列 9：支持图片和音频的多模态聊天数字人</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/langchain/">
+                                <span class="chip bg-color">langchain</span>
+                            </a>
+                        
+                            <a href="/tags/gradio/">
+                                <span class="chip bg-color">gradio</span>
+                            </a>
+                        
+                            <a href="/tags/multimodal/">
+                                <span class="chip bg-color">multimodal</span>
+                            </a>
+                        
+                            <a href="/tags/mlx-vlm/">
+                                <span class="chip bg-color">mlx-vlm</span>
+                            </a>
+                        
+                            <a href="/tags/gemma/">
+                                <span class="chip bg-color">gemma</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/langchain/" class="post-category">
+                                langchain
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-12-26
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.6k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    19 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>上一章使用 Whisper 把语音转换成文字，再交给 Qwen3 回答。这个过程可以实现语音输入，但 Qwen3 实际接收到的仍然只有文字。</p>
+<p>如果还希望程序理解图片，就需要增加真正的多模态模型。本文在 M1 Max 上部署 mlx-community&#x2F;gemma-3n-E2B-it-4bit，让 Gemma 3n 负责理解图片和音频，再由已经部署好的 Qwen3 负责最终回答和多轮对话。</p>
+<p>这里的“数字人”指可以通过文字、图片和音频交流的聊天角色。本文不包含虚拟形象驱动、口型同步和语音合成。</p>
+<h2 id="1-为什么需要两个模型"><a href="#1-为什么需要两个模型" class="headerlink" title="1. 为什么需要两个模型"></a>1. 为什么需要两个模型</h2><p>项目根目录的 model 指向 Qwen3-14B 文本模型。它没有视觉编码器和音频编码器，因此只能处理文本令牌。</p>
+<p>把图片路径直接写进消息：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/Users/.../photo.png<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>不会让 Qwen3 看到图片内容。它只能看到一段文件名字符串。</p>
+<p>Gemma 3n 可以处理图片和音频，但本次实测发现，它更适合承担媒体理解工作；Qwen3 的中文回答和多轮上下文更稳定。因此本文采用明确的职责划分：</p>
+<ul>
+<li>Gemma 3n：把当前图片或音频转换成文字信息。</li>
+<li>Qwen3：读取媒体识别结果和聊天历史，生成最终回答。</li>
+<li>SQLite：保存用户消息、媒体路径、识别结果和模型回答。</li>
+<li>Gradio：提供文字、图片、录音和文件上传界面。</li>
+</ul>
+<h2 id="2-完整数据流"><a href="#2-完整数据流" class="headerlink" title="2. 完整数据流"></a>2. 完整数据流</h2><p><img src="https://images.hnbian.cn/new/n-54a51b626eb060d1d7e178644d68ad85.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地多模态聊天数据流"></p>
+<p>图中将一轮请求分成“当前媒体理解”和“文本会话处理”两个阶段。图片与音频需要先变成文字信息，Qwen3 才能把这些信息与历史消息一起处理。</p>
+<p>一轮请求会经过以下步骤：</p>
+<ol>
+<li>Gradio 接收文字、图片或音频，并从 gr.State 取得当前页面的 session_id。</li>
+<li>图片和音频先复制到 data&#x2F;uploads&#x2F;<session_id>&#x2F;，避免依赖 Gradio 临时文件。</li>
+<li>RunnableLambda 把本轮新媒体交给 Gemma 3n，得到文字形式的识别结果。</li>
+<li>程序把用户文字、识别结果和受控文件路径组合成当前 HumanMessage。</li>
+<li>SQLite 按 session_id 读取最近 10 条历史消息，Qwen3 根据历史和当前消息生成回答。</li>
+<li>程序把当前 HumanMessage 与最终 AIMessage 写回 SQLite，并更新 Gradio 聊天窗口。</li>
+</ol>
+<p>纯文字请求会跳过第 2、3 步，直接进入文本会话处理。数据库只保存文字和文件路径，不保存体积较大的 Base64 数据。</p>
+<h2 id="3-创建独立环境"><a href="#3-创建独立环境" class="headerlink" title="3. 创建独立环境"></a>3. 创建独立环境</h2><p>多模态阶段同时需要 MLX-VLM、PyTorch、Gradio 和 LangChain。为了不改变前面已经验证的主环境，本文使用独立的 .venv_vlm：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
+
+python3.12 <span class="token punctuation">\</span>
+  <span class="token parameter variable">-m</span> venv <span class="token punctuation">\</span>
+  <span class="token parameter variable">--prompt</span> llm_learning_vlm <span class="token punctuation">\</span>
+  .venv_vlm
+
+.venv_vlm/bin/python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-U</span> pip
+.venv_vlm/bin/python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> langchain/p09_multimodal_digital_human/requirements-server.txt
+
+.venv_vlm/bin/python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>核心直接依赖固定为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">mlx-vlm==0.3.9
+mlx==0.29.3
+mlx-lm==0.28.3
+transformers==4.57.1
+starlette==0.50.0
+torch==2.9.1
+numpy==2.2.6<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>其中 torch&#x3D;&#x3D;2.9.1 用于 Gemma 3n 音频处理器的张量转换。模型推理仍由 MLX 在 Apple Silicon 上执行。</p>
+<h2 id="4-下载-Gemma-3n"><a href="#4-下载-Gemma-3n" class="headerlink" title="4. 下载 Gemma 3n"></a>4. 下载 Gemma 3n</h2><p>模型保存在博客仓库外：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">~/Documents/git/llm/gemma3n/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>下载代码固定了模型 revision，避免模型仓库后续更新改变文章结果。</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件用于下载支持文字、图片和音频的 Gemma 3n MLX 模型。</span>
+<span class="token comment"># 模型保存在博客仓库外，避免把数 GB 的权重文件放进项目目录。</span>
+
+<span class="token keyword">import</span> os
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">from</span> modelscope <span class="token keyword">import</span> snapshot_download
+
+
+model_dir <span class="token operator">=</span> Path<span class="token punctuation">.</span>home<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">/</span> <span class="token string">"Documents/git/llm/gemma3n/model"</span>
+model_dir<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+
+<span class="token comment"># ModelScope 可以直接访问，避免数 GB 权重经过系统 VPN 后降速或断流。</span>
+os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>setdefault<span class="token punctuation">(</span><span class="token string">"NO_PROXY"</span><span class="token punctuation">,</span> <span class="token string">"*"</span><span class="token punctuation">)</span>
+os<span class="token punctuation">.</span>environ<span class="token punctuation">.</span>setdefault<span class="token punctuation">(</span><span class="token string">"no_proxy"</span><span class="token punctuation">,</span> <span class="token string">"*"</span><span class="token punctuation">)</span>
+
+downloaded_path <span class="token operator">=</span> snapshot_download<span class="token punctuation">(</span>
+    model_id<span class="token operator">=</span><span class="token string">"mlx-community/gemma-3n-E2B-it-4bit"</span><span class="token punctuation">,</span>
+    revision<span class="token operator">=</span><span class="token string">"8a6e532400c0385b14908b963b728f593fa476f2"</span><span class="token punctuation">,</span>
+    local_dir<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>model_dir<span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"多模态模型保存目录："</span><span class="token punctuation">,</span> downloaded_path<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_vlm/bin/python <span class="token punctuation">\</span>
+  langchain/p09_multimodal_digital_human/01_download_multimodal_model.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>模型目录实测约为 4.2G。下载完成后，在项目根目录建立统一入口：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ln</span> <span class="token parameter variable">-s</span> <span class="token punctuation">\</span>
+  ~/Documents/git/llm/gemma3n/model <span class="token punctuation">\</span>
+  multimodal_model<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>后续代码只使用 multimodal_model，不依赖个人绝对路径。</p>
+<h2 id="5-启动-Qwen3-文本服务"><a href="#5-启动-Qwen3-文本服务" class="headerlink" title="5. 启动 Qwen3 文本服务"></a>5. 启动 Qwen3 文本服务</h2><p>Gemma 3n 由 Gradio 进程通过 Python API 直接加载。Qwen3 继续使用 LangChain 系列 3 中已经验证的 OpenAI 兼容服务。</p>
+<p>在一个终端执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
+<span class="token builtin class-name">source</span> .venv/bin/activate
+
+<span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> model <span class="token punctuation">\</span>
+  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
+  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>另开终端检查端口：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>mlx-lm&#x3D;&#x3D;0.28.3 的 data 可能为空，因此最终仍要以聊天请求能否返回内容为准。</p>
+<h2 id="6-使用原生-API-测试图片"><a href="#6-使用原生-API-测试图片" class="headerlink" title="6. 使用原生 API 测试图片"></a>6. 使用原生 API 测试图片</h2><p>图片测试脚本会创建一张白底图片：左边是蓝色正方形，右边是黄色圆形。这样可以直接判断模型是否真的读取了图像。</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件创建一张简单测试图片，并使用 MLX-VLM 原生 Python API 描述图片。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">from</span> PIL <span class="token keyword">import</span> Image<span class="token punctuation">,</span> ImageDraw
+<span class="token keyword">from</span> mlx_vlm <span class="token keyword">import</span> generate<span class="token punctuation">,</span> load
+<span class="token keyword">from</span> mlx_vlm<span class="token punctuation">.</span>prompt_utils <span class="token keyword">import</span> apply_chat_template
+
+
+project_root <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+image_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"multimodal_sample.png"</span>
+image_path<span class="token punctuation">.</span>parent<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+model_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"multimodal_model"</span>
+
+<span class="token comment"># 创建内容确定的测试图片，便于判断模型是否真的读取了图像。</span>
+image <span class="token operator">=</span> Image<span class="token punctuation">.</span>new<span class="token punctuation">(</span><span class="token string">"RGB"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token number">640</span><span class="token punctuation">,</span> <span class="token number">360</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"white"</span><span class="token punctuation">)</span>
+draw <span class="token operator">=</span> ImageDraw<span class="token punctuation">.</span>Draw<span class="token punctuation">(</span>image<span class="token punctuation">)</span>
+draw<span class="token punctuation">.</span>rectangle<span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token number">70</span><span class="token punctuation">,</span> <span class="token number">80</span><span class="token punctuation">,</span> <span class="token number">270</span><span class="token punctuation">,</span> <span class="token number">280</span><span class="token punctuation">)</span><span class="token punctuation">,</span> fill<span class="token operator">=</span><span class="token string">"royalblue"</span><span class="token punctuation">)</span>
+draw<span class="token punctuation">.</span>ellipse<span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token number">370</span><span class="token punctuation">,</span> <span class="token number">80</span><span class="token punctuation">,</span> <span class="token number">570</span><span class="token punctuation">,</span> <span class="token number">280</span><span class="token punctuation">)</span><span class="token punctuation">,</span> fill<span class="token operator">=</span><span class="token string">"gold"</span><span class="token punctuation">)</span>
+image<span class="token punctuation">.</span>save<span class="token punctuation">(</span>image_path<span class="token punctuation">)</span>
+
+
+<span class="token comment"># 加载本地模型，并根据图片数量生成 Gemma 3n 需要的聊天提示词。</span>
+model<span class="token punctuation">,</span> processor <span class="token operator">=</span> load<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>model_path<span class="token punctuation">)</span><span class="token punctuation">)</span>
+prompt <span class="token operator">=</span> apply_chat_template<span class="token punctuation">(</span>
+    processor<span class="token punctuation">,</span>
+    model<span class="token punctuation">.</span>config<span class="token punctuation">,</span>
+    <span class="token string">"请分别回答：左边图形是什么颜色和形状？右边图形是什么颜色和形状？"</span><span class="token punctuation">,</span>
+    num_images<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+<span class="token comment"># image 接收本地图片路径列表，返回值的 text 字段是模型回答。</span>
+result <span class="token operator">=</span> generate<span class="token punctuation">(</span>
+    model<span class="token punctuation">,</span>
+    processor<span class="token punctuation">,</span>
+    prompt<span class="token punctuation">,</span>
+    image<span class="token operator">=</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">(</span>image_path<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+    verbose<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"测试图片："</span><span class="token punctuation">,</span> image_path<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型回答："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_vlm/bin/python <span class="token punctuation">\</span>
+  langchain/p09_multimodal_digital_human/02_test_image_input.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>实测回答的关键部分为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">测试图片： .../llm_learning/data/multimodal_sample.png
+模型回答：
+* 左边：有一个蓝色的正方形。
+* 右边：有一个黄色的圆形。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>颜色、形状和位置都与测试图片一致。</p>
+<p>本次运行还会看到一条回退提示：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Using `use_fast=True` but `torchvision` is not available. Falling back to the slow image processor.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这条信息表示处理器没有使用 torchvision 的快速实现，已经自动切换到慢速图片处理器。它不是推理失败，是否成功仍应以脚本退出状态和模型回答为准。</p>
+<h2 id="7-使用原生-API-测试音频"><a href="#7-使用原生-API-测试音频" class="headerlink" title="7. 使用原生 API 测试音频"></a>7. 使用原生 API 测试音频</h2><p>这一节不先调用 Whisper，而是把 WAV 文件直接交给 Gemma 3n。</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件使用 MLX-VLM 原生 Python API，把本地音频直接交给多模态模型理解。</span>
+<span class="token comment"># 与上一章的 Whisper 不同，这里不先把音频单独转换成文字。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+
+<span class="token keyword">from</span> mlx_vlm <span class="token keyword">import</span> generate<span class="token punctuation">,</span> load
+<span class="token keyword">from</span> mlx_vlm<span class="token punctuation">.</span>prompt_utils <span class="token keyword">import</span> apply_chat_template
+
+
+project_root <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+audio_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"sample_voice.wav"</span>
+model_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"multimodal_model"</span>
+
+<span class="token keyword">if</span> <span class="token keyword">not</span> audio_path<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">raise</span> FileNotFoundError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"没有找到测试音频：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>audio_path<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+
+<span class="token comment"># 音频输入需要在模板中声明 num_audios=1。</span>
+model<span class="token punctuation">,</span> processor <span class="token operator">=</span> load<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>model_path<span class="token punctuation">)</span><span class="token punctuation">)</span>
+prompt <span class="token operator">=</span> apply_chat_template<span class="token punctuation">(</span>
+    processor<span class="token punctuation">,</span>
+    model<span class="token punctuation">.</span>config<span class="token punctuation">,</span>
+    <span class="token string">"请转述这段音频表达的内容。"</span><span class="token punctuation">,</span>
+    num_audios<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+result <span class="token operator">=</span> generate<span class="token punctuation">(</span>
+    model<span class="token punctuation">,</span>
+    processor<span class="token punctuation">,</span>
+    prompt<span class="token punctuation">,</span>
+    audio<span class="token operator">=</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">(</span>audio_path<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+    verbose<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"测试音频："</span><span class="token punctuation">,</span> audio_path<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型回答："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_vlm/bin/python <span class="token punctuation">\</span>
+  langchain/p09_multimodal_digital_human/03_test_audio_input.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>真实输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">测试音频： .../llm_learning/data/sample_voice.wav
+模型回答： 你好，我叫小明，我今天想去 Hangzhou 西湖三元。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>原音频内容是“你好，我叫小明，我今天想去杭州西湖散步”。模型识别出了主要语义，但把“杭州”写成英文，并把“散步”误识别成“三元”。这说明接口和音频输入已经打通，同时也说明多模态模型的音频识别结果并不一定比专用 Whisper 更准确。</p>
+<h2 id="8-构建-Gradio-多模态聊天页面"><a href="#8-构建-Gradio-多模态聊天页面" class="headerlink" title="8. 构建 Gradio 多模态聊天页面"></a>8. 构建 Gradio 多模态聊天页面</h2><p>页面启动时只加载一次 Gemma 3n。每一轮请求按以下顺序处理：</p>
+<ol>
+<li>把 Gradio 临时文件复制到当前会话目录。</li>
+<li>使用 Gemma 3n 理解本轮图片或音频。</li>
+<li>把识别结果追加到本轮用户消息。</li>
+<li>使用 Qwen3 结合最近 10 条消息生成最终回答。</li>
+<li>将文字、文件路径、识别结果和回答写入 SQLite。</li>
+</ol>
+<p>RunnableLambda 只包装媒体理解函数，没有抽取公共模型类：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">call_multimodal_model</span><span class="token punctuation">(</span>values<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    prompt <span class="token operator">=</span> apply_chat_template<span class="token punctuation">(</span>
+        processor<span class="token punctuation">,</span>
+        vlm_model<span class="token punctuation">.</span>config<span class="token punctuation">,</span>
+        values<span class="token punctuation">[</span><span class="token string">"prompt"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        num_images<span class="token operator">=</span><span class="token builtin">len</span><span class="token punctuation">(</span>values<span class="token punctuation">[</span><span class="token string">"images"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        num_audios<span class="token operator">=</span><span class="token builtin">len</span><span class="token punctuation">(</span>values<span class="token punctuation">[</span><span class="token string">"audios"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    result <span class="token operator">=</span> generate<span class="token punctuation">(</span>
+        vlm_model<span class="token punctuation">,</span>
+        processor<span class="token punctuation">,</span>
+        prompt<span class="token punctuation">,</span>
+        image<span class="token operator">=</span>values<span class="token punctuation">[</span><span class="token string">"images"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+        audio<span class="token operator">=</span>values<span class="token punctuation">[</span><span class="token string">"audios"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+        verbose<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    <span class="token keyword">return</span> result<span class="token punctuation">.</span>text
+
+
+multimodal_model <span class="token operator">=</span> RunnableLambda<span class="token punctuation">(</span>call_multimodal_model<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Qwen3 使用标准 LangChain ChatOpenAI：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">text_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+    model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="9-为什么媒体理解与多轮回答要分开"><a href="#9-为什么媒体理解与多轮回答要分开" class="headerlink" title="9. 为什么媒体理解与多轮回答要分开"></a>9. 为什么媒体理解与多轮回答要分开</h2><p><img src="https://images.hnbian.cn/new/n-570dbfc88acb0ca0e3164fa2357f31d0.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="当前媒体与多轮历史的边界"></p>
+<p>mlx-vlm&#x3D;&#x3D;0.3.9 的原生 generate() 可以正确处理单轮图片和单轮音频。实测中，如果连续把上一轮图片占位符和下一轮音频占位符交给 Gemma 3n，它容易混淆两种媒体上下文。</p>
+<p>因此本文只让 Gemma 3n 处理当前轮的新媒体。识别结果被转换成普通文字后写入 SQLite，下一轮纯文字追问由 Qwen3 读取历史。</p>
+<p>这里需要注意：SQLite 中虽然保存了图片或音频路径，但 Qwen3 不会因为看到路径就获得媒体内容。下一轮能够回答媒体相关问题，是因为历史消息中同时保存了 Gemma 3n 的文字识别结果。旧图片和旧音频不会在每次追问时重新发送给 Gemma 3n。</p>
+<p>例如，音频识别结果写入历史后，再问：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">我刚才的音频中提到了哪个城市？<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>真实回答：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">您刚才的音频中提到的城市是杭州。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这个结果证明多轮记忆来自 Qwen3 和 SQLite，而不是把旧音频反复发送给多模态模型。</p>
+<h2 id="10-完整-Gradio-代码"><a href="#10-完整-Gradio-代码" class="headerlink" title="10. 完整 Gradio 代码"></a>10. 完整 Gradio 代码</h2><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件实现一个可接收文字、图片和音频的 Gradio 多模态聊天页面。</span>
+<span class="token comment"># MLX-VLM 在当前进程中只加载一次，RunnableLambda 负责统一调用模型。</span>
+
+<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+<span class="token keyword">from</span> shutil <span class="token keyword">import</span> copy2<span class="token punctuation">,</span> rmtree
+<span class="token keyword">from</span> uuid <span class="token keyword">import</span> uuid4
+
+<span class="token keyword">import</span> gradio <span class="token keyword">as</span> gr
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain_community<span class="token punctuation">.</span>chat_message_histories <span class="token keyword">import</span> SQLChatMessageHistory
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage<span class="token punctuation">,</span> HumanMessage
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>runnables <span class="token keyword">import</span> RunnableLambda
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> mlx_vlm <span class="token keyword">import</span> generate<span class="token punctuation">,</span> load
+<span class="token keyword">from</span> mlx_vlm<span class="token punctuation">.</span>prompt_utils <span class="token keyword">import</span> apply_chat_template
+
+
+project_root <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
+database_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"multimodal_history.db"</span>
+upload_root <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"uploads"</span>
+model_path <span class="token operator">=</span> project_root <span class="token operator">/</span> <span class="token string">"multimodal_model"</span>
+database_path<span class="token punctuation">.</span>parent<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+connection <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"sqlite:///</span><span class="token interpolation"><span class="token punctuation">&#123;</span>database_path<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+<span class="token comment"># 页面启动时加载一次模型，后续每轮对话复用同一份模型和处理器。</span>
+vlm_model<span class="token punctuation">,</span> processor <span class="token operator">=</span> load<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>model_path<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment"># Qwen3 负责最终回答和多轮对话，Gemma 3n 只负责理解当前媒体。</span>
+text_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+    model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">get_session_history</span><span class="token punctuation">(</span>session_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> SQLChatMessageHistory<span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""取得当前多模态会话的完整历史。"""</span>
+    <span class="token keyword">return</span> SQLChatMessageHistory<span class="token punctuation">(</span>session_id<span class="token operator">=</span>session_id<span class="token punctuation">,</span> connection<span class="token operator">=</span>connection<span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">save_upload</span><span class="token punctuation">(</span>source<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> session_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> allowed_suffixes<span class="token punctuation">:</span> <span class="token builtin">set</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""把 Gradio 临时文件复制到当前会话的受控目录。"""</span>
+    source_path <span class="token operator">=</span> Path<span class="token punctuation">(</span>source<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> source_path<span class="token punctuation">.</span>suffix<span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">not</span> <span class="token keyword">in</span> allowed_suffixes<span class="token punctuation">:</span>
+        <span class="token keyword">raise</span> gr<span class="token punctuation">.</span>Error<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"不支持的文件类型：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>source_path<span class="token punctuation">.</span>suffix<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+    session_dir <span class="token operator">=</span> upload_root <span class="token operator">/</span> session_id
+    session_dir<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    target <span class="token operator">=</span> session_dir <span class="token operator">/</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">hex</span><span class="token punctuation">&#125;</span></span><span class="token interpolation"><span class="token punctuation">&#123;</span>source_path<span class="token punctuation">.</span>suffix<span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+    copy2<span class="token punctuation">(</span>source_path<span class="token punctuation">,</span> target<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>target<span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">call_multimodal_model</span><span class="token punctuation">(</span>values<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""使用 Gemma 3n 把本轮图片和音频转换成文字信息。"""</span>
+    prompt <span class="token operator">=</span> apply_chat_template<span class="token punctuation">(</span>
+        processor<span class="token punctuation">,</span>
+        vlm_model<span class="token punctuation">.</span>config<span class="token punctuation">,</span>
+        values<span class="token punctuation">[</span><span class="token string">"prompt"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        num_images<span class="token operator">=</span><span class="token builtin">len</span><span class="token punctuation">(</span>values<span class="token punctuation">[</span><span class="token string">"images"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        num_audios<span class="token operator">=</span><span class="token builtin">len</span><span class="token punctuation">(</span>values<span class="token punctuation">[</span><span class="token string">"audios"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    result <span class="token operator">=</span> generate<span class="token punctuation">(</span>
+        vlm_model<span class="token punctuation">,</span>
+        processor<span class="token punctuation">,</span>
+        prompt<span class="token punctuation">,</span>
+        image<span class="token operator">=</span>values<span class="token punctuation">[</span><span class="token string">"images"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+        audio<span class="token operator">=</span>values<span class="token punctuation">[</span><span class="token string">"audios"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+        verbose<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    <span class="token keyword">return</span> result<span class="token punctuation">.</span>text
+
+
+multimodal_model <span class="token operator">=</span> RunnableLambda<span class="token punctuation">(</span>call_multimodal_model<span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">chat</span><span class="token punctuation">(</span>
+    text<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
+    image_path<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+    audio_path<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
+    ui_history<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">dict</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    session_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""组合本轮的文字、图片和音频，并保存完整聊天历史。"""</span>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>session_id<span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token keyword">not</span> session_id<span class="token punctuation">:</span>
+        session_id <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> <span class="token keyword">not</span> text<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">and</span> <span class="token keyword">not</span> image_path <span class="token keyword">and</span> <span class="token keyword">not</span> audio_path<span class="token punctuation">:</span>
+        <span class="token keyword">return</span> ui_history<span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> session_id
+
+    display_parts <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    images <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    audios <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+
+    prompt_text <span class="token operator">=</span> text<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token string">"请描述我发送的内容。"</span>
+    <span class="token keyword">if</span> text<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        display_parts<span class="token punctuation">.</span>append<span class="token punctuation">(</span>text<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> image_path<span class="token punctuation">:</span>
+        saved_image <span class="token operator">=</span> save_upload<span class="token punctuation">(</span>
+            image_path<span class="token punctuation">,</span>
+            session_id<span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span><span class="token string">".png"</span><span class="token punctuation">,</span> <span class="token string">".jpg"</span><span class="token punctuation">,</span> <span class="token string">".jpeg"</span><span class="token punctuation">,</span> <span class="token string">".webp"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">)</span>
+        images<span class="token punctuation">.</span>append<span class="token punctuation">(</span>saved_image<span class="token punctuation">)</span>
+        display_parts<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[图片：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>Path<span class="token punctuation">(</span>saved_image<span class="token punctuation">)</span><span class="token punctuation">.</span>name<span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> audio_path<span class="token punctuation">:</span>
+        saved_audio <span class="token operator">=</span> save_upload<span class="token punctuation">(</span>
+            audio_path<span class="token punctuation">,</span>
+            session_id<span class="token punctuation">,</span>
+            <span class="token punctuation">&#123;</span><span class="token string">".wav"</span><span class="token punctuation">,</span> <span class="token string">".mp3"</span><span class="token punctuation">,</span> <span class="token string">".m4a"</span><span class="token punctuation">,</span> <span class="token string">".flac"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">)</span>
+        audios<span class="token punctuation">.</span>append<span class="token punctuation">(</span>saved_audio<span class="token punctuation">)</span>
+        display_parts<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[音频：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>Path<span class="token punctuation">(</span>saved_audio<span class="token punctuation">)</span><span class="token punctuation">.</span>name<span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+
+    history <span class="token operator">=</span> get_session_history<span class="token punctuation">(</span>session_id<span class="token punctuation">)</span>
+    user_record <span class="token operator">=</span> <span class="token punctuation">[</span>prompt_text<span class="token punctuation">]</span>
+
+    <span class="token keyword">if</span> images <span class="token keyword">or</span> audios<span class="token punctuation">:</span>
+        media_result <span class="token operator">=</span> multimodal_model<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+            <span class="token punctuation">&#123;</span><span class="token string">"prompt"</span><span class="token punctuation">:</span> prompt_text<span class="token punctuation">,</span> <span class="token string">"images"</span><span class="token punctuation">:</span> images<span class="token punctuation">,</span> <span class="token string">"audios"</span><span class="token punctuation">:</span> audios<span class="token punctuation">&#125;</span>
+        <span class="token punctuation">)</span>
+        user_record<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[多模态模型识别结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>media_result<span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> images<span class="token punctuation">:</span>
+        user_record<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[图片路径：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>images<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> audios<span class="token punctuation">:</span>
+        user_record<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[音频路径：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>audios<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span><span class="token punctuation">)</span>
+
+    <span class="token comment"># Qwen3 读取最近消息和本轮媒体识别结果，负责最终回答与多轮上下文。</span>
+    user_message <span class="token operator">=</span> HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"\n"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>user_record<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    answer <span class="token operator">=</span> text_model<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>history<span class="token punctuation">.</span>messages<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">10</span><span class="token punctuation">:</span><span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token punctuation">[</span>user_message<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span>content
+
+    <span class="token comment"># 数据库保存文件路径和识别文本，不保存大体积 Base64 数据。</span>
+    history<span class="token punctuation">.</span>add_message<span class="token punctuation">(</span>user_message<span class="token punctuation">)</span>
+    history<span class="token punctuation">.</span>add_message<span class="token punctuation">(</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span>answer<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    ui_history <span class="token operator">=</span> ui_history <span class="token operator">+</span> <span class="token punctuation">[</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"\n"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>display_parts<span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> answer<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">]</span>
+    <span class="token keyword">return</span> ui_history<span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> session_id
+
+
+<span class="token keyword">def</span> <span class="token function">clear_chat</span><span class="token punctuation">(</span>session_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""清空当前会话的消息和已复制文件。"""</span>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>session_id<span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token keyword">not</span> session_id<span class="token punctuation">:</span>
+        session_id <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    get_session_history<span class="token punctuation">(</span>session_id<span class="token punctuation">)</span><span class="token punctuation">.</span>clear<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    rmtree<span class="token punctuation">(</span>upload_root <span class="token operator">/</span> session_id<span class="token punctuation">,</span> ignore_errors<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">,</span> session_id
+
+
+<span class="token keyword">with</span> gr<span class="token punctuation">.</span>Blocks<span class="token punctuation">(</span>title<span class="token operator">=</span><span class="token string">"本地多模态聊天机器人"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> demo<span class="token punctuation">:</span>
+    gr<span class="token punctuation">.</span>Markdown<span class="token punctuation">(</span><span class="token string">"## 本地多模态聊天机器人"</span><span class="token punctuation">)</span>
+    session_id <span class="token operator">=</span> gr<span class="token punctuation">.</span>State<span class="token punctuation">(</span><span class="token keyword">lambda</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">(</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    chatbot <span class="token operator">=</span> gr<span class="token punctuation">.</span>Chatbot<span class="token punctuation">(</span><span class="token builtin">type</span><span class="token operator">=</span><span class="token string">"messages"</span><span class="token punctuation">,</span> height<span class="token operator">=</span><span class="token number">440</span><span class="token punctuation">)</span>
+    text <span class="token operator">=</span> gr<span class="token punctuation">.</span>Textbox<span class="token punctuation">(</span>label<span class="token operator">=</span><span class="token string">"文字"</span><span class="token punctuation">,</span> placeholder<span class="token operator">=</span><span class="token string">"可以只发文字，也可以配合图片或音频"</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">with</span> gr<span class="token punctuation">.</span>Row<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        image <span class="token operator">=</span> gr<span class="token punctuation">.</span>Image<span class="token punctuation">(</span><span class="token builtin">type</span><span class="token operator">=</span><span class="token string">"filepath"</span><span class="token punctuation">,</span> label<span class="token operator">=</span><span class="token string">"图片"</span><span class="token punctuation">)</span>
+        audio <span class="token operator">=</span> gr<span class="token punctuation">.</span>Audio<span class="token punctuation">(</span>sources<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"microphone"</span><span class="token punctuation">,</span> <span class="token string">"upload"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token operator">=</span><span class="token string">"filepath"</span><span class="token punctuation">,</span> label<span class="token operator">=</span><span class="token string">"音频"</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">with</span> gr<span class="token punctuation">.</span>Row<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        send_button <span class="token operator">=</span> gr<span class="token punctuation">.</span>Button<span class="token punctuation">(</span><span class="token string">"发送"</span><span class="token punctuation">,</span> variant<span class="token operator">=</span><span class="token string">"primary"</span><span class="token punctuation">)</span>
+        clear_button <span class="token operator">=</span> gr<span class="token punctuation">.</span>Button<span class="token punctuation">(</span><span class="token string">"清空"</span><span class="token punctuation">)</span>
+
+    send_button<span class="token punctuation">.</span>click<span class="token punctuation">(</span>
+        chat<span class="token punctuation">,</span>
+        <span class="token punctuation">[</span>text<span class="token punctuation">,</span> image<span class="token punctuation">,</span> audio<span class="token punctuation">,</span> chatbot<span class="token punctuation">,</span> session_id<span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token punctuation">[</span>chatbot<span class="token punctuation">,</span> text<span class="token punctuation">,</span> image<span class="token punctuation">,</span> audio<span class="token punctuation">,</span> session_id<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    clear_button<span class="token punctuation">.</span>click<span class="token punctuation">(</span>
+        clear_chat<span class="token punctuation">,</span>
+        session_id<span class="token punctuation">,</span>
+        <span class="token punctuation">[</span>chatbot<span class="token punctuation">,</span> text<span class="token punctuation">,</span> image<span class="token punctuation">,</span> audio<span class="token punctuation">,</span> session_id<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    demo<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>server_name<span class="token operator">=</span><span class="token string">"127.0.0.1"</span><span class="token punctuation">,</span> server_port<span class="token operator">=</span><span class="token number">7862</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行页面：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_vlm/bin/python <span class="token punctuation">\</span>
+  langchain/p09_multimodal_digital_human/04_gradio_multimodal_chatbot.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>访问：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">http://127.0.0.1:7862<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<img src="https://images.hnbian.cn/new/n-daa38bcec2ab73dba4de96fef2628b77.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地多模态聊天机器人" style="zoom:33%;" />
+
+<p>截图中的“收到”是一次真实的文字通路检查；图片和音频通路分别由第 6、7 节的原生测试验证。自动化测试浏览器没有麦克风设备，因此音频组件会显示 No microphone found，上传本地音频仍可正常使用。真实录音还需要浏览器授予麦克风权限。</p>
+<h2 id="11-会话与文件如何保存"><a href="#11-会话与文件如何保存" class="headerlink" title="11. 会话与文件如何保存"></a>11. 会话与文件如何保存</h2><p>每个浏览器会话都由 gr.State 创建独立的 session_id。上传文件复制到：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">data/uploads/&lt;session_id>/<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>SQLite 数据库位于：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">data/multimodal_history.db<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>数据库中的用户消息包含：</p>
+<ul>
+<li>本轮文字。</li>
+<li>图片或音频的本地路径。</li>
+<li>Gemma 3n 的媒体识别结果。</li>
+</ul>
+<p>这样既能让 Qwen3 在后续对话中使用识别结果，也不会把大体积文件内容写入数据库。点击“清空”会删除当前会话消息和对应上传目录，不影响其他浏览器会话。</p>
+<p>gr.State 只负责当前页面中的随机 UUID，不是登录身份或账户认证。刷新页面或重新打开页面可能得到新的 session_id，当前示例也不会自动把 SQLite 中的旧消息恢复到 Gradio 聊天窗口。如果需要长期绑定真实用户，应由登录系统提供稳定的用户或会话标识。</p>
+<h2 id="12-常见问题"><a href="#12-常见问题" class="headerlink" title="12. 常见问题"></a>12. 常见问题</h2><h3 id="12-1-音频处理提示没有安装-PyTorch"><a href="#12-1-音频处理提示没有安装-PyTorch" class="headerlink" title="12.1 音频处理提示没有安装 PyTorch"></a>12.1 音频处理提示没有安装 PyTorch</h3><p>Gemma 3n 的音频处理器需要把特征转换成 PyTorch 张量。如果环境中没有 PyTorch，会出现：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Unable to convert output to PyTorch tensors format, PyTorch is not installed.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本文在 .venv_vlm 中固定安装 torch&#x3D;&#x3D;2.9.1。</p>
+<h3 id="12-2-为什么提示没有安装-torchvision"><a href="#12-2-为什么提示没有安装-torchvision" class="headerlink" title="12.2 为什么提示没有安装 torchvision"></a>12.2 为什么提示没有安装 torchvision</h3><p>缺少 torchvision 时，图片处理器会回退到慢速实现并继续执行。本文的图片测试已经在该回退路径下正确识别颜色和形状，因此没有为了消除提示而改变已经锁定的依赖环境。</p>
+<h3 id="12-3-为什么不使用-mlx-vlm-server"><a href="#12-3-为什么不使用-mlx-vlm-server" class="headerlink" title="12.3 为什么不使用 mlx_vlm.server"></a>12.3 为什么不使用 mlx_vlm.server</h3><p>本文固定的 mlx-vlm&#x3D;&#x3D;0.3.9 自带服务使用 &#x2F;chat&#x2F;completions，没有后期版本的 &#x2F;v1 前缀。更重要的是，该版本对 Gemma 3n 的聊天内容块和纯音频请求存在兼容问题。</p>
+<p>原生 load() + apply_chat_template() + generate() 已经通过图片和音频实测，因此本文直接使用 Python API，不把后期服务行为提前写进文章。</p>
+<h3 id="12-4-模型回答与音频原文不完全一致"><a href="#12-4-模型回答与音频原文不完全一致" class="headerlink" title="12.4 模型回答与音频原文不完全一致"></a>12.4 模型回答与音频原文不完全一致</h3><p>多模态模型会生成概率性回答，音频转写可能出现同音字、中英文混写和漏词。如果业务要求准确字幕，应继续使用上一章的 Whisper；如果需要模型同时理解声音内容和上下文，可以使用本章的多模态路径。</p>
+<h3 id="12-5-开启-VPN-后模型下载很慢"><a href="#12-5-开启-VPN-后模型下载很慢" class="headerlink" title="12.5 开启 VPN 后模型下载很慢"></a>12.5 开启 VPN 后模型下载很慢</h3><p>下载脚本在当前进程中设置了 NO_PROXY&#x3D;*。这只影响本次 ModelScope 下载，不会永久修改系统代理。</p>
+<h3 id="12-6-为什么不把文件转成-Base64-存进数据库"><a href="#12-6-为什么不把文件转成-Base64-存进数据库" class="headerlink" title="12.6 为什么不把文件转成 Base64 存进数据库"></a>12.6 为什么不把文件转成 Base64 存进数据库</h3><p>Base64 会让数据库快速膨胀，也不利于查看和清理。本文保存受控文件路径，数据库只保存结构化消息和文字结果。</p>
+<h3 id="12-7-为什么-Qwen3-会说自己不能直接查看本地文件"><a href="#12-7-为什么-Qwen3-会说自己不能直接查看本地文件" class="headerlink" title="12.7 为什么 Qwen3 会说自己不能直接查看本地文件"></a>12.7 为什么 Qwen3 会说自己不能直接查看本地文件</h3><p>这是两个模型职责分离后的正常现象。Qwen3 接收的是 Gemma 3n 的识别文本和文件路径，不会直接打开图片或音频。如果最终回答没有使用媒体内容，应先检查 media_result 是否已经写入当前 HumanMessage，而不是把本地路径直接当作多模态输入交给 Qwen3。</p>
+<h2 id="13-小结"><a href="#13-小结" class="headerlink" title="13. 小结"></a>13. 小结</h2><p>本文没有让一个模型承担全部工作，而是让每个模型处理更适合的任务：</p>
+<ul>
+<li>Gemma 3n 负责当前图片和音频的理解。</li>
+<li>Qwen3 负责中文回答与多轮上下文。</li>
+<li>LangChain 提供 ChatOpenAI、消息对象和 RunnableLambda。</li>
+<li>SQLite 保存会话，Gradio 提供交互界面。</li>
+</ul>
+<p>最后汇总本次验证结果。</p>
+<table>
+<thead>
+<tr>
+<th>验证项</th>
+<th>实测结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>多模态模型</td>
+<td>mlx-community&#x2F;gemma-3n-E2B-it-4bit</td>
+</tr>
+<tr>
+<td>模型 revision</td>
+<td>8a6e532400c0385b14908b963b728f593fa476f2</td>
+</tr>
+<tr>
+<td>MLX-VLM</td>
+<td>0.3.9</td>
+</tr>
+<tr>
+<td>图片输入</td>
+<td>识别出蓝色正方形和黄色圆形</td>
+</tr>
+<tr>
+<td>音频输入</td>
+<td>识别出姓名与杭州西湖，个别词存在误识别</td>
+</tr>
+<tr>
+<td>最终回答模型</td>
+<td>本地 Qwen3-14B</td>
+</tr>
+<tr>
+<td>多轮追问</td>
+<td>能根据 SQLite 历史回答音频提到杭州</td>
+</tr>
+<tr>
+<td>会话隔离</td>
+<td>使用 gr.State 和独立 session_id</td>
+</tr>
+<tr>
+<td>数据保存</td>
+<td>SQLite 保存文字、路径和识别结果，不保存 Base64</td>
+</tr>
+<tr>
+<td>页面布局</td>
+<td>桌面页面与 390×844 移动视口均无横向溢出</td>
+</tr>
+<tr>
+<td>最终状态</td>
+<td>图片、音频、文字与多轮聊天均已运行通过</td>
+</tr>
+</tbody></table>
+<p>至此，LangChain 系列已经完成从模型接入到多轮、多模态聊天应用的完整链路。后续 RAG 系列将从 Embedding 开始，继续解决外部知识的表示、检索和问答问题。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/5b9cc425.html">https://www.hnbian.cn/posts/5b9cc425.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/langchain/">
+                                    <span class="chip bg-color">langchain</span>
+                                </a>
+                            
+                                <a href="/tags/gradio/">
+                                    <span class="chip bg-color">gradio</span>
+                                </a>
+                            
+                                <a href="/tags/multimodal/">
+                                    <span class="chip bg-color">multimodal</span>
+                                </a>
+                            
+                                <a href="/tags/mlx-vlm/">
+                                    <span class="chip bg-color">mlx-vlm</span>
+                                </a>
+                            
+                                <a href="/tags/gemma/">
+                                    <span class="chip bg-color">gemma</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/e8d42419.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f74cf4dcf8ef4e08a115bcadaefbd479.jpg" class="responsive-img" alt="RAG 系列 1：Embeddings 从向量到语义相似度">
+                        
+                        <span class="card-title">RAG 系列 1：Embeddings 从向量到语义相似度</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2026-01-09
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/rag/" class="post-category">
+                                    rag
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/rag/">
+                        <span class="chip bg-color">rag</span>
+                    </a>
+                    
+                    <a href="/tags/embeddings/">
+                        <span class="chip bg-color">embeddings</span>
+                    </a>
+                    
+                    <a href="/tags/one-hot/">
+                        <span class="chip bg-color">one-hot</span>
+                    </a>
+                    
+                    <a href="/tags/cosine-similarity/">
+                        <span class="chip bg-color">cosine-similarity</span>
+                    </a>
+                    
+                    <a href="/tags/%E5%90%91%E9%87%8F/">
+                        <span class="chip bg-color">向量</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/273bc45e.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-c78d025d8017caad57ff51e4963af951.jpg" class="responsive-img" alt="LangChain 系列 8：Gradio 聊天界面与本地语音输入">
+                        
+                        <span class="card-title">LangChain 系列 8：Gradio 聊天界面与本地语音输入</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-12-19
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langchain/" class="post-category">
+                                    langchain
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/qwen/">
+                        <span class="chip bg-color">qwen</span>
+                    </a>
+                    
+                    <a href="/tags/gradio/">
+                        <span class="chip bg-color">gradio</span>
+                    </a>
+                    
+                    <a href="/tags/mlx-whisper/">
+                        <span class="chip bg-color">mlx-whisper</span>
+                    </a>
+                    
+                    <a href="/tags/speech-to-text/">
+                        <span class="chip bg-color">speech-to-text</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

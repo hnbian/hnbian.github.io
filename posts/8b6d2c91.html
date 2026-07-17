@@ -1,0 +1,2369 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 08：使用 HoodieStreamer / DeltaStreamer 从 Kafka 导入数据到 Hudi, hnbian">
+    <meta name="description" content="前面一篇已经用 Spark DataSource 和 Spark SQL 写过 Hudi 表。那种方式适合自己写 Spark 程序，但如果只是想快速把 Kafka、DFS、Sqoop 输出这类数据源导入 Hudi，Hudi 官方还提供了一个">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 08：使用 HoodieStreamer / DeltaStreamer 从 Kafka 导入数据到 Hudi | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-dbe443663242870d408f14461e860c44.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 08：使用 HoodieStreamer / DeltaStreamer 从 Kafka 导入数据到 Hudi</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/kafka/">
+                                <span class="chip bg-color">kafka</span>
+                            </a>
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/data-lake/">
+                                <span class="chip bg-color">data-lake</span>
+                            </a>
+                        
+                            <a href="/tags/deltastreamer/">
+                                <span class="chip bg-color">deltastreamer</span>
+                            </a>
+                        
+                            <a href="/tags/hoodie-streamer/">
+                                <span class="chip bg-color">hoodie-streamer</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-08-16
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    7.4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    35 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面一篇已经用 Spark DataSource 和 Spark SQL 写过 Hudi 表。那种方式适合自己写 Spark 程序，但如果只是想快速把 Kafka、DFS、Sqoop 输出这类数据源导入 Hudi，Hudi 官方还提供了一个摄入工具：HoodieStreamer。</p>
+<p>很多资料仍然把它叫 DeltaStreamer。这个叫法没有问题，因为历史上主类名确实是 <code>HoodieDeltaStreamer</code>。但在 Hudi 1.0.x 中，官方文档主线已经转向 <code>org.apache.hudi.utilities.streamer.HoodieStreamer</code>，旧的 <code>org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer</code> 类仍然存在，主要用于兼容旧任务。新文章和新脚本建议优先使用 <code>HoodieStreamer</code>。本文标题保留 DeltaStreamer，是为了和大家常用搜索关键词保持一致；正文实操统一使用新版 <code>HoodieStreamer</code>。</p>
+<h2 id="1-摄入链路准备"><a href="#1-摄入链路准备" class="headerlink" title="1. 摄入链路准备"></a>1. 摄入链路准备</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>如果我们要把 Kafka 中的订单事件写入 Hudi，最直接的方式是自己写一个 Spark Streaming 或 Flink 程序：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Kafka -> Spark/Flink 任务 -> Hudi 表<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这样做最灵活，但要自己处理不少工程细节：</p>
+<ol>
+<li>从 Kafka 哪个 offset 开始读。</li>
+<li>读取失败后如何恢复。</li>
+<li>Schema 从哪里来。</li>
+<li>写入 Hudi 时用什么 record key、partition path、precombine field。</li>
+<li>是否要做 <code>upsert</code>、<code>insert</code> 或 <code>bulk_insert</code>。</li>
+<li>每次成功写入后，消费进度保存在哪里。</li>
+</ol>
+<p>HoodieStreamer 的价值就在这里：它把这些通用摄入逻辑封装好了。我们只需要配置数据源、Schema、目标表和写入参数，就可以把 Kafka 数据导入 Hudi。</p>
+<h3 id="1-2-HoodieStreamer-能做什么"><a href="#1-2-HoodieStreamer-能做什么" class="headerlink" title="1.2 HoodieStreamer 能做什么"></a>1.2 HoodieStreamer 能做什么</h3><p>Hudi 1.0.2 文档中对 HoodieStreamer 的定位很明确：它是 Hudi utilities bundle 中的摄入工具，可以从 DFS、Kafka 等来源读取数据，支持 JSON、Avro、自定义格式，能够管理 checkpoint、rollback、recovery，也可以接入 schema provider 和 transformer。下面命令和配置以 Hudi 1.0.2 的 Hudi Streamer 文档与本文实测环境为准，latest 文档可能已有变化。</p>
+<p>我把它理解成一个“官方通用入湖任务模板”：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Kafka Source</td>
+<td>从 Kafka Topic 读取消息</td>
+</tr>
+<tr>
+<td>DFS Source</td>
+<td>从 HDFS&#x2F;S3 路径读取文件</td>
+</tr>
+<tr>
+<td>Schema Provider</td>
+<td>从文件或 Schema Registry 获取 Avro Schema</td>
+</tr>
+<tr>
+<td>Checkpoint</td>
+<td>保存已消费 offset，下次继续读取</td>
+</tr>
+<tr>
+<td>Write Operation</td>
+<td>支持 <code>UPSERT</code>、<code>INSERT</code>、<code>BULK_INSERT</code> 等写入模式</td>
+</tr>
+<tr>
+<td>Transformer</td>
+<td>写入前可以做 SQL 或自定义转换</td>
+</tr>
+<tr>
+<td>Hive Sync</td>
+<td>可选同步 Hive Metastore</td>
+</tr>
+</tbody></table>
+<p>它不适合承载非常复杂的业务逻辑。如果要做多流 join、复杂维表关联、异步补偿、复杂 CDC 语义处理，我更倾向于写 Flink 或 Spark 作业。但如果目标是“快速把一个 Kafka Topic 可靠写入 Hudi 表”，HoodieStreamer 是非常合适的起点。</p>
+<h3 id="1-3-Kafka-到-Hudi-的整体链路"><a href="#1-3-Kafka-到-Hudi-的整体链路" class="headerlink" title="1.3 Kafka 到 Hudi 的整体链路"></a>1.3 Kafka 到 Hudi 的整体链路</h3><p>本文要跑的是下面这条链路：</p>
+<p><img src="https://images.hnbian.cn/new/n-9808e6d88563eeef5eb78ef28fa3cd06.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Kafka 通过 HoodieStreamer 导入 Hudi"></p>
+<p>这张图主要说明 Kafka 消息经过 <code>JsonKafkaSource</code>、<code>FilebasedSchemaProvider</code> 和 Hudi Spark Writer 后，最终以 commit 形式写入 Hudi 表。</p>
+<p>核心流程是：</p>
+<ol>
+<li>Kafka Producer 向 Topic 写入 JSON 订单事件。</li>
+<li>HoodieStreamer 使用 <code>JsonKafkaSource</code> 从 Kafka 拉取 offset 范围。</li>
+<li><code>FilebasedSchemaProvider</code> 从本地文件读取 Avro Schema。</li>
+<li>Hudi Spark Writer 按 <code>UPSERT</code> 写入 COW 表。</li>
+<li>Hudi commit 中保存 checkpoint，下次从上次 offset 继续读。</li>
+<li>Spark 查询 Hudi 表验证结果。</li>
+</ol>
+<h3 id="1-4-环境检查"><a href="#1-4-环境检查" class="headerlink" title="1.4 环境检查"></a>1.4 环境检查</h3><p>先确认 Hudi utilities bundle 和 Spark bundle：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-lh</span> <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">-rw-r--r-- 1 root root 106M Jun 15 21:36 /opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar
+-rw-r--r-- 1 root root 116M Jun 15 21:39 /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>确认工具类存在：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">jar tf /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-E</span> <span class="token string">'Hoodie(Streamer|DeltaStreamer)\.class|JsonKafkaSource|FilebasedSchemaProvider'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org/apache/hudi/utilities/config/FilebasedSchemaProviderConfig.class
+org/apache/hudi/utilities/sources/JsonKafkaSource.class
+org/apache/hudi/utilities/schema/FilebasedSchemaProvider.class
+org/apache/hudi/utilities/sources/JsonKafkaSource$Config.class
+org/apache/hudi/utilities/streamer/HoodieStreamer.class
+org/apache/hudi/utilities/deltastreamer/HoodieDeltaStreamer.class<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到新旧主类都在。本文使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.utilities.streamer.HoodieStreamer<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看 <code>--help</code>：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token assign-left variable">CP</span><span class="token operator">=</span>/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar:/opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar
+
+spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.driver.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.executor.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--class</span> org.apache.hudi.utilities.streamer.HoodieStreamer <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--help</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>关键参数节选如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">--props
+  path to properties file on localfs or dfs
+
+--schemaprovider-class
+  subclass of org.apache.hudi.utilities.schema.SchemaProvider
+
+--source-class
+  Built-in options:
+  org.apache.hudi.utilities.sources.&#123;JsonDFSSource, AvroDFSSource,
+  JsonKafkaSource, AvroKafkaSource, HiveIncrPullSource&#125;
+
+--source-limit
+  Maximum amount of data to read from source.
+  DFS-Source => max bytes to read, Kafka-Source => max events to read
+
+--op
+  Takes one of these values: UPSERT, INSERT, BULK_INSERT,
+  INSERT_OVERWRITE, INSERT_OVERWRITE_TABLE, DELETE_PARTITION
+
+--target-base-path
+  base path for the target hoodie table
+
+--target-table
+  name of the target table<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>完整参数以当前版本 <code>spark-submit --help</code> 输出为准。如果 <code>--help</code> 也遇到类加载问题，使用后面第 7 节的 <code>CP</code> 写法。</p>
+<h3 id="1-5-准备-Kafka-Topic-和测试数据"><a href="#1-5-准备-Kafka-Topic-和测试数据" class="headerlink" title="1.5 准备 Kafka Topic 和测试数据"></a>1.5 准备 Kafka Topic 和测试数据</h3><p>创建独立 Topic：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-topics.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--create</span> <span class="token punctuation">\</span>
+  --if-not-exists <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_deltastreamer_orders <span class="token punctuation">\</span>
+  <span class="token parameter variable">--partitions</span> <span class="token number">1</span> <span class="token punctuation">\</span>
+  --replication-factor <span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 Topic 不存在，输出类似：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Created topic hudi_deltastreamer_orders.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看 Topic：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-topics.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--describe</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_deltastreamer_orders<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Topic: hudi_deltastreamer_orders	TopicId: XTw9THOkSyeQ-TXoeClR7Q	PartitionCount: 1	ReplicationFactor: 1	Configs:
+	Topic: hudi_deltastreamer_orders	Partition: 0	Leader: 1	Replicas: 1	Isr: 1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>准备第一批 JSON 消息：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_orders_kafka.jsonl <span class="token operator">&lt;&lt;</span><span class="token string">'JSONL'
+&#123;"order_id":8001,"user_id":"u501","amount":99.8,"status":"CREATED","ts":1755266820000,"dt":"2025-08-15"&#125;
+&#123;"order_id":8002,"user_id":"u502","amount":168.0,"status":"CREATED","ts":1755266880000,"dt":"2025-08-15"&#125;
+&#123;"order_id":8003,"user_id":"u503","amount":39.9,"status":"CREATED","ts":1755266940000,"dt":"2025-08-16"&#125;
+&#123;"order_id":8002,"user_id":"u502","amount":168.0,"status":"PAID","ts":1755267000000,"dt":"2025-08-15"&#125;
+JSONL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 <code>dt</code> 是模拟业务分区日期，用于演示跨分区写入，不代表文章实际写作日期；<code>ts</code> 是模拟业务事件时间，用作 <code>precombine</code> 排序字段。</p>
+<p>写入 Kafka：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-console-producer.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_deltastreamer_orders <span class="token punctuation">\</span>
+  <span class="token operator">&lt;</span> /tmp/hudi_orders_kafka.jsonl<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>消费验证：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-console-consumer.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_deltastreamer_orders <span class="token punctuation">\</span>
+  --from-beginning <span class="token punctuation">\</span>
+  --max-messages <span class="token number">4</span> <span class="token punctuation">\</span>
+  --timeout-ms <span class="token number">10000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>消费输出类似如下，最后会看到 <code>Processed a total of 4 messages</code>：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">&#123;"order_id":8001,"user_id":"u501","amount":99.8,"status":"CREATED","ts":1755266820000,"dt":"2025-08-15"&#125;
+&#123;"order_id":8002,"user_id":"u502","amount":168.0,"status":"CREATED","ts":1755266880000,"dt":"2025-08-15"&#125;
+&#123;"order_id":8003,"user_id":"u503","amount":39.9,"status":"CREATED","ts":1755266940000,"dt":"2025-08-16"&#125;
+&#123;"order_id":8002,"user_id":"u502","amount":168.0,"status":"PAID","ts":1755267000000,"dt":"2025-08-15"&#125;
+Processed a total of 4 messages<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里故意给 <code>8002</code> 写了两条消息，后一条 <code>ts</code> 更大，状态是 <code>PAID</code>。后面验证 Hudi 表时，应该只保留 <code>8002</code> 的最新状态。</p>
+<h4 id="1-5-1-如果要用-Java-Producer-造数"><a href="#1-5-1-如果要用-Java-Producer-造数" class="headerlink" title="1.5.1 如果要用 Java Producer 造数"></a>1.5.1 如果要用 Java Producer 造数</h4><p>这篇为了可复制，直接使用 <code>kafka-console-producer.sh</code> 写 JSONL。真实压测或批量造数时，可以写一个简单 Java Producer。</p>
+<p>Maven 依赖示例：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependencies</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.kafka<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>kafka-clients<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>3.9.1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependencies</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Producer 参数可以这样写：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">Properties</span> props <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Properties</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"bootstrap.servers"</span><span class="token punctuation">,</span> <span class="token string">"localhost:9092"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"acks"</span><span class="token punctuation">,</span> <span class="token string">"all"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"batch.size"</span><span class="token punctuation">,</span> <span class="token string">"1048576"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"linger.ms"</span><span class="token punctuation">,</span> <span class="token string">"5"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"compression.type"</span><span class="token punctuation">,</span> <span class="token string">"snappy"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"buffer.memory"</span><span class="token punctuation">,</span> <span class="token string">"33554432"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"key.serializer"</span><span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+props<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"value.serializer"</span><span class="token punctuation">,</span> <span class="token string">"org.apache.kafka.common.serialization.StringSerializer"</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里几个参数的含义：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>acks=all</code></td>
+<td>等待 ISR 中副本确认，适合更稳妥的写入</td>
+</tr>
+<tr>
+<td><code>batch.size</code></td>
+<td>单个分区 producer batch 大小</td>
+</tr>
+<tr>
+<td><code>linger.ms</code></td>
+<td>等待更多消息合并成批次，提升吞吐</td>
+</tr>
+<tr>
+<td><code>compression.type=snappy</code></td>
+<td>降低网络传输量和 Kafka 磁盘占用</td>
+</tr>
+<tr>
+<td><code>buffer.memory</code></td>
+<td>Producer 客户端缓冲区大小</td>
+</tr>
+</tbody></table>
+<p>如果只是验证 HoodieStreamer 链路，控制台生产者更直接；如果要压测 source-limit、commit 间隔、小文件和写入吞吐，Java Producer 更合适。</p>
+<h3 id="1-6-准备-Schema-和配置文件"><a href="#1-6-准备-Schema-和配置文件" class="headerlink" title="1.6 准备 Schema 和配置文件"></a>1.6 准备 Schema 和配置文件</h3><p>HoodieStreamer 的配置关系如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-4edf8552a8d299cac7cb5171ec1c7acf.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="HoodieStreamer 配置文件关系"></p>
+<p>这张图主要说明 HoodieStreamer 命令本身只负责指定入口类和参数，真正的数据源、schema、record key、partition path、precombine 等配置主要来自 props 文件。</p>
+<p>创建配置目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> /opt/module/hudi-1.0.2/streamer-conf<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>准备 source schema：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /opt/module/hudi-1.0.2/streamer-conf/order_source.avsc <span class="token operator">&lt;&lt;</span><span class="token string">'JSON'
+&#123;
+  "type": "record",
+  "name": "order_event",
+  "namespace": "cn.hnbian.hudi",
+  "fields": [
+    &#123;"name": "order_id", "type": "long"&#125;,
+    &#123;"name": "user_id", "type": "string"&#125;,
+    &#123;"name": "amount", "type": "double"&#125;,
+    &#123;"name": "status", "type": "string"&#125;,
+    &#123;"name": "ts", "type": "long"&#125;,
+    &#123;"name": "dt", "type": "string"&#125;
+  ]
+&#125;
+JSON</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里 source schema 和 target schema 保持一致：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/streamer-conf/order_source.avsc <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/streamer-conf/order_target.avsc<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>准备 Kafka Source 配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /opt/module/hudi-1.0.2/streamer-conf/kafka-source.properties <span class="token operator">&lt;&lt;</span><span class="token string">'PROPS'
+bootstrap.servers=localhost:9092
+group.id=hudi-streamer-orders-g1
+auto.offset.reset=earliest
+
+hoodie.streamer.source.kafka.topic=hudi_deltastreamer_orders
+hoodie.streamer.schemaprovider.source.schema.file=file:///opt/module/hudi-1.0.2/streamer-conf/order_source.avsc
+hoodie.streamer.schemaprovider.target.schema.file=file:///opt/module/hudi-1.0.2/streamer-conf/order_target.avsc
+
+hoodie.datasource.write.recordkey.field=order_id
+hoodie.datasource.write.partitionpath.field=dt
+hoodie.datasource.write.precombine.field=ts
+hoodie.datasource.write.keygenerator.class=org.apache.hudi.keygen.SimpleKeyGenerator
+hoodie.datasource.write.table.type=COPY_ON_WRITE
+hoodie.metadata.enable=true
+PROPS</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>配置文件里最关键的是这几类：</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bootstrap.servers</code></td>
+<td>Kafka 地址</td>
+</tr>
+<tr>
+<td><code>group.id</code></td>
+<td>Kafka 消费组</td>
+</tr>
+<tr>
+<td><code>auto.offset.reset</code></td>
+<td>没有 checkpoint 时从哪里开始读</td>
+</tr>
+<tr>
+<td><code>hoodie.streamer.source.kafka.topic</code></td>
+<td>Streamer 读取的 Topic</td>
+</tr>
+<tr>
+<td><code>hoodie.streamer.schemaprovider.*.schema.file</code></td>
+<td>source 和 target Avro Schema</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.recordkey.field</code></td>
+<td>Hudi record key &#x2F; 业务主键字段</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.partitionpath.field</code></td>
+<td>Hudi 分区字段</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.precombine.field</code></td>
+<td>同 key 取最新记录的比较字段</td>
+</tr>
+</tbody></table>
+<p>本文使用 Hudi 1.0.2 的 <code>hoodie.streamer.*</code> 配置；如果使用旧版 <code>HoodieDeltaStreamer</code> 或旧版本 Hudi，需要核对是否仍使用 <code>hoodie.deltastreamer.*</code> 配置 key。<code>JsonKafkaSource</code> 会按 Hudi source 实现读取 Kafka 消息值中的 JSON；本文没有额外配置 Kafka deserializer，是因为当前 Hudi 1.0.2 <code>JsonKafkaSource</code> 实测不需要手动指定。若换成 <code>AvroKafkaSource</code>、Schema Registry 或自定义 Source，需要按对应 source 补充配置。</p>
+<h4 id="1-6-1-配置文件拆分：base-properties-和-source-properties"><a href="#1-6-1-配置文件拆分：base-properties-和-source-properties" class="headerlink" title="1.6.1 配置文件拆分：base.properties 和 source.properties"></a>1.6.1 配置文件拆分：base.properties 和 source.properties</h4><p>本文为了让命令集中可读，把 Kafka、Schema 和 Hudi 写入参数放在一个 <code>kafka-source.properties</code> 中。下面的拆分方式是生产建议 &#x2F; 扩展示例，不作为本文主线实测命令。生产里我更建议拆成两层：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">base.properties
+kafka-source.properties<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p><code>base.properties</code> 放所有 Topic 通用的 Hudi 写入参数：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /opt/module/hudi-1.0.2/streamer-conf/base.properties <span class="token operator">&lt;&lt;</span><span class="token string">'PROPS'
+hoodie.datasource.write.keygenerator.class=org.apache.hudi.keygen.SimpleKeyGenerator
+hoodie.datasource.write.table.type=COPY_ON_WRITE
+hoodie.datasource.write.precombine.field=ts
+hoodie.metadata.enable=true
+hoodie.clean.automatic=true
+hoodie.clean.async=true
+PROPS</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>kafka-source.properties</code> 只放当前 Topic 自己的 source、schema 和 key 配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /opt/module/hudi-1.0.2/streamer-conf/kafka-source-split.properties <span class="token operator">&lt;&lt;</span><span class="token string">'PROPS'
+include=file:///opt/module/hudi-1.0.2/streamer-conf/base.properties
+
+bootstrap.servers=localhost:9092
+group.id=hudi-streamer-orders-g1
+auto.offset.reset=earliest
+
+hoodie.streamer.source.kafka.topic=hudi_deltastreamer_orders
+hoodie.streamer.schemaprovider.source.schema.file=file:///opt/module/hudi-1.0.2/streamer-conf/order_source.avsc
+hoodie.streamer.schemaprovider.target.schema.file=file:///opt/module/hudi-1.0.2/streamer-conf/order_target.avsc
+
+hoodie.datasource.write.recordkey.field=order_id
+hoodie.datasource.write.partitionpath.field=dt
+PROPS</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果配置和 schema 放到 HDFS，<code>include</code> 和 schema 路径也可以使用 HDFS 地址：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">include</span><span class="token punctuation">=</span><span class="token value attr-value">hdfs://localhost:9000/hudi-props/base.properties</span>
+<span class="token key attr-name">hoodie.streamer.schemaprovider.source.schema.file</span><span class="token punctuation">=</span><span class="token value attr-value">hdfs://localhost:9000/hudi-props/order_source.avsc</span>
+<span class="token key attr-name">hoodie.streamer.schemaprovider.target.schema.file</span><span class="token punctuation">=</span><span class="token value attr-value">hdfs://localhost:9000/hudi-props/order_target.avsc</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>上传命令示例：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-mkdir</span> <span class="token parameter variable">-p</span> /hudi-props
+hdfs dfs <span class="token parameter variable">-put</span> <span class="token parameter variable">-f</span> /opt/module/hudi-1.0.2/streamer-conf/base.properties /hudi-props/
+hdfs dfs <span class="token parameter variable">-put</span> <span class="token parameter variable">-f</span> /opt/module/hudi-1.0.2/streamer-conf/order_source.avsc /hudi-props/
+hdfs dfs <span class="token parameter variable">-put</span> <span class="token parameter variable">-f</span> /opt/module/hudi-1.0.2/streamer-conf/order_target.avsc /hudi-props/
+hdfs dfs <span class="token parameter variable">-put</span> <span class="token parameter variable">-f</span> /opt/module/hudi-1.0.2/streamer-conf/kafka-source-split.properties /hudi-props/<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本地文件适合单机测试，HDFS 配置适合 YARN 提交，因为 driver 和 executor 都能从统一路径读取配置。如果使用 <code>include=file:///...</code> 或 HDFS include，需要先在当前 Hudi 版本上单独验证配置加载行为；不确定时，可以用外部脚本或配置管理工具先合并 <code>base.properties</code> 与 source properties，再交给 <code>--props</code>。</p>
+<p>确认文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-l</span> /opt/module/hudi-1.0.2/streamer-conf<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">total 20
+-rw-r--r-- 1 root root 186 Aug 16 22:08 base.properties
+-rw-r--r-- 1 root root 680 Aug 16 22:08 kafka-source.properties
+-rw-r--r-- 1 root root 548 Aug 16 22:08 kafka-source-split.properties
+-rw-r--r-- 1 root root 342 Aug 16 22:08 order_source.avsc
+-rw-r--r-- 1 root root 342 Aug 16 22:08 order_target.avsc<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="2-HoodieStreamer-实测"><a href="#2-HoodieStreamer-实测" class="headerlink" title="2. HoodieStreamer 实测"></a>2. HoodieStreamer 实测</h2><h3 id="2-1-第一次运行-HoodieStreamer"><a href="#2-1-第一次运行-HoodieStreamer" class="headerlink" title="2.1 第一次运行 HoodieStreamer"></a>2.1 第一次运行 HoodieStreamer</h3><p>目标表路径：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/hudi/demo_deltastreamer_orders<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本文 Spark&#x2F;Hadoop 已配置默认文件系统，因此 <code>/hudi/demo_deltastreamer_orders</code> 指向 HDFS 路径；如果没有配置 <code>fs.defaultFS</code>，需要写成 <code>hdfs://localhost:9000/hudi/demo_deltastreamer_orders</code>。</p>
+<p>第一次运行前先清理旧表：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-rm</span> <span class="token parameter variable">-r</span> <span class="token parameter variable">-f</span> /hudi/demo_deltastreamer_orders<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>为了保证本文结果可复现，最好使用全新的 Kafka Topic，或者先删除并重建 Topic。仅删除 Hudi 表只会清理 Hudi checkpoint，不会清理 Kafka Topic 中已有消息。</p>
+<p>运行命令如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token assign-left variable">CP</span><span class="token operator">=</span>/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar:/opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar
+
+spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.driver.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.executor.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.serializer</span><span class="token operator">=</span>org.apache.spark.serializer.KryoSerializer <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalog.spark_catalog</span><span class="token operator">=</span>org.apache.spark.sql.hudi.catalog.HoodieCatalog <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.extensions</span><span class="token operator">=</span>org.apache.spark.sql.hudi.HoodieSparkSessionExtension <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.kryo.registrator</span><span class="token operator">=</span>org.apache.spark.HoodieSparkKryoRegistrar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--class</span> org.apache.hudi.utilities.streamer.HoodieStreamer <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--props</span> file:///opt/module/hudi-1.0.2/streamer-conf/kafka-source.properties <span class="token punctuation">\</span>
+  --schemaprovider-class org.apache.hudi.utilities.schema.FilebasedSchemaProvider <span class="token punctuation">\</span>
+  --source-class org.apache.hudi.utilities.sources.JsonKafkaSource <span class="token punctuation">\</span>
+  --source-ordering-field ts <span class="token punctuation">\</span>
+  --target-base-path /hudi/demo_deltastreamer_orders <span class="token punctuation">\</span>
+  --target-table demo_deltastreamer_orders <span class="token punctuation">\</span>
+  --table-type COPY_ON_WRITE <span class="token punctuation">\</span>
+  <span class="token parameter variable">--op</span> UPSERT <span class="token punctuation">\</span>
+  --source-limit <span class="token number">4</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文使用 driver &#x2F; executor <code>extraClassPath</code> 同时放入 utilities bundle 和 Spark bundle，是因为 HoodieStreamer 运行时会加载 utilities 内部类和 Hudi Spark 写入类；如果只把 utilities bundle 当主 jar，可能遇到类加载问题。后续命令继续复用当前 shell 中的 <code>CP</code> 变量；如果新开终端，需要重新执行上面的 <code>CP=...</code>。</p>
+<p>几个参数解释：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--props</code></td>
+<td>指定 Kafka、Schema、Hudi 写入参数</td>
+</tr>
+<tr>
+<td><code>--schemaprovider-class</code></td>
+<td>使用文件方式加载 Avro Schema</td>
+</tr>
+<tr>
+<td><code>--source-class</code></td>
+<td>使用 JSON Kafka Source</td>
+</tr>
+<tr>
+<td><code>--source-ordering-field</code></td>
+<td>同 key 多条记录按 <code>ts</code> 取最新</td>
+</tr>
+<tr>
+<td><code>--target-base-path</code></td>
+<td>Hudi 表 HDFS 路径</td>
+</tr>
+<tr>
+<td><code>--target-table</code></td>
+<td>Hudi 表名</td>
+</tr>
+<tr>
+<td><code>--table-type</code></td>
+<td>COW 表</td>
+</tr>
+<tr>
+<td><code>--op</code></td>
+<td>使用 <code>UPSERT</code></td>
+</tr>
+<tr>
+<td><code>--source-limit</code></td>
+<td>本轮最多读取 4 条 Kafka 消息</td>
+</tr>
+</tbody></table>
+<p><code>source-limit</code> 限制的是本轮最多读取的事件数，不是起始或结束 offset；实际 offset 范围由已有 checkpoint、Kafka Topic offset 和 <code>source-limit</code> 共同决定。</p>
+<p>关键日志如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">25/08/16 22:09:27 INFO StreamSync: Checkpoint to resume from : Optional.empty
+25/08/16 22:09:28 INFO KafkaOffsetGen: final ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [0 -> 4])]
+25/08/16 22:09:28 INFO KafkaSource: About to read sourceLimit 4 in 0 spark partitions from kafka for topic hudi_deltastreamer_orders with offset ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [0 -> 4])]
+25/08/16 22:09:28 INFO KafkaSource: About to read 4 from Kafka for topic :hudi_deltastreamer_orders after offset generation with offset ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [0 -> 4])]
+25/08/16 22:09:38 INFO StreamSync: Commit 20250816220927673 successful!<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在本文这个新表、新 Topic、<code>auto.offset.reset=earliest</code> 的测试场景中，第一次运行没有历史 checkpoint，因此从 Kafka offset <code>0</code> 开始读，最终读取 <code>[0 -&gt; 4]</code> 四条消息，并提交一个 Hudi commit。</p>
+<h4 id="2-1-1-BULK-INSERT-MOR-适合什么场景"><a href="#2-1-1-BULK-INSERT-MOR-适合什么场景" class="headerlink" title="2.1.1 BULK_INSERT + MOR 适合什么场景"></a>2.1.1 <code>BULK_INSERT + MOR</code> 适合什么场景</h4><p>旧版资料中经常用 <code>--op BULK_INSERT --table-type MERGE_ON_READ</code> 做演示，这个组合不是不能用，只是语义和本文主线不同。</p>
+<p><code>BULK_INSERT</code> 更适合已经清洗好、record key 唯一性有保障的初始化导入。如果同一批数据中存在重复 key 或需要按 precombine 取最新，应该先在上游去重，或使用 <code>upsert</code> 语义验证结果。组合形态类似：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.driver.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.executor.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.serializer</span><span class="token operator">=</span>org.apache.spark.serializer.KryoSerializer <span class="token punctuation">\</span>
+  <span class="token parameter variable">--class</span> org.apache.hudi.utilities.streamer.HoodieStreamer <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--props</span> file:///opt/module/hudi-1.0.2/streamer-conf/kafka-source.properties <span class="token punctuation">\</span>
+  --schemaprovider-class org.apache.hudi.utilities.schema.FilebasedSchemaProvider <span class="token punctuation">\</span>
+  --source-class org.apache.hudi.utilities.sources.JsonKafkaSource <span class="token punctuation">\</span>
+  --source-ordering-field ts <span class="token punctuation">\</span>
+  --target-base-path /hudi/demo_deltastreamer_orders_mor <span class="token punctuation">\</span>
+  --target-table demo_deltastreamer_orders_mor <span class="token punctuation">\</span>
+  --table-type MERGE_ON_READ <span class="token punctuation">\</span>
+  <span class="token parameter variable">--op</span> BULK_INSERT <span class="token punctuation">\</span>
+  --source-limit <span class="token number">1000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个命令只是展示组合形态。如果要实际跑，建议复制一份 properties，使用新的 <code>group.id</code>、新的 <code>target-base-path</code>，并确认是否需要使用当前版本支持的 checkpoint 重放参数或清理旧表，避免和主线任务互相影响。</p>
+<p>我在这篇主线里选择 <code>UPSERT + COPY_ON_WRITE</code>，是因为 Kafka 测试数据里故意包含了重复 <code>order_id</code>，需要验证 <code>precombine.field=ts</code> 的更新效果。如果上游只是纯追加日志，<code>BULK_INSERT</code> 的写入成本会更低；如果后续还会持续更新，还是要回到 <code>UPSERT</code> 或基于 CDC 语义设计写入方式。</p>
+<h3 id="2-2-查询第一次入湖结果"><a href="#2-2-查询第一次入湖结果" class="headerlink" title="2.2 查询第一次入湖结果"></a>2.2 查询第一次入湖结果</h3><p>查询脚本：</p>
+<p>这里的 <code>/hudi/...</code> 是 HDFS 默认文件系统路径，不是本地目录。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_streamer_verify.py <span class="token operator">&lt;&lt;</span><span class="token string">'PY'
+from pyspark.sql import SparkSession
+
+spark = (SparkSession.builder
+    .appName("hudi-streamer-verify")
+    .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.hudi.catalog.HoodieCatalog")
+    .config("spark.sql.extensions", "org.apache.spark.sql.hudi.HoodieSparkSessionExtension")
+    .config("spark.kryo.registrator", "org.apache.spark.HoodieSparkKryoRegistrar")
+    .getOrCreate())
+
+spark.sparkContext.setLogLevel("ERROR")
+
+base = "/hudi/demo_deltastreamer_orders"
+df = spark.read.format("hudi").load(base)
+df.createOrReplaceTempView("orders")
+
+print("=== hudi table result ===")
+spark.sql("""
+SELECT order_id, user_id, amount, status, dt, _hoodie_commit_time
+FROM orders
+ORDER BY order_id
+""").show(truncate=False)
+
+print("=== count ===")
+spark.sql("SELECT count(*) AS cnt FROM orders").show(truncate=False)
+
+spark.stop()
+PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--jars</span> /opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.serializer</span><span class="token operator">=</span>org.apache.spark.serializer.KryoSerializer <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalog.spark_catalog</span><span class="token operator">=</span>org.apache.spark.sql.hudi.catalog.HoodieCatalog <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.extensions</span><span class="token operator">=</span>org.apache.spark.sql.hudi.HoodieSparkSessionExtension <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.kryo.registrator</span><span class="token operator">=</span>org.apache.spark.HoodieSparkKryoRegistrar <span class="token punctuation">\</span>
+  /tmp/hudi_streamer_verify.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第一次查询结果如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== hudi table result ===
++--------+-------+------+-------+----------+-------------------+
+|order_id|user_id|amount|status |dt        |_hoodie_commit_time|
++--------+-------+------+-------+----------+-------------------+
+|8001    |u501   |99.8  |CREATED|2025-08-15|20250816220927673  |
+|8002    |u502   |168.0 |PAID   |2025-08-15|20250816220927673  |
+|8003    |u503   |39.9  |CREATED|2025-08-16|20250816220927673  |
++--------+-------+------+-------+----------+-------------------+
+
+=== count ===
++---+
+|cnt|
++---+
+|3  |
++---+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Kafka 里有 4 条消息，但 Hudi 表里只有 3 条业务记录，是因为 <code>8002</code> 出现了两次，后一条 <code>ts</code> 更大，状态为 <code>PAID</code>。这说明 <code>precombine.field=ts</code> 和 <code>UPSERT</code> 生效了。</p>
+<h4 id="2-2-1-使用-Spark-SQL-注册已有-Hudi-表"><a href="#2-2-1-使用-Spark-SQL-注册已有-Hudi-表" class="headerlink" title="2.2.1 使用 Spark SQL 注册已有 Hudi 表"></a>2.2.1 使用 Spark SQL 注册已有 Hudi 表</h4><p>除了 DataFrame 读取，也可以在 Spark SQL 中把已有 Hudi 路径注册成表再查询：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">DATABASE</span> <span class="token keyword">IF</span> <span class="token operator">NOT</span> <span class="token keyword">EXISTS</span> hudi_demo<span class="token punctuation">;</span>
+<span class="token keyword">USE</span> hudi_demo<span class="token punctuation">;</span>
+
+<span class="token keyword">DROP</span> <span class="token keyword">TABLE</span> <span class="token keyword">IF</span> <span class="token keyword">EXISTS</span> demo_deltastreamer_orders<span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> demo_deltastreamer_orders
+<span class="token keyword">USING</span> HUDI
+LOCATION <span class="token string">'/hudi/demo_deltastreamer_orders'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> amount<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt<span class="token punctuation">,</span> _hoodie_commit_time
+<span class="token keyword">FROM</span> demo_deltastreamer_orders
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> order_id<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行方式：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_streamer_query.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+CREATE DATABASE IF NOT EXISTS hudi_demo;
+USE hudi_demo;
+
+DROP TABLE IF EXISTS demo_deltastreamer_orders;
+
+CREATE TABLE demo_deltastreamer_orders
+USING HUDI
+LOCATION '/hudi/demo_deltastreamer_orders';
+
+SELECT order_id, user_id, amount, status, dt, _hoodie_commit_time
+FROM demo_deltastreamer_orders
+ORDER BY order_id;
+SQL</span>
+
+spark-sql <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--jars</span> /opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.serializer</span><span class="token operator">=</span>org.apache.spark.serializer.KryoSerializer <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalogImplementation</span><span class="token operator">=</span>in-memory <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalog.spark_catalog</span><span class="token operator">=</span>org.apache.spark.sql.hudi.catalog.HoodieCatalog <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.extensions</span><span class="token operator">=</span>org.apache.spark.sql.hudi.HoodieSparkSessionExtension <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.kryo.registrator</span><span class="token operator">=</span>org.apache.spark.HoodieSparkKryoRegistrar <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_streamer_query.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里使用 <code>catalogImplementation=in-memory</code> 是为了避开 Spark 3.5 和 Hive 4 Metastore 的兼容性问题，这只是本文单机测试策略。生产环境需要单独验证 Spark、Hive Metastore、Hudi Catalog &#x2F; Hive Sync 兼容组合，后面第 15 篇会单独讲 Hive Sync 和 Hive Metastore 管理方式。</p>
+<p>这里使用 in-memory catalog 注册已有路径，<code>DROP TABLE</code> 主要用于清理当前 Spark SQL 会话中的表定义，不代表删除 HDFS 上的 Hudi 表数据。真实 Metastore 环境下 <code>DROP TABLE</code> 的行为要按表类型和 Catalog 配置确认。如果已有路径是完整 Hudi 表，Hudi 通常可以从 <code>.hoodie/hoodie.properties</code> 读取表配置；如果当前版本或 Catalog 无法自动识别，需要补充 <code>primaryKey</code>、<code>preCombineField</code>、<code>type</code> 等 <code>TBLPROPERTIES</code>，或通过 Hive Sync &#x2F; Metastore 统一注册。</p>
+<h3 id="2-3-第二次运行：验证-checkpoint"><a href="#2-3-第二次运行：验证-checkpoint" class="headerlink" title="2.3 第二次运行：验证 checkpoint"></a>2.3 第二次运行：验证 checkpoint</h3><p>HoodieStreamer checkpoint 的续跑逻辑如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-9dd5589443c7325e1a5f48a6e6244dfb.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Kafka Checkpoint 续跑流程"></p>
+<p>这张图主要说明 checkpoint 保存在 Hudi commit 元数据中，下一次运行会从上一次提交的 Kafka offset 后继续读取。</p>
+<p>再写入第二批 Kafka 消息：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_orders_kafka_2.jsonl <span class="token operator">&lt;&lt;</span><span class="token string">'JSONL'
+&#123;"order_id":8004,"user_id":"u504","amount":258.6,"status":"CREATED","ts":1755267240000,"dt":"2025-08-16"&#125;
+&#123;"order_id":8001,"user_id":"u501","amount":99.8,"status":"PAID","ts":1755267300000,"dt":"2025-08-15"&#125;
+JSONL</span>
+
+/opt/module/kafka/bin/kafka-console-producer.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_deltastreamer_orders <span class="token punctuation">\</span>
+  <span class="token operator">&lt;</span> /tmp/hudi_orders_kafka_2.jsonl<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>第二批中 <code>8001</code> 的 <code>ts</code> 更大，所以 <code>upsert</code> 后会覆盖第一次的 <code>CREATED</code> 状态。</p>
+<p>第二次运行 HoodieStreamer。命令和第一次基本一致，只是 <code>--source-limit</code> 放宽到 <code>10</code>：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token assign-left variable">CP</span><span class="token operator">=</span>/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar:/opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar
+
+spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.driver.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.executor.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.serializer</span><span class="token operator">=</span>org.apache.spark.serializer.KryoSerializer <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalog.spark_catalog</span><span class="token operator">=</span>org.apache.spark.sql.hudi.catalog.HoodieCatalog <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.extensions</span><span class="token operator">=</span>org.apache.spark.sql.hudi.HoodieSparkSessionExtension <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.kryo.registrator</span><span class="token operator">=</span>org.apache.spark.HoodieSparkKryoRegistrar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--class</span> org.apache.hudi.utilities.streamer.HoodieStreamer <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token parameter variable">--props</span> file:///opt/module/hudi-1.0.2/streamer-conf/kafka-source.properties <span class="token punctuation">\</span>
+  --schemaprovider-class org.apache.hudi.utilities.schema.FilebasedSchemaProvider <span class="token punctuation">\</span>
+  --source-class org.apache.hudi.utilities.sources.JsonKafkaSource <span class="token punctuation">\</span>
+  --source-ordering-field ts <span class="token punctuation">\</span>
+  --target-base-path /hudi/demo_deltastreamer_orders <span class="token punctuation">\</span>
+  --target-table demo_deltastreamer_orders <span class="token punctuation">\</span>
+  --table-type COPY_ON_WRITE <span class="token punctuation">\</span>
+  <span class="token parameter variable">--op</span> UPSERT <span class="token punctuation">\</span>
+  --source-limit <span class="token number">10</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>关键日志：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">25/08/16 22:10:43 INFO StreamSync: Checkpoint to resume from : Option&#123;val=StreamerCheckpointV2&#123;checkpointKey='hudi_deltastreamer_orders,0:4'&#125;&#125;
+25/08/16 22:10:43 INFO KafkaOffsetGen: final ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [4 -> 6])]
+25/08/16 22:10:43 INFO KafkaSource: About to read sourceLimit 10 in 0 spark partitions from kafka for topic hudi_deltastreamer_orders with offset ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [4 -> 6])]
+25/08/16 22:10:43 INFO KafkaSource: About to read 2 from Kafka for topic :hudi_deltastreamer_orders after offset generation with offset ranges [OffsetRange(topic: 'hudi_deltastreamer_orders', partition: 0, range: [4 -> 6])]
+25/08/16 22:10:53 INFO StreamSync: Commit 20250816221043454 successful!<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这段日志很关键：</p>
+<ol>
+<li>第一次 commit 保存了 checkpoint <code>0:4</code>。</li>
+<li>第二次运行从 <code>0:4</code> 继续。</li>
+<li>Kafka 本次读取 <code>[4 -&gt; 6]</code>，也就是两条新消息。</li>
+<li>第二次写入成功提交 <code>20250816221043454</code>。</li>
+</ol>
+<p>这里的 checkpoint 是 HoodieStreamer 写入 Hudi commit 元数据中的 source checkpoint，不要简单等同于 Kafka consumer group 在 Kafka broker 中提交的 offset。排查时应同时看 Hudi commit metadata 和 Kafka group 状态。</p>
+<p>最终查询结果：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== hudi table result ===
++--------+-------+------+-------+----------+-------------------+
+|order_id|user_id|amount|status |dt        |_hoodie_commit_time|
++--------+-------+------+-------+----------+-------------------+
+|8001    |u501   |99.8  |PAID   |2025-08-15|20250816221043454  |
+|8002    |u502   |168.0 |PAID   |2025-08-15|20250816220927673  |
+|8003    |u503   |39.9  |CREATED|2025-08-16|20250816220927673  |
+|8004    |u504   |258.6 |CREATED|2025-08-16|20250816221043454  |
++--------+-------+------+-------+----------+-------------------+
+
+=== count ===
++---+
+|cnt|
++---+
+|4  |
++---+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到：</p>
+<ol>
+<li><code>8001</code> 被第二批消息更新为 <code>PAID</code>。</li>
+<li><code>8004</code> 被新增。</li>
+<li><code>8002</code> 仍然是第一次写入后的 <code>PAID</code>。</li>
+<li>表里最终有 4 条业务记录。</li>
+</ol>
+<h3 id="2-4-查看-Hudi-Timeline-和文件"><a href="#2-4-查看-Hudi-Timeline-和文件" class="headerlink" title="2.4 查看 Hudi Timeline 和文件"></a>2.4 查看 Hudi Timeline 和文件</h3><p>查看 Timeline：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_deltastreamer_orders/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 7 items
+-rw-r--r--   1 root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816220927673.commit.requested
+-rw-r--r--   1 root supergroup       3496 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816220927673.inflight
+-rw-r--r--   1 root supergroup       4126 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816220927673_20250816220938453.commit
+-rw-r--r--   1 root supergroup          0 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816221043454.commit.requested
+-rw-r--r--   1 root supergroup       3600 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816221043454.inflight
+-rw-r--r--   1 root supergroup       4312 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816221043454_20250816221053426.commit
+drwxr-xr-x   - root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline/history<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Hudi 1.0.x 中，完成态 Instant 文件名里可以看到 begin instant 和 completion instant，例如 <code>begin_completion.commit</code>；这里前半段更接近请求 &#x2F; 开始时间，后半段是完成时间。这里是 Hudi 1.0.x Timeline 布局下的实测输出，<code>requested</code> &#x2F; <code>inflight</code> 用于表达 Instant 状态流转；判断已经成功提交的动作时，主要看完成态 commit 文件。</p>
+<p>查看数据文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> <span class="token parameter variable">-R</span> /hudi/demo_deltastreamer_orders <span class="token operator">|</span> <span class="token function">sed</span> <span class="token parameter variable">-n</span> <span class="token string">'1,90p'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>关键输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">drwxr-xr-x   - root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie
+-rw-r--r--   1 root supergroup       1193 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/hoodie.properties
+drwxr-xr-x   - root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline
+-rw-r--r--   1 root supergroup       4126 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816220927673_20250816220938453.commit
+-rw-r--r--   1 root supergroup       4312 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/.hoodie/timeline/20250816221043454_20250816221053426.commit
+drwxr-xr-x   - root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/2025-08-15
+-rw-r--r--   1 root supergroup     435549 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/2025-08-15/76128298-ffed-4fc1-a5ea-00d55624b0a6-0_0-31-26_20250816220927673.parquet
+drwxr-xr-x   - root supergroup          0 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/2025-08-16
+-rw-r--r--   1 root supergroup     435405 2025-08-16 22:09 /hudi/demo_deltastreamer_orders/2025-08-16/ac99df60-c114-486f-ae55-a4728fa9be85-0_1-31-27_20250816220927673.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>上面截取主要展示了表目录和第一次 commit 的 Base File。第二次运行更新 <code>8001</code> 并新增 <code>8004</code> 后，完整输出中还能看到第二次 commit 对应的新 Base File，可以用下面命令单独过滤：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> <span class="token parameter variable">-R</span> /hudi/demo_deltastreamer_orders <span class="token operator">|</span> <span class="token function">grep</span> <span class="token number">20250816221043454</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出类似：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">-rw-r--r--   1 root supergroup     435738 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/2025-08-15/76128298-ffed-4fc1-a5ea-00d55624b0a6-0_0-45-39_20250816221043454.parquet
+-rw-r--r--   1 root supergroup     435487 2025-08-16 22:10 /hudi/demo_deltastreamer_orders/2025-08-16/ac99df60-c114-486f-ae55-a4728fa9be85-0_1-45-40_20250816221043454.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>从结果可以看出：</p>
+<ol>
+<li>目标表是标准 Hudi 表，有 <code>.hoodie</code> 和 <code>hoodie.properties</code>。</li>
+<li>Timeline 中有两次 commit，对应两次 Streamer 运行。</li>
+<li>COW 表的数据落在分区目录下，文件是 Parquet Base File。</li>
+<li>完整文件列表中可以看到两次 commit 对应的 Base File，Snapshot Query 会按 Timeline 选择当前有效的 FileSlice。</li>
+</ol>
+<h2 id="3-常见问题与使用边界"><a href="#3-常见问题与使用边界" class="headerlink" title="3. 常见问题与使用边界"></a>3. 常见问题与使用边界</h2><h3 id="3-1-常见问题"><a href="#3-1-常见问题" class="headerlink" title="3.1 常见问题"></a>3.1 常见问题</h3><h4 id="3-1-1-HoodieStreamer-和-HoodieDeltaStreamer-到底用哪个"><a href="#3-1-1-HoodieStreamer-和-HoodieDeltaStreamer-到底用哪个" class="headerlink" title="3.1.1 HoodieStreamer 和 HoodieDeltaStreamer 到底用哪个"></a>3.1.1 HoodieStreamer 和 HoodieDeltaStreamer 到底用哪个</h4><p>Hudi 1.0.x 推荐使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.utilities.streamer.HoodieStreamer<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>旧类名：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.hudi.utilities.deltastreamer.HoodieDeltaStreamer<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>仍然存在，但新文章和新脚本建议优先使用 <code>HoodieStreamer</code>。如果线上旧任务还在使用 <code>HoodieDeltaStreamer</code>，升级前要先确认命令参数和配置项是否需要调整。</p>
+<h4 id="3-1-2-ClassNotFoundException-HoodieIngestionService-HoodieIngestionConfig"><a href="#3-1-2-ClassNotFoundException-HoodieIngestionService-HoodieIngestionConfig" class="headerlink" title="3.1.2 ClassNotFoundException: HoodieIngestionService$HoodieIngestionConfig"></a>3.1.2 ClassNotFoundException: HoodieIngestionService$HoodieIngestionConfig</h4><p>这次我第一次运行时遇到了真实报错：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Exception in thread "main" org.apache.hudi.exception.HoodieException: Failed to run HoodieStreamer
+Caused by: java.lang.ClassNotFoundException:
+org.apache.hudi.utilities.ingestion.HoodieIngestionService$HoodieIngestionConfig<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>但检查 jar 时，这个类是存在的：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org/apache/hudi/utilities/ingestion/HoodieIngestionService$HoodieIngestionConfig.class<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>在本文环境中，jar 内确实存在该类，因此这次问题不是 utilities bundle 本身缺类，而更像是 Spark 启动时主 jar 与运行时 classloader 加载位置不一致，或 Hudi bundle 加载顺序不完整。其他环境还要同时排查是否混用了多个 Hudi 版本。最终修复方式是把 utilities bundle 和 Spark bundle 同时加入 driver &#x2F; executor classpath：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token assign-left variable">CP</span><span class="token operator">=</span>/opt/module/hudi-1.0.2/lib/hudi-utilities-bundle_2.12-1.0.2.jar:/opt/module/hudi-1.0.2/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar
+
+<span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.driver.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span>
+<span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.executor.extraClassPath</span><span class="token operator">=</span><span class="token variable">$CP</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>修复后同样命令可以正常提交并生成 commit。</p>
+<p>同时确认 Spark <code>jars</code>、<code>--jars</code>、<code>extraClassPath</code> 中不要混入多个不同版本的 <code>hudi-spark-bundle</code>、<code>hudi-utilities-bundle</code>，否则可能出现更隐蔽的类冲突。</p>
+<h4 id="3-1-3-Kafka-有数据但-HoodieStreamer-没读到"><a href="#3-1-3-Kafka-有数据但-HoodieStreamer-没读到" class="headerlink" title="3.1.3 Kafka 有数据但 HoodieStreamer 没读到"></a>3.1.3 Kafka 有数据但 HoodieStreamer 没读到</h4><p>优先检查：</p>
+<ol>
+<li><code>hoodie.streamer.source.kafka.topic</code> 是否写对。</li>
+<li><code>bootstrap.servers</code> 是否能连通。</li>
+<li><code>auto.offset.reset</code> 是否符合预期。</li>
+<li>Hudi 表里是否已有 checkpoint。</li>
+<li>是否需要使用当前版本 HoodieStreamer 支持的 checkpoint 相关参数进行重放，例如 <code>--ignore-checkpoint</code> 或 <code>--checkpoint</code>。具体参数名以本文第 4 节 <code>--help</code> 输出为准。</li>
+</ol>
+<p>如果日志中出现：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Checkpoint to resume from : Option&#123;val=StreamerCheckpointV2&#123;checkpointKey='hudi_deltastreamer_orders,0:4'&#125;&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>说明它不会从头读，而是从已有 checkpoint 后继续。</p>
+<h4 id="3-1-4-JSON-字段和-Avro-Schema-不一致"><a href="#3-1-4-JSON-字段和-Avro-Schema-不一致" class="headerlink" title="3.1.4 JSON 字段和 Avro Schema 不一致"></a>3.1.4 JSON 字段和 Avro Schema 不一致</h4><p>如果 Kafka JSON 缺字段、字段类型不匹配，或者 Avro Schema 写错，Streamer 可能在解析阶段失败，或者写入时出现 schema 兼容问题。</p>
+<p>排查顺序：</p>
+<ol>
+<li>先用 <code>kafka-console-consumer</code> 看原始 JSON。</li>
+<li>确认 JSON 字段名和 Avro Schema 字段名一致。</li>
+<li>确认 <code>recordkey.field</code>、<code>partitionpath.field</code>、<code>precombine.field</code> 都在 Schema 中存在。</li>
+<li>如果上游字段可能缺失，要考虑默认值、nullable schema，或者先用 transformer 清洗。</li>
+</ol>
+<p>nullable 字段可以写成类似下面这种 Avro 形式：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span><span class="token property">"name"</span><span class="token operator">:</span><span class="token string">"status"</span><span class="token punctuation">,</span><span class="token property">"type"</span><span class="token operator">:</span><span class="token punctuation">[</span><span class="token string">"null"</span><span class="token punctuation">,</span><span class="token string">"string"</span><span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token property">"default"</span><span class="token operator">:</span><span class="token null keyword">null</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h4 id="3-1-5-source-limit-是什么"><a href="#3-1-5-source-limit-是什么" class="headerlink" title="3.1.5 source-limit 是什么"></a>3.1.5 source-limit 是什么</h4><p><code>--source-limit</code> 对 Kafka Source 表示本次最多读取多少条事件。学习和调试时建议设置小一点，便于观察 offset 范围和 commit。本文只演示一次性 batch 运行；continuous 模式或定时调度运行会在后续生产化文章中单独验证。</p>
+<h4 id="3-1-6-hoodie-deltastreamer-和-hoodie-streamer-怎么选"><a href="#3-1-6-hoodie-deltastreamer-和-hoodie-streamer-怎么选" class="headerlink" title="3.1.6 hoodie.deltastreamer.* 和 hoodie.streamer.* 怎么选"></a>3.1.6 <code>hoodie.deltastreamer.*</code> 和 <code>hoodie.streamer.*</code> 怎么选</h4><p>旧版本示例里经常能看到：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.deltastreamer.source.kafka.topic</span><span class="token punctuation">=</span><span class="token value attr-value">hudi_test</span>
+<span class="token key attr-name">hoodie.deltastreamer.schemaprovider.source.schema.file</span><span class="token punctuation">=</span><span class="token value attr-value">...</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>Hudi 1.0.x 新示例更推荐使用 <code>hoodie.streamer.*</code>：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.streamer.source.kafka.topic</span><span class="token punctuation">=</span><span class="token value attr-value">hudi_deltastreamer_orders</span>
+<span class="token key attr-name">hoodie.streamer.schemaprovider.source.schema.file</span><span class="token punctuation">=</span><span class="token value attr-value">file:///opt/module/hudi-1.0.2/streamer-conf/order_source.avsc</span>
+<span class="token key attr-name">hoodie.streamer.schemaprovider.target.schema.file</span><span class="token punctuation">=</span><span class="token value attr-value">file:///opt/module/hudi-1.0.2/streamer-conf/order_target.avsc</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>如果从旧任务升级，不要只替换主类名，还要一起检查配置 key。同一个任务中不要同时混用 <code>hoodie.deltastreamer.*</code> 和 <code>hoodie.streamer.*</code> 的同义配置，避免最终生效值不清楚。最稳妥的方式是在测试环境先跑 <code>--help</code>，再用一小批 Kafka 消息验证读取 offset、schema 解析和 commit 元数据。</p>
+<h3 id="3-2-HoodieStreamer-使用边界"><a href="#3-2-HoodieStreamer-使用边界" class="headerlink" title="3.2 HoodieStreamer 使用边界"></a>3.2 HoodieStreamer 使用边界</h3><p>HoodieStreamer 的核心价值不是“少写几行代码”，而是把摄入任务中最容易遗漏的通用机制做成了标准流程：source、schema、checkpoint、write config、commit、rollback。</p>
+<p>自己写 Spark 任务当然更灵活，但灵活也意味着要自己维护更多状态。比如 Kafka offset 保存在哪里、写入失败后是否重复消费、Schema 怎么演进、同 key 多条记录怎么取最新，这些都不是几行 <code>readStream</code> 和 <code>write</code> 能自然解决的问题。</p>
+<p>我更愿意把 HoodieStreamer 当作快速入湖工具：新 Topic 接入、简单 JSON&#x2F;Avro 事件入湖、原型验证、数据链路打通，都可以优先用它。等业务逻辑复杂到需要多流处理、强 CDC 语义或者复杂转换时，再切到 Flink&#x2F;Spark 自定义任务会更合适。这里的强 CDC 语义包括 before &#x2F; after、op 类型、delete 事件、乱序事件和幂等 merge 等，不只是把 source 换成 Kafka。</p>
+<p>另外，这篇实测里暴露出的 classpath 问题也说明：Hudi utilities 工具虽然封装了业务逻辑，但仍然运行在 Spark 生态里。Spark、Hudi bundle、utilities bundle、Kafka client、Hadoop classpath 这些版本和加载顺序，仍然要认真对待。</p>
+<h2 id="4-总结"><a href="#4-总结" class="headerlink" title="4. 总结"></a>4. 总结</h2><p>这一篇完成了 Kafka 到 Hudi 的 HoodieStreamer 实战：</p>
+<ol>
+<li>Hudi 1.0.x 中建议使用 <code>HoodieStreamer</code>，DeltaStreamer 是更常见的旧称。</li>
+<li>Kafka JSON 数据可以通过 <code>JsonKafkaSource</code> 导入 Hudi。</li>
+<li><code>FilebasedSchemaProvider</code> 需要 source schema 和 target schema。</li>
+<li><code>recordkey.field</code>、<code>partitionpath.field</code>、<code>precombine.field</code> 是写入正确性的关键。</li>
+<li>第一次运行从 Kafka offset <code>[0 -&gt; 4]</code> 读取 4 条消息，写入后得到 3 条业务记录。</li>
+<li>第二次运行从 checkpoint <code>0:4</code> 继续读取 <code>[4 -&gt; 6]</code> 两条新消息。</li>
+<li>Hudi Timeline 中能看到两次 commit，对应两次 Streamer 运行。</li>
+<li><code>base.properties</code>、HDFS props、Spark SQL location 注册表，是从单机测试走向统一配置、统一查询时经常会遇到的补充能力；生产环境更推荐结合 Hive Sync &#x2F; Metastore &#x2F; Catalog 方案统一管理表。</li>
+<li>如果遇到 utilities bundle 类加载问题，需要检查 driver&#x2F;executor classpath。</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/8b6d2c91.html">https://www.hnbian.cn/posts/8b6d2c91.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/kafka/">
+                                    <span class="chip bg-color">kafka</span>
+                                </a>
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/data-lake/">
+                                    <span class="chip bg-color">data-lake</span>
+                                </a>
+                            
+                                <a href="/tags/deltastreamer/">
+                                    <span class="chip bg-color">deltastreamer</span>
+                                </a>
+                            
+                                <a href="/tags/hoodie-streamer/">
+                                    <span class="chip bg-color">hoodie-streamer</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/e91c6f2a.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-6cd19b33edb0013c448feb28ac37f452.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 09：并发控制、锁机制与 Spark 写入调优">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 09：并发控制、锁机制与 Spark 写入调优</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-08-28
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/concurrency/">
+                        <span class="chip bg-color">concurrency</span>
+                    </a>
+                    
+                    <a href="/tags/tuning/">
+                        <span class="chip bg-color">tuning</span>
+                    </a>
+                    
+                    <a href="/tags/lock/">
+                        <span class="chip bg-color">lock</span>
+                    </a>
+                    
+                    <a href="/tags/performance/">
+                        <span class="chip bg-color">performance</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/7f3a9c21.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f031936d2792441e20e79558b429286c.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 07：Spark 集成 Hudi 实战">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 07：Spark 集成 Hudi 实战</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-08-05
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/data-lake/">
+                        <span class="chip bg-color">data-lake</span>
+                    </a>
+                    
+                    <a href="/tags/lakehouse/">
+                        <span class="chip bg-color">lakehouse</span>
+                    </a>
+                    
+                    <a href="/tags/spark-sql/">
+                        <span class="chip bg-color">spark-sql</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,1991 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Prometheus 监控实战 06：Flink 异常检测与告警规则配置, hnbian">
+    <meta name="description" content="前面已经把 Prometheus、Flink 指标和 Grafana 看板都串起来了。到这里，监控链路已经能看到指标，但还缺少最关键的一步：指标异常时不能只靠人工查看，而应该由 Prometheus 主动计算规则并触发告警。
+Flink 作">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Prometheus 监控实战 06：Flink 异常检测与告警规则配置 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-5a19aa27eb0b2c13b6776cdf81cc28aa.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Prometheus 监控实战 06：Flink 异常检测与告警规则配置</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                            <a href="/tags/prometheus/">
+                                <span class="chip bg-color">prometheus</span>
+                            </a>
+                        
+                            <a href="/tags/monitoring/">
+                                <span class="chip bg-color">monitoring</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/prometheus/" class="post-category">
+                                prometheus
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-05-29
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.1k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    17 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面已经把 Prometheus、Flink 指标和 Grafana 看板都串起来了。到这里，监控链路已经能看到指标，但还缺少最关键的一步：指标异常时不能只靠人工查看，而应该由 Prometheus 主动计算规则并触发告警。</p>
+<p>Flink 作业运行时，比较常见的问题有几类：</p>
+<ul>
+<li>JobManager 或 TaskManager 进程挂掉</li>
+<li>TaskManager 重启或反复抖动</li>
+<li>TaskManager 从 JobManager 中注销，导致可用 Slot 下降</li>
+<li>预期长期运行的作业不再运行</li>
+</ul>
+<p>这些问题如果只靠人工看 Grafana，很容易错过。更合适的做法是把这些判断写成 Prometheus 告警规则，让 Prometheus 定期计算规则，并在异常时进入 pending 或 firing 状态。</p>
+<p>这一篇先配置 Prometheus 告警规则，并通过停止 Flink TaskManager 的方式验证规则是否真实触发。</p>
+<h2 id="1-环境说明"><a href="#1-环境说明" class="headerlink" title="1. 环境说明"></a>1. 环境说明</h2><p>当前仍然使用前几篇文章中的同一台服务器，Prometheus 和 Flink 已经配置完成：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">hostname</span>
+<span class="token function">date</span> <span class="token string">'+%Y-%m-%d %H:%M:%S'</span>
+/opt/module/prometheus-3.2.1/promtool <span class="token parameter variable">--version</span>
+<span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:8081/overview<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">lavm-bzoq5mwl1h
+2025-05-29 20:07:22
+
+promtool, version 3.2.1
+
+&#123;"taskmanagers":1,"slots-total":1,"slots-available":1,"jobs-running":0,"jobs-finished":0,"jobs-cancelled":0,"jobs-failed":0,"flink-version":"1.20.1","flink-commit":"cb1e7b5"&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>当前实验环境没有提交长期运行的 Flink 作业，所以后面的 FlinkNoRunningJobs 会触发，这是符合预期的。</p>
+<p>当前 Prometheus 已经采集 Flink 的两个 Reporter 端口：</p>
+<table>
+<thead>
+<tr>
+<th>job</th>
+<th>target</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>flink_jobmanager</td>
+<td>localhost:9249</td>
+<td>JobManager 指标</td>
+</tr>
+<tr>
+<td>flink_taskmanager</td>
+<td>localhost:9250</td>
+<td>TaskManager 指标</td>
+</tr>
+</tbody></table>
+<p>这里的 localhost 只适用于 Prometheus 和 Flink 部署在同一台机器上的实验环境；如果 Prometheus 单独部署，需要改成 Flink 所在机器的内网 IP 或 DNS。9249&#x2F;9250 是 Flink Reporter 暴露指标的 HTTP 端口，生产环境不建议直接公网开放，应通过内网、安全组、防火墙或服务发现方式采集。</p>
+<p>先确认采集状态：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-G</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query'</span> <span class="token punctuation">\</span>
+  --data-urlencode <span class="token string">'query=up&#123;job="flink_taskmanager"&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>TaskManager 正常时返回。下面只截取 result 数组中的关键部分，不是完整 JSON 返回：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"metric"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"__name__"</span><span class="token operator">:</span> <span class="token string">"up"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9250"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"flink_taskmanager"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token number">1748520442.282</span><span class="token punctuation">,</span>
+    <span class="token string">"1"</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>up&#x3D;1 说明 Prometheus 最近一次 scrape 可以正常拉取 TaskManager 指标，但不代表 TaskManager 业务状态完全正常，也不代表作业一定正常运行。后面的告警规则就是围绕这些指标来判断异常。</p>
+<p>Prometheus 告警状态可以简单分成三种：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>inactive</td>
+<td>表达式不成立</td>
+</tr>
+<tr>
+<td>pending</td>
+<td>表达式成立，但还没有持续超过 for</td>
+</tr>
+<tr>
+<td>firing</td>
+<td>表达式成立，并且持续超过 for</td>
+</tr>
+</tbody></table>
+<p>for 的作用就是过滤短暂抖动。需要注意，PromQL 告警表达式返回空结果时不会触发告警；只有返回的时间序列满足条件时，才会进入 pending 或 firing。如果一个表达式返回多个 instance，每个 instance 都会生成一条独立告警。</p>
+<h2 id="2-增加-rule-files-配置"><a href="#2-增加-rule-files-配置" class="headerlink" title="2. 增加 rule_files 配置"></a>2. 增加 rule_files 配置</h2><p>Prometheus 的告警规则一般单独放到规则文件里，然后在 prometheus.yml 中通过 rule_files 引入。</p>
+<p>当前配置文件路径是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/prometheus-3.2.1/prometheus.yml<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>修改前先备份原配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> /opt/module/prometheus-3.2.1/prometheus.yml <span class="token punctuation">\</span>
+   /opt/module/prometheus-3.2.1/prometheus.yml.bak<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>只需要在原配置中新增 rule_files，不要删除已有 scrape_configs。下面是当前实验环境的完整示例配置，请根据自己已有配置合并，不要盲目覆盖：</p>
+<pre class="line-numbers language-yaml" data-language="yaml"><code class="language-yaml"><span class="token key atrule">global</span><span class="token punctuation">:</span>
+  <span class="token key atrule">scrape_interval</span><span class="token punctuation">:</span> 15s
+  <span class="token key atrule">evaluation_interval</span><span class="token punctuation">:</span> 15s
+
+<span class="token key atrule">rule_files</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token string">"rules/*.yml"</span>
+
+<span class="token key atrule">scrape_configs</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"prometheus"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9090"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"node_exporter"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9100"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"pushgateway"</span>
+    <span class="token key atrule">honor_labels</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9091"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"flink_jobmanager"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9249"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"flink_taskmanager"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9250"</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里有两个时间参数要注意：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>scrape_interval</td>
+<td>Prometheus 抓取指标的间隔</td>
+</tr>
+<tr>
+<td>evaluation_interval</td>
+<td>Prometheus 计算规则的间隔</td>
+</tr>
+</tbody></table>
+<p>如果 evaluation_interval 是 15s，规则表达式每 15 秒计算一次。规则里再配合 for: 30s、for: 1m 这样的持续时间，可以避免短暂网络抖动直接触发告警。</p>
+<p>rules&#x2F;<em>.yml 是相对路径，相对于 prometheus.yml 所在目录解析。本文的配置文件在 &#x2F;opt&#x2F;module&#x2F;prometheus-3.2.1&#x2F; 下，所以实际会匹配 &#x2F;opt&#x2F;module&#x2F;prometheus-3.2.1&#x2F;rules&#x2F;</em>.yml。规则文件后缀需要和 rule_files 中的匹配模式一致。</p>
+<p>for: 30s 不一定精确等于 30 秒触发，实际会受到 evaluation_interval 影响，通常需要经过多次规则计算后才会从 pending 进入 firing。如果 evaluation_interval 比 scrape_interval 短，规则可能多次基于同一次采样值计算；如果比 scrape_interval 长，告警发现会更慢。</p>
+<h2 id="3-编写-Flink-告警规则"><a href="#3-编写-Flink-告警规则" class="headerlink" title="3. 编写 Flink 告警规则"></a>3. 编写 Flink 告警规则</h2><p>创建规则目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> /opt/module/prometheus-3.2.1/rules<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>创建规则文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">vim</span> /opt/module/prometheus-3.2.1/rules/flink-alerts.yml<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>当前文件目录结构如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/opt/module/prometheus-3.2.1/
+  prometheus.yml
+  rules/
+    flink-alerts.yml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>内容如下：</p>
+<pre class="line-numbers language-yaml" data-language="yaml"><code class="language-yaml"><span class="token key atrule">groups</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> flink.rules
+    <span class="token key atrule">rules</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> FlinkJobManagerDown
+        <span class="token key atrule">expr</span><span class="token punctuation">:</span> up<span class="token punctuation">&#123;</span>job="flink_jobmanager"<span class="token punctuation">&#125;</span> == 0
+        <span class="token key atrule">for</span><span class="token punctuation">:</span> 30s
+        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+          <span class="token key atrule">severity</span><span class="token punctuation">:</span> critical
+          <span class="token key atrule">service</span><span class="token punctuation">:</span> flink
+        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Flink JobManager metrics endpoint is down"</span>
+          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Prometheus cannot scrape Flink JobManager metrics. cluster=&#123;&#123; $labels.cluster &#125;&#125;, job=&#123;&#123; $labels.job &#125;&#125;, instance=&#123;&#123; $labels.instance &#125;&#125;."</span>
+
+      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> FlinkTaskManagerDown
+        <span class="token key atrule">expr</span><span class="token punctuation">:</span> up<span class="token punctuation">&#123;</span>job="flink_taskmanager"<span class="token punctuation">&#125;</span> == 0
+        <span class="token key atrule">for</span><span class="token punctuation">:</span> 30s
+        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+          <span class="token key atrule">severity</span><span class="token punctuation">:</span> critical
+          <span class="token key atrule">service</span><span class="token punctuation">:</span> flink
+        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Flink TaskManager metrics endpoint is down"</span>
+          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Prometheus cannot scrape Flink TaskManager metrics. cluster=&#123;&#123; $labels.cluster &#125;&#125;, job=&#123;&#123; $labels.job &#125;&#125;, instance=&#123;&#123; $labels.instance &#125;&#125;."</span>
+
+      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> FlinkTaskManagerEndpointFlapping
+        <span class="token key atrule">expr</span><span class="token punctuation">:</span> changes(up<span class="token punctuation">&#123;</span>job="flink_taskmanager"<span class="token punctuation">&#125;</span><span class="token punctuation">[</span>10m<span class="token punctuation">]</span>) <span class="token punctuation">></span> 1
+        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+          <span class="token key atrule">severity</span><span class="token punctuation">:</span> warning
+          <span class="token key atrule">service</span><span class="token punctuation">:</span> flink
+        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Flink TaskManager metrics endpoint is flapping"</span>
+          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Flink TaskManager scrape state changed more than once in 10 minutes. cluster=&#123;&#123; $labels.cluster &#125;&#125;, job=&#123;&#123; $labels.job &#125;&#125;, instance=&#123;&#123; $labels.instance &#125;&#125;, value=&#123;&#123; $value &#125;&#125;."</span>
+
+      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> FlinkTaskManagerMissing
+        <span class="token key atrule">expr</span><span class="token punctuation">:</span> flink_jobmanager_numRegisteredTaskManagers &lt; 1
+        <span class="token key atrule">for</span><span class="token punctuation">:</span> 1m
+        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+          <span class="token key atrule">severity</span><span class="token punctuation">:</span> warning
+          <span class="token key atrule">service</span><span class="token punctuation">:</span> flink
+        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"Flink registered TaskManager count is too low"</span>
+          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"Current registered TaskManager count is &#123;&#123; $value &#125;&#125;. cluster=&#123;&#123; $labels.cluster &#125;&#125;, job=&#123;&#123; $labels.job &#125;&#125;, instance=&#123;&#123; $labels.instance &#125;&#125;."</span>
+
+      <span class="token punctuation">-</span> <span class="token key atrule">alert</span><span class="token punctuation">:</span> FlinkNoRunningJobs
+        <span class="token key atrule">expr</span><span class="token punctuation">:</span> flink_jobmanager_numRunningJobs &lt; 1
+        <span class="token key atrule">for</span><span class="token punctuation">:</span> 2m
+        <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+          <span class="token key atrule">severity</span><span class="token punctuation">:</span> warning
+          <span class="token key atrule">service</span><span class="token punctuation">:</span> flink
+        <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+          <span class="token key atrule">summary</span><span class="token punctuation">:</span> <span class="token string">"No running Flink jobs"</span>
+          <span class="token key atrule">description</span><span class="token punctuation">:</span> <span class="token string">"No running Flink jobs were observed in the current cluster. cluster=&#123;&#123; $labels.cluster &#125;&#125;, job=&#123;&#123; $labels.job &#125;&#125;, instance=&#123;&#123; $labels.instance &#125;&#125;."</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这几个规则分别对应不同层面的异常。</p>
+<table>
+<thead>
+<tr>
+<th>告警</th>
+<th>表达式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>FlinkJobManagerDown</td>
+<td>up{job&#x3D;”flink_jobmanager”} &#x3D;&#x3D; 0</td>
+<td>JobManager Reporter 不可采集</td>
+</tr>
+<tr>
+<td>FlinkTaskManagerDown</td>
+<td>up{job&#x3D;”flink_taskmanager”} &#x3D;&#x3D; 0</td>
+<td>TaskManager Reporter 不可采集</td>
+</tr>
+<tr>
+<td>FlinkTaskManagerEndpointFlapping</td>
+<td>changes(up{job&#x3D;”flink_taskmanager”}[10m]) &gt; 1</td>
+<td>TaskManager Reporter 采集状态在 10 分钟内发生多次变化</td>
+</tr>
+<tr>
+<td>FlinkTaskManagerMissing</td>
+<td>flink_jobmanager_numRegisteredTaskManagers &lt; 1</td>
+<td>JobManager 视角下没有可用 TaskManager</td>
+</tr>
+<tr>
+<td>FlinkNoRunningJobs</td>
+<td>flink_jobmanager_numRunningJobs &lt; 1</td>
+<td>当前没有运行中的作业</td>
+</tr>
+</tbody></table>
+<p>这里要特别注意 FlinkNoRunningJobs。这个规则只适合有长期运行作业的集群，比如常驻的流式作业。如果当前 Flink 集群只是临时提交批任务，或者本来就允许没有运行作业，就不应该直接使用这条规则。多集群环境中应该加 cluster、env、job_type 等标签过滤，例如：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql">flink_jobmanager_numRunningJobs<span class="token context-labels"><span class="token punctuation">&#123;</span><span class="token label-key attr-name">job_type</span><span class="token punctuation">=</span><span class="token label-value attr-value">"streaming"</span><span class="token punctuation">&#125;</span></span> <span class="token operator">&lt;</span> <span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>FlinkTaskManagerMissing 也只适合当前实验环境这种“期望至少 1 个 TaskManager”的场景。生产环境应该根据集群规模设置阈值，比如 &lt; 3，或者结合 cluster 标签分别设置不同阈值。它依赖 JobManager Reporter 正常暴露指标，因此应和 FlinkJobManagerDown 一起看。</p>
+<p>FlinkJobManagerDown 和 FlinkTaskManagerDown 只能检测已经存在于 Prometheus target 列表中的 Reporter 不可抓取。如果 scrape_configs 没有配置该 target，或者 job 标签写错，up &#x3D;&#x3D; 0 不会触发。这类规则不能替代 target 缺失检查。可以用 absent(up{job&#x3D;”flink_taskmanager”}) 发现完全没有对应序列的情况，但动态环境下容易误报，需要谨慎使用。</p>
+<p>FlinkTaskManagerEndpointFlapping 看的是一段时间内 up 状态是否反复变化，它更偏向检测采集抖动或端点不稳定，不一定能精确代表 TaskManager 进程重启。网络抖动、Reporter 卡顿、Prometheus 采集失败也可能造成 up 变化。不配置 for 时，表达式一旦为 true 就会直接 firing。</p>
+<p>生产环境建议在 scrape_configs 中给 Flink targets 增加 cluster&#x2F;env 标签，并在告警 labels 或 annotations 中带上这些标签，方便定位是哪个集群触发。severity 也要根据集群规模和业务重要性调整，本文只是实验示例。labels 会决定告警身份和 Alertmanager 分组方式，生产环境中 alertname、cluster、instance、severity 等标签设计要稳定；annotations 主要用于展示描述信息，不参与告警身份判断，不建议把频繁变化的值放到 labels 中。</p>
+<h2 id="4-校验规则文件"><a href="#4-校验规则文件" class="headerlink" title="4. 校验规则文件"></a>4. 校验规则文件</h2><p>Prometheus 自带 promtool，可以先检查规则文件语法：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/prometheus-3.2.1/promtool check rules <span class="token punctuation">\</span>
+  /opt/module/prometheus-3.2.1/rules/flink-alerts.yml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Checking /opt/module/prometheus-3.2.1/rules/flink-alerts.yml
+  SUCCESS: 5 rules found<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>每次修改规则后都应该先 check rules，再 check config，确认规则文件语法正确，并且已经被 prometheus.yml 正确引用。再检查整体配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/prometheus-3.2.1/promtool check config <span class="token punctuation">\</span>
+  /opt/module/prometheus-3.2.1/prometheus.yml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Checking /opt/module/prometheus-3.2.1/prometheus.yml
+  SUCCESS: 1 rule files found
+  SUCCESS: /opt/module/prometheus-3.2.1/prometheus.yml is valid prometheus config file syntax<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>规则文件修改后，Prometheus 不会自动加载，需要 reload 或重启。Prometheus 如果启动时加了 –web.enable-lifecycle，可以执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-X</span> POST http://localhost:9090/-/reload<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本文前面没有开启 lifecycle，所以这里使用重启方式。实验环境可以直接重启；生产环境建议使用 systemd 管理 Prometheus，并考虑 reload 或滚动方式，避免影响监控采集。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/module/prometheus-3.2.1
+
+<span class="token function">pkill</span> <span class="token parameter variable">-f</span> <span class="token string">"/opt/module/prometheus-3.2.1/prometheus"</span>
+
+<span class="token function">nohup</span> ./prometheus <span class="token punctuation">\</span>
+  <span class="token parameter variable">--config.file</span><span class="token operator">=</span>/opt/module/prometheus-3.2.1/prometheus.yml <span class="token punctuation">\</span>
+  <span class="token parameter variable">--storage.tsdb.path</span><span class="token operator">=</span>/opt/module/prometheus-3.2.1/data <span class="token punctuation">\</span>
+  --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9090 <span class="token punctuation">\</span>
+  <span class="token operator">></span> prometheus.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Prometheus 默认没有登录认证，0.0.0.0:9090 不建议直接暴露到公网。生产环境建议绑定内网地址，或通过反向代理、VPN、网关认证访问。启动后确认服务已经 ready：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:9090/-/ready
+<span class="token function">tail</span> <span class="token parameter variable">-n</span> <span class="token number">50</span> /opt/module/prometheus-3.2.1/prometheus.log<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>打开 Prometheus Web UI 中的 Rules &#x2F; Rule health 页面，可以看到 flink.rules 规则组已经加载：</p>
+<img src="https://images.hnbian.cn/new/n-894c4fca586cf31be98716f61bb32808.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>规则状态为 OK，说明 Prometheus 能正常解析并计算这些表达式。</p>
+<p>如果某条告警不触发，可以先把 expr 复制到 Prometheus Graph 查询页，确认表达式是否有返回值。返回空结果和返回 0 是两回事：空结果不会触发告警。</p>
+<h2 id="5-模拟-TaskManager-异常"><a href="#5-模拟-TaskManager-异常" class="headerlink" title="5. 模拟 TaskManager 异常"></a>5. 模拟 TaskManager 异常</h2><p>为了验证告警是否真的能触发，这里手动停止 TaskManager：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/module/flink-1.20.1
+jps <span class="token operator">|</span> <span class="token function">grep</span> TaskManagerRunner
+bin/taskmanager.sh stop<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>本文只是在 Standalone 实验环境中模拟异常；生产环境或 YARN&#x2F;Kubernetes 模式不要随意手动停止 TaskManager，应使用测试环境验证告警。</p>
+<p>停止前，TaskManager 采集状态为 1：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-G</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query'</span> <span class="token punctuation">\</span>
+  --data-urlencode <span class="token string">'query=up&#123;job="flink_taskmanager"&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>返回。下面仍然只展示 Prometheus API result 中的关键部分：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"metric"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"__name__"</span><span class="token operator">:</span> <span class="token string">"up"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9250"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"flink_taskmanager"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token number">1748520442.282</span><span class="token punctuation">,</span>
+    <span class="token string">"1"</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>停止 TaskManager 后，等待两个采集周期再查询。当前 scrape_interval 是 15s，两个采集周期大约是 30 秒；告警进入 firing 还会受到 evaluation_interval 和 for 影响：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-G</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query'</span> <span class="token punctuation">\</span>
+  --data-urlencode <span class="token string">'query=up&#123;job="flink_taskmanager"&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>返回：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"metric"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"__name__"</span><span class="token operator">:</span> <span class="token string">"up"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9250"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"flink_taskmanager"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token number">1748520519.934</span><span class="token punctuation">,</span>
+    <span class="token string">"0"</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>此时 up&#x3D;0，说明 Prometheus 已经无法采集 TaskManager 的 &#x2F;metrics 端口。</p>
+<p>继续查看当前告警：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:9090/api/v1/alerts <span class="token operator">|</span> jq<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果系统没有 jq，可以去掉 | jq。下面只截取 alerts 数组中的关键字段。实际从异常到 firing 的时间取决于 scrape_interval、evaluation_interval 和 for，FlinkTaskManagerMissing 可能比 FlinkTaskManagerDown 更晚进入 firing：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"labels"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"alertname"</span><span class="token operator">:</span> <span class="token string">"FlinkTaskManagerDown"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9250"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"flink_taskmanager"</span><span class="token punctuation">,</span>
+    <span class="token property">"service"</span><span class="token operator">:</span> <span class="token string">"flink"</span><span class="token punctuation">,</span>
+    <span class="token property">"severity"</span><span class="token operator">:</span> <span class="token string">"critical"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"state"</span><span class="token operator">:</span> <span class="token string">"firing"</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token string">"0e+00"</span>
+<span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#123;</span>
+  <span class="token property">"labels"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"alertname"</span><span class="token operator">:</span> <span class="token string">"FlinkTaskManagerMissing"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9249"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"flink_jobmanager"</span><span class="token punctuation">,</span>
+    <span class="token property">"service"</span><span class="token operator">:</span> <span class="token string">"flink"</span><span class="token punctuation">,</span>
+    <span class="token property">"severity"</span><span class="token operator">:</span> <span class="token string">"warning"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"state"</span><span class="token operator">:</span> <span class="token string">"firing"</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token string">"0e+00"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Prometheus 页面里也能看到对应告警：</p>
+<img src="https://images.hnbian.cn/new/n-c422a48348db9b2956846ee944f44250.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>截图里还能看到 FlinkNoRunningJobs，这是因为当前实验环境没有提交长期运行的 Flink 作业，flink_jobmanager_numRunningJobs 本来就是 0。为了避免误以为配置错误，实验验证前也可以先临时注释掉 FlinkNoRunningJobs，或者把它作为可选规则。如果生产集群里允许某些时间段没有运行作业，这条规则就应该去掉，或者增加 cluster、job_type 这类标签后只对流式作业集群启用。</p>
+<p>这里有一个细节：FlinkTaskManagerDown 是 Prometheus 从采集侧看到的异常，表示 localhost:9250 不可采集，可能是进程挂了、端口不通、网络问题或 Reporter 异常；FlinkTaskManagerMissing 是 JobManager 指标里看到的异常，表示当前注册的 TaskManager 数量为 0，偏 Flink 集群内部状态。两个规则看的是同一类问题，但角度不同。</p>
+<p>如果 FlinkTaskManagerDown 触发但 FlinkTaskManagerMissing 没触发，可能是 Reporter 端口或网络采集问题；如果两个都触发，更可能是 TaskManager 真的退出或无法注册到 JobManager。实际排查时，这两个告警如果同时出现，基本可以优先检查 TaskManager 进程、端口、日志和机器状态。</p>
+<h2 id="6-恢复-TaskManager"><a href="#6-恢复-TaskManager" class="headerlink" title="6. 恢复 TaskManager"></a>6. 恢复 TaskManager</h2><p>验证完成后，重新启动 TaskManager：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/module/flink-1.20.1
+bin/taskmanager.sh start<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>再次查看 Flink Overview：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:8081/overview<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>返回：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"taskmanagers"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token property">"slots-total"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token property">"slots-available"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+  <span class="token property">"jobs-running"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token property">"jobs-finished"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token property">"jobs-cancelled"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token property">"jobs-failed"</span><span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  <span class="token property">"flink-version"</span><span class="token operator">:</span> <span class="token string">"1.20.1"</span><span class="token punctuation">,</span>
+  <span class="token property">"flink-commit"</span><span class="token operator">:</span> <span class="token string">"cb1e7b5"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再确认 Prometheus 采集和告警状态：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-G</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query'</span> <span class="token punctuation">\</span>
+  --data-urlencode <span class="token string">'query=up&#123;job="flink_taskmanager"&#125;'</span>
+
+<span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:9090/api/v1/alerts <span class="token operator">|</span> jq<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>TaskManager 恢复后，仍需等待 scrape_interval + evaluation_interval，告警不会立即消失。FlinkTaskManagerDown 和 FlinkTaskManagerMissing 会在后续规则计算中恢复为 inactive。Prometheus 页面中的 Alerts 状态会自动更新；如果已经接入 Alertmanager，通知恢复还取决于 Alertmanager 的 resolve 逻辑和通知配置。</p>
+<h2 id="7-关于告警发送"><a href="#7-关于告警发送" class="headerlink" title="7. 关于告警发送"></a>7. 关于告警发送</h2><p>这一篇只配置了 Prometheus 规则，所以告警可以在 Prometheus 页面上看到 pending 和 firing 状态。</p>
+<p>如果要真正发到外部系统，还需要接 Alertmanager。Prometheus 负责判断规则是否触发，Alertmanager 负责后续的分组、静默、抑制和通知发送。</p>
+<p>一个最小的 Prometheus 告警发送配置大致如下：</p>
+<pre class="line-numbers language-yaml" data-language="yaml"><code class="language-yaml"><span class="token key atrule">alerting</span><span class="token punctuation">:</span>
+  <span class="token key atrule">alertmanagers</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+        <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span>
+            <span class="token punctuation">-</span> <span class="token string">"localhost:9093"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这段配置需要放在 prometheus.yml 顶层，不能放在 scrape_configs 下面。它只是 Prometheus 发送告警到 Alertmanager 的配置，前提是 Alertmanager 已经单独安装并监听在 9093。</p>
+<p>也就是说，Prometheus 告警链路可以拆成两段：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>组件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>规则判断</td>
+<td>Prometheus</td>
+<td>定期计算 PromQL，产生 pending&#x2F;firing</td>
+</tr>
+<tr>
+<td>告警发送</td>
+<td>Alertmanager</td>
+<td>接收告警，分组、静默、抑制、发送通知</td>
+</tr>
+</tbody></table>
+<p>Prometheus 只负责产生告警状态；Alertmanager 不重新计算 PromQL，只负责接收、分组、静默、抑制和发送通知。如果当前只是先验证规则是否正确，可以先不接 Alertmanager；如果已经要用于生产，就应该把 Alertmanager 和通知通道一起补上，同时配置告警分组、重复发送间隔、静默规则、抑制规则和通知接收人，避免告警风暴。</p>
+<h2 id="8-规则设计建议"><a href="#8-规则设计建议" class="headerlink" title="8. 规则设计建议"></a>8. 规则设计建议</h2><p>Flink 告警规则可以按排查链路逐层设计：</p>
+<ol>
+<li>先从 target 是否 UP 开始，确认 Prometheus 能不能抓到 Reporter。</li>
+<li>再看 JobManager 视角下的 TaskManager 数量，确认 Flink 集群内部状态。</li>
+<li>再看作业数量、Checkpoint、失败重启、延迟、吞吐、反压、GC 和内存等业务指标。</li>
+<li>每条规则都要明确适用场景和误报条件，尤其是空闲集群、批任务集群和动态扩缩容环境。</li>
+</ol>
+<p>本文只覆盖基础链路告警，还没有覆盖作业失败、Checkpoint 失败、反压、延迟、吞吐、GC、内存等更深入的 Flink 作业级告警。规则多起来后，也可以按类型拆成多个文件，例如 flink-target-alerts.yml、flink-job-alerts.yml、flink-resource-alerts.yml，便于维护。</p>
+<h2 id="9-小结"><a href="#9-小结" class="headerlink" title="9. 小结"></a>9. 小结</h2><p>这一篇把 Flink 的几个基础异常写成了 Prometheus 告警规则，并通过停止 TaskManager 验证了告警能够真实触发。</p>
+<p>到这里，Prometheus 监控 Flink 的基础链路已经完整了：Prometheus 采集指标，PromQL 查询指标，Grafana 展示看板，Prometheus 规则负责发现异常。后续如果要继续完善，就可以把规则拆得更细，例如按集群、作业、队列、环境打标签，再接入 Alertmanager 做通知分发。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/d6e9b4f2.html">https://www.hnbian.cn/posts/d6e9b4f2.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                                <a href="/tags/prometheus/">
+                                    <span class="chip bg-color">prometheus</span>
+                                </a>
+                            
+                                <a href="/tags/monitoring/">
+                                    <span class="chip bg-color">monitoring</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/b0f5fd4f.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-919b7f52d30f9cd0646424a42e1f6a8f.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 01：Hudi 是什么？为什么数据湖需要 Hudi？">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 01：Hudi 是什么？为什么数据湖需要 Hudi？</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-06-04
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/data-lake/">
+                        <span class="chip bg-color">data-lake</span>
+                    </a>
+                    
+                    <a href="/tags/lakehouse/">
+                        <span class="chip bg-color">lakehouse</span>
+                    </a>
+                    
+                    <a href="/tags/big-data/">
+                        <span class="chip bg-color">big-data</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/a8d5f2c9.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-0bae5d45b79df5a4d358a4aae047bcde.jpg" class="responsive-img" alt="Prometheus 监控实战 05：Grafana 接入与 Flink 看板配置">
+                        
+                        <span class="card-title">Prometheus 监控实战 05：Grafana 接入与 Flink 看板配置</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-05-17
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/prometheus/" class="post-category">
+                                    prometheus
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/prometheus/">
+                        <span class="chip bg-color">prometheus</span>
+                    </a>
+                    
+                    <a href="/tags/monitoring/">
+                        <span class="chip bg-color">monitoring</span>
+                    </a>
+                    
+                    <a href="/tags/grafana/">
+                        <span class="chip bg-color">grafana</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

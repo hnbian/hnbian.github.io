@@ -1,0 +1,1898 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Prometheus 监控实战 02：主机指标采集与 Pushgateway 接入, hnbian">
+    <meta name="description" content="上一篇已经把 Prometheus Server 部署起来了，并且让 Prometheus 先采集了自己的 &amp;#x2F;metrics 接口。这个最小闭环可以证明 Prometheus 的配置、启动、抓取和查询链路是通的，但它还不能回答主机">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Prometheus 监控实战 02：主机指标采集与 Pushgateway 接入 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-6c3bd44e97bb39af67024cdef192f50f.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Prometheus 监控实战 02：主机指标采集与 Pushgateway 接入</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/prometheus/">
+                                <span class="chip bg-color">prometheus</span>
+                            </a>
+                        
+                            <a href="/tags/monitoring/">
+                                <span class="chip bg-color">monitoring</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/prometheus/" class="post-category">
+                                prometheus
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-04-18
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    3.7k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    16 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>上一篇已经把 Prometheus Server 部署起来了，并且让 Prometheus 先采集了自己的 &#x2F;metrics 接口。这个最小闭环可以证明 Prometheus 的配置、启动、抓取和查询链路是通的，但它还不能回答主机层面的问题，比如 CPU 是否繁忙、内存是否紧张、磁盘空间是否够用。</p>
+<p>这篇继续在同一台 Hadoop&#x2F;YARN 实验服务器上补两个组件：</p>
+<ol>
+<li>Node Exporter：把 Linux 主机指标暴露成 Prometheus 能识别的 &#x2F;metrics 接口。</li>
+<li>Pushgateway：给生命周期较短的脚本或批处理任务提供指标暂存入口。</li>
+</ol>
+<p>部署完成后，Prometheus 中会有三个采集任务：prometheus、node_exporter、pushgateway。</p>
+<h2 id="1-组件作用"><a href="#1-组件作用" class="headerlink" title="1. 组件作用"></a>1. 组件作用</h2><p>先把这两个组件的边界说清楚。</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th align="right">默认端口</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Node Exporter</td>
+<td align="right">9100</td>
+<td>采集 Linux 主机 CPU、内存、磁盘、网络、文件系统等指标</td>
+</tr>
+<tr>
+<td>Pushgateway</td>
+<td align="right">9091</td>
+<td>暂存短任务主动推送的指标，再由 Prometheus 拉取</td>
+</tr>
+</tbody></table>
+<p>Node Exporter 适合长期运行的主机。它本身只负责暴露指标，不保存历史数据，也不做查询。Prometheus 定期访问 http:&#x2F;&#x2F;主机:9100&#x2F;metrics，把这些指标采集到自己的 TSDB 中。</p>
+<p>Pushgateway 的定位不一样。它不是给普通服务长期推指标用的，更适合一次性脚本、定时任务、离线批处理这类生命周期比较短的任务。比如一个巡检脚本只运行 2 秒，Prometheus 每 15 秒抓一次，很可能抓不到这个脚本自身暴露的指标。这时可以让脚本在退出前把结果推到 Pushgateway，Prometheus 再从 Pushgateway 采集。</p>
+<p>这里要先明确一个边界：Pushgateway 不是把 Prometheus 从 Pull 模型改成 Push 模型的通用方案，它主要服务于短生命周期任务。普通长期运行服务仍然应该优先暴露 &#x2F;metrics，让 Prometheus 直接拉取。</p>
+<h2 id="2-环境说明"><a href="#2-环境说明" class="headerlink" title="2. 环境说明"></a>2. 环境说明</h2><p>本次继续使用上一篇的服务器：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">hostname</span>
+<span class="token function">date</span> <span class="token string">'+%Y-%m-%d %H:%M:%S'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">lavm-bzoq5mwl1h
+2025-04-18 09:33:30<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>当前使用的组件版本如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/node_exporter-1.9.1/node_exporter <span class="token parameter variable">--version</span>
+/opt/module/pushgateway-1.10.0/pushgateway <span class="token parameter variable">--version</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">node_exporter, version 1.9.1 (branch: HEAD, revision: f2ec547b49af53815038a50265aa2adcd1275959)
+  build user:       root@7023beaa563a
+  build date:       20250401-15:19:01
+
+pushgateway, version 1.10.0 (branch: HEAD, revision: 17dd0704c6595396b8ca2550884bd9f0d66990bb)
+  build user:       root@ef8599d2814a
+  build date:       20240919-21:18:11<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文使用的版本如下，阅读时如果已经有更新版本，可以到 Prometheus 相关组件的 GitHub Releases 页面替换为更新的稳定版本。包名里的 linux-amd64 对应 x86_64 服务器，如果是 ARM64 服务器，需要选择 linux-arm64 包。</p>
+<p>本机测试 localhost 不需要开放云服务器安全组；如果要从浏览器远程访问 Prometheus、Node Exporter 或 Pushgateway，对应端口需要被安全组或防火墙允许。但公网开放前必须先做好访问控制，不能只因为实验方便就长期裸露这些端口。</p>
+<h2 id="3-部署-Node-Exporter"><a href="#3-部署-Node-Exporter" class="headerlink" title="3. 部署 Node Exporter"></a>3. 部署 Node Exporter</h2><p>先下载并解压 Node Exporter：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">mkdir</span> <span class="token parameter variable">-p</span> /opt/software /opt/module
+<span class="token builtin class-name">cd</span> /opt/software
+
+<span class="token function">curl</span> <span class="token parameter variable">-L</span> <span class="token parameter variable">-o</span> node_exporter-1.9.1.linux-amd64.tar.gz <span class="token punctuation">\</span>
+  https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+
+<span class="token function">tar</span> <span class="token parameter variable">-zxf</span> node_exporter-1.9.1.linux-amd64.tar.gz <span class="token parameter variable">-C</span> /opt/software
+<span class="token function">mv</span> /opt/software/node_exporter-1.9.1.linux-amd64 /opt/module/node_exporter-1.9.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里仍然把安装包放在 &#x2F;opt&#x2F;software，正式运行目录放在 &#x2F;opt&#x2F;module。如果 &#x2F;opt&#x2F;module&#x2F;node_exporter-1.9.1 已经存在，需要先备份旧目录，确认不需要后再删除，避免直接覆盖已有配置或日志。</p>
+<p>启动 Node Exporter：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">nohup</span> /opt/module/node_exporter-1.9.1/node_exporter <span class="token punctuation">\</span>
+  --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9100 <span class="token punctuation">\</span>
+  <span class="token operator">></span> /opt/module/node_exporter-1.9.1/node_exporter.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这里使用 0.0.0.0:9100 是为了实验环境访问方便。Node Exporter 会暴露大量主机信息，包括 CPU、内存、磁盘、网卡和文件系统等指标，生产环境不要直接把 9100 暴露到公网。更合适的做法是绑定内网 IP 或 127.0.0.1，远程访问通过 VPN、网关认证、Nginx Basic Auth 或防火墙限制。</p>
+<p>检查端口：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">ss <span class="token parameter variable">-lntp</span> <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">':9100'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">LISTEN 0 128 *:9100 *:* users:(("node_exporter",pid=862397,fd=3))<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>直接访问 &#x2F;metrics，可以确认接口可用，并看到 Node Exporter 暴露的主机指标：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> http://localhost:9100/metrics <span class="token operator">|</span> <span class="token function">head</span>
+
+<span class="token function">curl</span> http://localhost:9100/metrics <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">egrep</span> <span class="token string">'^(node_cpu_seconds_total|node_memory_MemAvailable_bytes|node_filesystem_avail_bytes)'</span> <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">head</span> <span class="token parameter variable">-20</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出示例：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">node_cpu_seconds_total&#123;cpu="0",mode="idle"&#125; 730136.92
+node_cpu_seconds_total&#123;cpu="0",mode="iowait"&#125; 7.15
+node_cpu_seconds_total&#123;cpu="0",mode="irq"&#125; 305.39
+node_cpu_seconds_total&#123;cpu="0",mode="nice"&#125; 14.51
+node_cpu_seconds_total&#123;cpu="0",mode="softirq"&#125; 114.98
+node_cpu_seconds_total&#123;cpu="0",mode="steal"&#125; 0
+node_cpu_seconds_total&#123;cpu="0",mode="system"&#125; 906.55
+node_cpu_seconds_total&#123;cpu="0",mode="user"&#125; 2421.53<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 head 只截取前几行，所以不一定能同时看到 CPU、内存和文件系统三类指标。实际排查时可以分别按指标名前缀过滤。</p>
+<p>如果要从浏览器临时查看 Node Exporter 原始指标，地址是 http:&#x2F;&#x2F;服务器IP:9100&#x2F;metrics。这类页面不应该长期公网开放。</p>
+<p>node_cpu_seconds_total 是一个 counter，按 CPU 核和 mode 维度累计 CPU 时间。后面做 CPU 使用率时，通常不会直接看这个累计值，而是用 rate() 或 irate() 计算一段时间内的增长速度，再按 mode 维度聚合或排除 idle。比如：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql"><span class="token number">1</span> <span class="token operator">-</span> <span class="token keyword">avg</span> <span class="token keyword">by</span><span class="token vector-match"><span class="token punctuation">(</span><span class="token label-key attr-name">instance</span><span class="token punctuation">)</span></span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>node_cpu_seconds_total<span class="token context-labels"><span class="token punctuation">&#123;</span><span class="token label-key attr-name">mode</span><span class="token punctuation">=</span><span class="token label-value attr-value">"idle"</span><span class="token punctuation">&#125;</span></span><span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">5m</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2 id="4-部署-Pushgateway"><a href="#4-部署-Pushgateway" class="headerlink" title="4. 部署 Pushgateway"></a>4. 部署 Pushgateway</h2><p>Pushgateway 的部署方式也比较简单：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/software
+
+<span class="token function">curl</span> <span class="token parameter variable">-L</span> <span class="token parameter variable">-o</span> pushgateway-1.10.0.linux-amd64.tar.gz <span class="token punctuation">\</span>
+  https://github.com/prometheus/pushgateway/releases/download/v1.10.0/pushgateway-1.10.0.linux-amd64.tar.gz
+
+<span class="token function">tar</span> <span class="token parameter variable">-zxf</span> pushgateway-1.10.0.linux-amd64.tar.gz <span class="token parameter variable">-C</span> /opt/software
+<span class="token function">mv</span> /opt/software/pushgateway-1.10.0.linux-amd64 /opt/module/pushgateway-1.10.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 &#x2F;opt&#x2F;module&#x2F;pushgateway-1.10.0 已经存在，也一样先备份旧目录，再决定是否删除。</p>
+<p>启动 Pushgateway：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">nohup</span> /opt/module/pushgateway-1.10.0/pushgateway <span class="token punctuation">\</span>
+  --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9091 <span class="token punctuation">\</span>
+  <span class="token operator">></span> /opt/module/pushgateway-1.10.0/pushgateway.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>Pushgateway 和 Node Exporter 一样，这里监听 0.0.0.0 只是为了实验方便。更需要注意的是，Pushgateway 不只是读取页面，它还支持接收写入请求。如果把 9091 直接暴露到公网，别人可能向其中推送无效指标，污染监控数据。生产环境应绑定内网 IP 或 127.0.0.1，并通过 VPN、网关认证、防火墙或安全组限制访问。</p>
+<p>检查端口：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">ss <span class="token parameter variable">-lntp</span> <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">':9091'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">LISTEN 0 128 *:9091 *:* users:(("pushgateway",pid=862398,fd=3))<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>再确认 &#x2F;metrics 接口可以访问：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> http://localhost:9091/metrics <span class="token operator">|</span> <span class="token function">head</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Pushgateway 页面地址是 http:&#x2F;&#x2F;服务器IP:9091，本机访问可以用 <a href="http://localhost:9091。这个页面和写入接口都要做好访问限制。">http://localhost:9091。这个页面和写入接口都要做好访问限制。</a></p>
+<h2 id="5-推送一个短任务指标"><a href="#5-推送一个短任务指标" class="headerlink" title="5. 推送一个短任务指标"></a>5. 推送一个短任务指标</h2><p>假设有一个脚本任务，运行结束后只想上报两个结果：</p>
+<ol>
+<li>最后一次成功时间。</li>
+<li>累计处理数量。</li>
+</ol>
+<p>可以用下面的方式把指标推到 Pushgateway：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">&lt;&lt;</span><span class="token string">EOF<span class="token bash punctuation"> <span class="token operator">|</span> <span class="token function">curl</span> --data-binary @- <span class="token punctuation">\</span></span>
+  http://localhost:9091/metrics/job/article_demo/instance/lavm-bzoq5mwl1h
+# TYPE article_demo_last_success_unixtime gauge
+article_demo_last_success_unixtime <span class="token variable"><span class="token variable">$(</span><span class="token function">date</span> +%s<span class="token variable">)</span></span>
+# TYPE article_demo_processed_total counter
+article_demo_processed_total 18
+EOF</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里没有给 heredoc 加单引号，所以 $(date +%s) 会在执行时展开成当前 Unix 时间戳。article_demo_processed_total 被声明为 counter，表示一个单调递增的累计值。如果只是想记录“本次处理数量”，用 gauge 会更直观，例如 article_demo_processed_count。</p>
+<p>然后直接查看 Pushgateway 暴露的指标：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> http://localhost:9091/metrics <span class="token operator">|</span> <span class="token function">egrep</span> <span class="token string">'^(article_demo_last_success_unixtime|article_demo_processed_total)'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">article_demo_last_success_unixtime&#123;instance="lavm-bzoq5mwl1h",job="article_demo"&#125; 1.74494e+09
+article_demo_processed_total&#123;instance="lavm-bzoq5mwl1h",job="article_demo"&#125; 18<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这里的 URL 路径 &#x2F;metrics&#x2F;job&#x2F;article_demo&#x2F;instance&#x2F;lavm-bzoq5mwl1h 会被 Pushgateway 转换成 label：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">job="article_demo"
+instance="lavm-bzoq5mwl1h"<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>也就是说，Pushgateway 并不是简单接收一段文本，它会把推送路径中的分组信息也纳入指标标签。这个点很重要，因为后面 PromQL 查询、告警分组和 Grafana 面板都会依赖这些 label。</p>
+<p>路径中的 label 也是 Pushgateway 的 grouping key，后续覆盖或删除这组指标时，也要使用相同路径。Pushgateway 会保留最后一次推送的指标，任务结束后指标不会自动消失，所以测试数据需要按需删除或覆盖。</p>
+<p>打开 Pushgateway 页面，可以看到已经推送进去的指标分组：</p>
+<img src="https://images.hnbian.cn/new/n-1758ec2d92d1157f44b4fcf72a0d6725.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>当前页面里有一组 job&#x3D;”article_demo”、instance&#x3D;”lavm-bzoq5mwl1h” 的指标，就是上面示例推送进去的。</p>
+<p>如果要清理这组测试指标，可以执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-X</span> DELETE <span class="token punctuation">\</span>
+  http://localhost:9091/metrics/job/article_demo/instance/lavm-bzoq5mwl1h<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2 id="6-修改-Prometheus-配置"><a href="#6-修改-Prometheus-配置" class="headerlink" title="6. 修改 Prometheus 配置"></a>6. 修改 Prometheus 配置</h2><p>接下来把 Node Exporter 和 Pushgateway 都加入 Prometheus 的采集配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> /opt/module/prometheus-3.2.1/prometheus.yml <span class="token punctuation">\</span>
+   /opt/module/prometheus-3.2.1/prometheus.yml.bak
+
+<span class="token function">vim</span> /opt/module/prometheus-3.2.1/prometheus.yml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>完整配置如下：</p>
+<pre class="line-numbers language-yaml" data-language="yaml"><code class="language-yaml"><span class="token key atrule">global</span><span class="token punctuation">:</span>
+  <span class="token key atrule">scrape_interval</span><span class="token punctuation">:</span> 15s
+  <span class="token key atrule">evaluation_interval</span><span class="token punctuation">:</span> 15s
+
+<span class="token key atrule">scrape_configs</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"prometheus"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9090"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"node_exporter"</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9100"</span><span class="token punctuation">]</span>
+
+  <span class="token punctuation">-</span> <span class="token key atrule">job_name</span><span class="token punctuation">:</span> <span class="token string">"pushgateway"</span>
+    <span class="token key atrule">honor_labels</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+    <span class="token key atrule">static_configs</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">targets</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"localhost:9091"</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里多了两个 job：</p>
+<table>
+<thead>
+<tr>
+<th>job</th>
+<th>target</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>node_exporter</td>
+<td>localhost:9100</td>
+<td>采集主机指标</td>
+</tr>
+<tr>
+<td>pushgateway</td>
+<td>localhost:9091</td>
+<td>采集 Pushgateway 暂存的短任务指标</td>
+</tr>
+</tbody></table>
+<p>pushgateway 这里额外配置了 honor_labels: true。当抓取到的指标本身已经带有 job、instance 等 label 时，honor_labels: true 会保留被抓取目标中的 label；如果不设置，Prometheus 会将冲突 label 重命名为 exported_job、exported_instance，并使用 scrape 配置中的 job&#x2F;instance。对于 Pushgateway 来说，这个配置很常见，否则推送路径里的 job&#x3D;”article_demo” 查询起来就不直观了。</p>
+<p>重启前先检查配置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/prometheus-3.2.1/promtool check config <span class="token punctuation">\</span>
+  /opt/module/prometheus-3.2.1/prometheus.yml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>确认配置无误后再重启 Prometheus。重启期间 Prometheus 会短暂不可用，实验环境影响不大，生产环境需要谨慎操作，建议使用 systemd 管理。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">pkill</span> <span class="token parameter variable">-f</span> <span class="token string">'/opt/module/prometheus-3.2.1/prometheus'</span>
+
+<span class="token function">nohup</span> /opt/module/prometheus-3.2.1/prometheus <span class="token punctuation">\</span>
+  <span class="token parameter variable">--config.file</span><span class="token operator">=</span>/opt/module/prometheus-3.2.1/prometheus.yml <span class="token punctuation">\</span>
+  <span class="token parameter variable">--storage.tsdb.path</span><span class="token operator">=</span>/opt/module/prometheus-3.2.1/data <span class="token punctuation">\</span>
+  --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9090 <span class="token punctuation">\</span>
+  <span class="token operator">></span> /opt/module/prometheus-3.2.1/prometheus.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 pkill 适合实验环境快速重启，生产环境不要直接依赖这种方式。Prometheus 默认没有登录认证，0.0.0.0:9090 也只适合临时实验；如果要远程访问，地址是 http:&#x2F;&#x2F;服务器IP:9090，公网访问前必须通过 VPN、网关、Basic Auth 或防火墙限制。</p>
+<h2 id="7-查看-Target-状态"><a href="#7-查看-Target-状态" class="headerlink" title="7. 查看 Target 状态"></a>7. 查看 Target 状态</h2><p>进入 Prometheus 的 Status 下 Targets &#x2F; Target health 页面，可以看到三个采集任务都已经变成 UP。</p>
+<img src="https://images.hnbian.cn/new/n-007b3f62337c511f614e5bccd0028ddf.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>Prometheus API 中的 target 状态如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> http://localhost:9090/api/v1/targets<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>API 原始返回是完整 JSON，下面是整理后的关键字段：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">scrapeUrl="http://localhost:9100/metrics", job="node_exporter", health="up"
+scrapeUrl="http://localhost:9090/metrics", job="prometheus", health="up"
+scrapeUrl="http://localhost:9091/metrics", job="pushgateway", health="up"<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>到这里说明 Prometheus 已经能同时采集自己、主机指标和 Pushgateway 指标。</p>
+<h2 id="8-查询主机指标"><a href="#8-查询主机指标" class="headerlink" title="8. 查询主机指标"></a>8. 查询主机指标</h2><p>先看所有 target 的 up 状态：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query?query=up'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>完整结果中三个 target 都是 1，下面只截取其中一个 target 的 JSON 片段：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"metric"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"__name__"</span><span class="token operator">:</span> <span class="token string">"up"</span><span class="token punctuation">,</span>
+    <span class="token property">"instance"</span><span class="token operator">:</span> <span class="token string">"localhost:9100"</span><span class="token punctuation">,</span>
+    <span class="token property">"job"</span><span class="token operator">:</span> <span class="token string">"node_exporter"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"value"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token number">1744940230.975</span><span class="token punctuation">,</span> <span class="token string">"1"</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>再查一个主机内存指标：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query?query=node_memory_MemAvailable_bytes'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>页面查询结果如下：</p>
+<img src="https://images.hnbian.cn/new/n-4c4e92b3e347ca1070ee23a04f9b95d9.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>这个指标表示当前系统可用内存，单位是字节。直接看字节数不太直观，通常可以在 PromQL 里换算成 GB：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql">node_memory_MemAvailable_bytes <span class="token operator">/</span> <span class="token number">1024</span> <span class="token operator">/</span> <span class="token number">1024</span> <span class="token operator">/</span> <span class="token number">1024</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果要计算内存使用率，可以用：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql"><span class="token number">1</span> <span class="token operator">-</span> node_memory_MemAvailable_bytes <span class="token operator">/</span> node_memory_MemTotal_bytes<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果希望直接得到百分比，可以乘以 100：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql"><span class="token punctuation">(</span><span class="token number">1</span> <span class="token operator">-</span> node_memory_MemAvailable_bytes <span class="token operator">/</span> node_memory_MemTotal_bytes<span class="token punctuation">)</span> <span class="token operator">*</span> <span class="token number">100</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>再加几个后面常用的基础查询：</p>
+<pre class="line-numbers language-promql" data-language="promql"><code class="language-promql">up
+<span class="token number">1</span> <span class="token operator">-</span> <span class="token keyword">avg</span> <span class="token keyword">by</span><span class="token vector-match"><span class="token punctuation">(</span><span class="token label-key attr-name">instance</span><span class="token punctuation">)</span></span><span class="token punctuation">(</span><span class="token function">rate</span><span class="token punctuation">(</span>node_cpu_seconds_total<span class="token context-labels"><span class="token punctuation">&#123;</span><span class="token label-key attr-name">mode</span><span class="token punctuation">=</span><span class="token label-value attr-value">"idle"</span><span class="token punctuation">&#125;</span></span><span class="token context-range"><span class="token punctuation">[</span><span class="token range-duration number">5m</span><span class="token punctuation">]</span></span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+node_filesystem_avail_bytes<span class="token context-labels"><span class="token punctuation">&#123;</span><span class="token label-key attr-name">mountpoint</span><span class="token punctuation">=</span><span class="token label-value attr-value">"/"</span><span class="token punctuation">&#125;</span></span> <span class="token operator">/</span> node_filesystem_size_bytes<span class="token context-labels"><span class="token punctuation">&#123;</span><span class="token label-key attr-name">mountpoint</span><span class="token punctuation">=</span><span class="token label-value attr-value">"/"</span><span class="token punctuation">&#125;</span></span> <span class="token operator">*</span> <span class="token number">100</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这时我们就能把服务器维度的状态纳入 Prometheus 了。后面接 Grafana 时，可以搜索 Node Exporter Full 这类 Dashboard 作为主机监控面板的起点。</p>
+<h2 id="9-查询-Pushgateway-指标"><a href="#9-查询-Pushgateway-指标" class="headerlink" title="9. 查询 Pushgateway 指标"></a>9. 查询 Pushgateway 指标</h2><p>Pushgateway 指标被 Prometheus 采集后，也可以直接用 PromQL 查询。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">-s</span> <span class="token string">'http://localhost:9090/api/v1/query?query=article_demo_processed_total'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>页面查询结果如下：</p>
+<img src="https://images.hnbian.cn/new/n-418f9b479898b7cfdef41ccb68b4c5d5.jpg?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" />
+
+<p>可以看到这个指标保留了推送时的 label：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">article_demo_processed_total&#123;instance="lavm-bzoq5mwl1h", job="article_demo"&#125; 18<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这说明服务级别的短生命周期批处理任务不需要自己长期运行一个 &#x2F;metrics 服务，只要在任务结束前把结果推给 Pushgateway，Prometheus 就能在下一轮抓取时拿到这些指标。</p>
+<p>不过 Pushgateway 也不能滥用。对于长期运行的服务，更推荐服务自己暴露 &#x2F;metrics，让 Prometheus 直接 Pull。Pushgateway 更适合“运行完就退出”的任务，不建议用于带机器实例维度的长期服务指标。它不会自动判断任务是否已经不存在，旧指标可能一直留在页面上，需要任务主动删除、覆盖，或通过运维流程定期清理。</p>
+<h2 id="10-简单启动脚本"><a href="#10-简单启动脚本" class="headerlink" title="10. 简单启动脚本"></a>10. 简单启动脚本</h2><p>为了后面方便启动，可以把三个组件放到一个脚本里：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">vim</span> /opt/module/prometheus-3.2.1/start-monitor-base.sh<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>内容如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token shebang important">#!/bin/bash</span>
+<span class="token builtin class-name">set</span> <span class="token parameter variable">-e</span>
+
+<span class="token assign-left variable">PROM_HOME</span><span class="token operator">=</span>/opt/module/prometheus-3.2.1
+<span class="token assign-left variable">NODE_HOME</span><span class="token operator">=</span>/opt/module/node_exporter-1.9.1
+<span class="token assign-left variable">PUSH_HOME</span><span class="token operator">=</span>/opt/module/pushgateway-1.10.0
+
+<span class="token keyword">for</span> <span class="token for-or-select variable">file</span> <span class="token keyword">in</span> <span class="token punctuation">\</span>
+  <span class="token string">"<span class="token variable">$&#123;PROM_HOME&#125;</span>/prometheus"</span> <span class="token punctuation">\</span>
+  <span class="token string">"<span class="token variable">$&#123;NODE_HOME&#125;</span>/node_exporter"</span> <span class="token punctuation">\</span>
+  <span class="token string">"<span class="token variable">$&#123;PUSH_HOME&#125;</span>/pushgateway"</span><span class="token punctuation">;</span> <span class="token keyword">do</span>
+  <span class="token keyword">if</span> <span class="token punctuation">[</span> <span class="token operator">!</span> <span class="token parameter variable">-x</span> <span class="token string">"<span class="token variable">$file</span>"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+    <span class="token builtin class-name">echo</span> <span class="token string">"missing executable: <span class="token variable">$file</span>"</span>
+    <span class="token builtin class-name">exit</span> <span class="token number">1</span>
+  <span class="token keyword">fi</span>
+<span class="token keyword">done</span>
+
+<span class="token function-name function">port_listening</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  ss <span class="token parameter variable">-lnt</span> <span class="token operator">|</span> <span class="token function">awk</span> <span class="token string">'&#123;print $4&#125;'</span> <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-q</span> <span class="token string">":<span class="token variable">$1</span>$"</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function-name function">start_node_exporter</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> port_listening <span class="token number">9100</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+    <span class="token builtin class-name">echo</span> <span class="token string">"node_exporter already listens on 9100, skip"</span>
+    <span class="token builtin class-name">return</span>
+  <span class="token keyword">fi</span>
+
+  <span class="token builtin class-name">echo</span> <span class="token string">"Starting node_exporter..."</span>
+  <span class="token function">nohup</span> <span class="token variable">$&#123;NODE_HOME&#125;</span>/node_exporter <span class="token punctuation">\</span>
+    --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9100 <span class="token punctuation">\</span>
+    <span class="token operator">></span> <span class="token variable">$&#123;NODE_HOME&#125;</span>/node_exporter.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function-name function">start_pushgateway</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> port_listening <span class="token number">9091</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+    <span class="token builtin class-name">echo</span> <span class="token string">"pushgateway already listens on 9091, skip"</span>
+    <span class="token builtin class-name">return</span>
+  <span class="token keyword">fi</span>
+
+  <span class="token builtin class-name">echo</span> <span class="token string">"Starting pushgateway..."</span>
+  <span class="token function">nohup</span> <span class="token variable">$&#123;PUSH_HOME&#125;</span>/pushgateway <span class="token punctuation">\</span>
+    --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9091 <span class="token punctuation">\</span>
+    <span class="token operator">></span> <span class="token variable">$&#123;PUSH_HOME&#125;</span>/pushgateway.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+<span class="token punctuation">&#125;</span>
+
+<span class="token function-name function">start_prometheus</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+  <span class="token keyword">if</span> port_listening <span class="token number">9090</span><span class="token punctuation">;</span> <span class="token keyword">then</span>
+    <span class="token builtin class-name">echo</span> <span class="token string">"prometheus already listens on 9090, skip"</span>
+    <span class="token builtin class-name">return</span>
+  <span class="token keyword">fi</span>
+
+  <span class="token builtin class-name">echo</span> <span class="token string">"Starting prometheus..."</span>
+  <span class="token function">nohup</span> <span class="token variable">$&#123;PROM_HOME&#125;</span>/prometheus <span class="token punctuation">\</span>
+    <span class="token parameter variable">--config.file</span><span class="token operator">=</span><span class="token variable">$&#123;PROM_HOME&#125;</span>/prometheus.yml <span class="token punctuation">\</span>
+    <span class="token parameter variable">--storage.tsdb.path</span><span class="token operator">=</span><span class="token variable">$&#123;PROM_HOME&#125;</span>/data <span class="token punctuation">\</span>
+    --web.listen-address<span class="token operator">=</span><span class="token number">0.0</span>.0.0:9090 <span class="token punctuation">\</span>
+    <span class="token operator">></span> <span class="token variable">$&#123;PROM_HOME&#125;</span>/prometheus.log <span class="token operator"><span class="token file-descriptor important">2</span>></span><span class="token file-descriptor important">&amp;1</span> <span class="token operator">&amp;</span>
+<span class="token punctuation">&#125;</span>
+
+start_node_exporter
+start_pushgateway
+start_prometheus
+
+<span class="token function">sleep</span> <span class="token number">2</span>
+ss <span class="token parameter variable">-lntp</span> <span class="token operator">|</span> <span class="token function">egrep</span> <span class="token string">':9090|:9091|:9100'</span> <span class="token operator">||</span> <span class="token boolean">true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>添加执行权限：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">chmod</span> +x /opt/module/prometheus-3.2.1/start-monitor-base.sh<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这个脚本假设三个组件已经按前文安装到对应目录，启动前会检查可执行文件是否存在。实验环境里这样已经够用。如果是长期运行环境，还是建议改成 systemd 服务，方便统一管理重启策略和日志。</p>
+<p>停止时可以按进程路径处理：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">pkill</span> <span class="token parameter variable">-f</span> <span class="token string">'/opt/module/node_exporter-1.9.1/node_exporter'</span>
+<span class="token function">pkill</span> <span class="token parameter variable">-f</span> <span class="token string">'/opt/module/pushgateway-1.10.0/pushgateway'</span>
+<span class="token function">pkill</span> <span class="token parameter variable">-f</span> <span class="token string">'/opt/module/prometheus-3.2.1/prometheus'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这种停止方式仍然偏实验化。长期运行建议改成 systemd，方便配置开机自启、失败自动重启和统一日志管理。</p>
+<h2 id="11-小结"><a href="#11-小结" class="headerlink" title="11. 小结"></a>11. 小结</h2><p>这篇在上一篇 Prometheus Server 的基础上，继续补了两个基础组件：</p>
+<ol>
+<li>Node Exporter 用来采集 Linux 主机指标。</li>
+<li>Pushgateway 用来暂存短生命周期任务主动推送的指标。</li>
+<li>Prometheus 中新增了 node_exporter 和 pushgateway 两个采集任务。</li>
+<li>通过 up、node_memory_MemAvailable_bytes 和 article_demo_processed_total 验证了采集链路。</li>
+</ol>
+<p>到这里，Prometheus 已经不只是监控自己，还可以看到服务器基础资源，并且能接收短任务上报结果。下一篇可以继续整理 PromQL 的常用查询方式，把这些原始指标变成更接近排查场景的表达式。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/e4a8b2c7.html">https://www.hnbian.cn/posts/e4a8b2c7.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/prometheus/">
+                                    <span class="chip bg-color">prometheus</span>
+                                </a>
+                            
+                                <a href="/tags/monitoring/">
+                                    <span class="chip bg-color">monitoring</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/c7f2a9d4.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-3b25f10a93c59ebd30696edaf9825055.jpg" class="responsive-img" alt="Prometheus 监控实战 03：PromQL 查询语法与指标排查">
+                        
+                        <span class="card-title">Prometheus 监控实战 03：PromQL 查询语法与指标排查</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-04-27
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/prometheus/" class="post-category">
+                                    prometheus
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/prometheus/">
+                        <span class="chip bg-color">prometheus</span>
+                    </a>
+                    
+                    <a href="/tags/monitoring/">
+                        <span class="chip bg-color">monitoring</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/9c6a2f81.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-e6e221c0841cf10372f2dacb92411c1e.jpg" class="responsive-img" alt="Prometheus 监控实战 01：监控体系介绍与 Server 部署">
+                        
+                        <span class="card-title">Prometheus 监控实战 01：监控体系介绍与 Server 部署</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-04-07
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/prometheus/" class="post-category">
+                                    prometheus
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/prometheus/">
+                        <span class="chip bg-color">prometheus</span>
+                    </a>
+                    
+                    <a href="/tags/monitoring/">
+                        <span class="chip bg-color">monitoring</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

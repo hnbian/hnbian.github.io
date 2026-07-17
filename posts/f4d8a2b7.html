@@ -1,0 +1,2193 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 10：Flink SQL 集成 Hudi 实战, hnbian">
+    <meta name="description" content="前面几篇更多是从 Spark 的角度使用 Hudi。Spark 很适合离线初始化、批量修复、交互式 SQL 和批处理任务，但如果要把 MySQL CDC、Kafka 事件流这类实时数据持续写入 Hudi，我更倾向于用 Flink。
+Flin">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 10：Flink SQL 集成 Hudi 实战 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-d2e452e61e55f7e87905aedddfb609cd.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 10：Flink SQL 集成 Hudi 实战</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/data-lake/">
+                                <span class="chip bg-color">data-lake</span>
+                            </a>
+                        
+                            <a href="/tags/flink-sql/">
+                                <span class="chip bg-color">flink-sql</span>
+                            </a>
+                        
+                            <a href="/tags/checkpoint/">
+                                <span class="chip bg-color">checkpoint</span>
+                            </a>
+                        
+                            <a href="/tags/rocksdb/">
+                                <span class="chip bg-color">rocksdb</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-09-07
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    30 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面几篇更多是从 Spark 的角度使用 Hudi。Spark 很适合离线初始化、批量修复、交互式 SQL 和批处理任务，但如果要把 MySQL CDC、Kafka 事件流这类实时数据持续写入 Hudi，我更倾向于用 Flink。</p>
+<p>Flink 写 Hudi 的关键不是“能不能执行一条 INSERT”，而是 checkpoint、state backend、bucket assigner、writer task、Timeline commit 这些组件能不能配合起来。本文用 Flink SQL 跑一条真实写入链路：创建 Hudi COW 表、写入订单数据、通过 checkpoint 形成 Hudi commit，再用 Flink SQL 查询结果。</p>
+<h2 id="1-Flink-SQL-接入环境"><a href="#1-Flink-SQL-接入环境" class="headerlink" title="1. Flink SQL 接入环境"></a>1. Flink SQL 接入环境</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>假设我们有一张订单表，MySQL binlog 或 Kafka 里不断产生下面几类事件：</p>
+<ol>
+<li>新订单创建。</li>
+<li>订单状态更新，比如 <code>CREATED</code> 变成 <code>PAID</code>。</li>
+<li>订单按天分区落入数据湖。</li>
+<li>查询侧希望看到最新状态。</li>
+</ol>
+<p>如果只是把 Kafka 数据写成普通 Parquet 文件，更新语义很难处理。同一个 <code>order_id</code> 可能出现多次，查询时还要自己按时间取最新。Hudi 的价值在于把这种 upsert 语义下沉到表管理层，而 Flink 的价值在于持续消费、状态管理和 checkpoint 提交。</p>
+<p>Flink SQL 写 Hudi 的主流程可以理解成下面这样：</p>
+<p><img src="https://images.hnbian.cn/new/n-ba2c8a5cfba4a662217b59df097b53b4.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Flink SQL 写入 Hudi 的主流程"></p>
+<p>这张图主要说明 Flink SQL 写入 Hudi 时，SQL DDL &#x2F; DML 只是入口，真正的提交需要通过 Flink checkpoint 协调 Hudi Timeline。</p>
+<p>这里最重要的一点是：Flink 写 Hudi 不是写完文件就结束。Hudi commit 需要和 Flink checkpoint 协调，checkpoint 成功后，Hudi Timeline 中对应的 Instant 才进入 completed 状态，查询侧才稳定可见。</p>
+<h3 id="1-2-版本和目录检查"><a href="#1-2-版本和目录检查" class="headerlink" title="1.2 版本和目录检查"></a>1.2 版本和目录检查</h3><p>先确认当前 Flink 和 Hudi bundle：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink <span class="token parameter variable">--version</span>
+
+<span class="token function">ls</span> <span class="token parameter variable">-lh</span> <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-flink1.20-bundle-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文环境中实际使用的 Hudi Flink bundle：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">-rw-r--r-- 1 root root 57M Jun 15 21:37 /opt/module/hudi-1.0.2/lib/hudi-flink1.20-bundle-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>Flink SQL Client 路径是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/sql-client.sh<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>注意不要写成 <code>/opt/module/flink/bin/sql-client.sh</code>。我这台机器实际安装目录就是 <code>/opt/module/flink-1.20.1</code>，文章里的命令都按这个路径来。</p>
+<h3 id="1-3-配置-Flink-Hudi-bundle"><a href="#1-3-配置-Flink-Hudi-bundle" class="headerlink" title="1.3 配置 Flink Hudi bundle"></a>1.3 配置 Flink Hudi bundle</h3><p>Hudi Flink SQL connector 需要让 Flink SQL Client 和 Flink runtime 都能加载到。我的处理方式是把 bundle 放到 Flink lib 目录：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> <span class="token parameter variable">-f</span> <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-flink1.20-bundle-1.0.2.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>如果改了 Flink lib，必须重启 Flink 集群：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/stop-cluster.sh
+/opt/module/flink-1.20.1/bin/start-cluster.sh<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>验证 Flink Web UI：</p>
+<p><img src="https://images.hnbian.cn/new/n-6c40ab4be9262b00678704e53e0c544a.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Flink Web UI"></p>
+<p>这张截图主要用于确认 Flink 1.20.1 集群已经启动，并且后续 Hudi 写入 &#x2F; 查询任务能够在 Web UI 中看到执行记录。这个截图里能看到 Flink 版本是 1.20.1，Completed Job 中有后面写入和查询 Hudi 表的记录。</p>
+<h3 id="1-4-Hadoop-依赖和-classloader-处理"><a href="#1-4-Hadoop-依赖和-classloader-处理" class="headerlink" title="1.4 Hadoop 依赖和 classloader 处理"></a>1.4 Hadoop 依赖和 classloader 处理</h3><p>这一步是本文最容易踩坑的地方。</p>
+<p>Flink 发行包默认不一定包含 Hadoop 依赖。如果只设置 <code>HADOOP_CONF_DIR</code>，但 Flink lib 中没有 Hadoop jar，执行 Hudi HDFS 写入时会报：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.lang.ClassNotFoundException: org.apache.hadoop.conf.Configuration<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>本文 Hadoop 安装目录按 <code>/opt/module/hadoop-3.4.1</code> 记录；如果你的机器使用 <code>/opt/hadoop</code> 或 <code>/opt/hadoop-3.4.1</code> 软链接，按实际路径替换即可。我补充了 Hadoop 3.4.1 的运行依赖到 Flink lib：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> <span class="token parameter variable">-f</span> /opt/module/hadoop-3.4.1/share/hadoop/common/hadoop-common-3.4.1.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> /opt/module/hadoop-3.4.1/share/hadoop/common/lib/hadoop-auth-3.4.1.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> /opt/module/hadoop-3.4.1/share/hadoop/hdfs/hadoop-hdfs-client-3.4.1.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> /opt/module/hadoop-3.4.1/share/hadoop/mapreduce/hadoop-mapreduce-client-core-3.4.1.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> /opt/module/hadoop-3.4.1/share/hadoop/yarn/hadoop-yarn-api-3.4.1.jar <span class="token punctuation">\</span>
+  /opt/module/flink-1.20.1/lib/<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>同时复制 Hadoop common&#x2F;lib 中的常用依赖，但排除了 SLF4J、reload4j、metrics 这类容易和 Flink 冲突的 jar：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token keyword">for</span> <span class="token for-or-select variable">jar</span> <span class="token keyword">in</span> /opt/module/hadoop-3.4.1/share/hadoop/common/lib/*.jar<span class="token punctuation">;</span> <span class="token keyword">do</span>
+  <span class="token assign-left variable">name</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span><span class="token function">basename</span> <span class="token string">"<span class="token variable">$jar</span>"</span><span class="token variable">)</span></span>
+  <span class="token keyword">case</span> <span class="token string">"<span class="token variable">$name</span>"</span> <span class="token keyword">in</span>
+    slf4j-*<span class="token operator">|</span>metrics-core-*<span class="token operator">|</span>reload4j-*<span class="token operator">|</span>log4j-*<span class="token operator">|</span>hadoop-auth-3.4.1.jar<span class="token punctuation">)</span>
+      <span class="token punctuation">;</span><span class="token punctuation">;</span>
+    *<span class="token punctuation">)</span>
+      <span class="token function">cp</span> <span class="token parameter variable">-f</span> <span class="token string">"<span class="token variable">$jar</span>"</span> /opt/module/flink-1.20.1/lib/
+      <span class="token punctuation">;</span><span class="token punctuation">;</span>
+  <span class="token keyword">esac</span>
+<span class="token keyword">done</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这一步是本文单机环境的兼容处理。生产环境更推荐使用与 Hadoop 版本匹配的 Flink Hadoop 发行包、配置 <code>yarn.provided.lib.dirs</code>，或者通过镜像 &#x2F; 依赖管理统一 Flink runtime 依赖，不建议随意把 Hadoop lib 全量复制到 Flink lib。如果复制后出现新的 <code>LinkageError</code>、<code>NoSuchMethodError</code>、<code>ClassCastException</code>，需要继续排查 Flink lib 中是否出现 Guava、Jackson、Netty、Curator、metrics 等重复版本。本文命令只针对当前机器实测通过，不是通用依赖白名单。</p>
+<p>这台机器还遇到了 <code>com.codahale.metrics.Meter</code> 类加载冲突：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.lang.LinkageError: loader constraint violation:
+loader 'app' wants to load class com.codahale.metrics.Meter.
+A different class with the same name was previously loaded by
+org.apache.flink.util.ChildFirstClassLoader<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>原因是 Flink 1.20.1 的 <code>flink-dist</code> 和 Hudi Flink bundle 中都带了同名 metrics 类。下面是本文单机环境的临时修复，不建议作为生产标准做法。更稳妥的优先级是：先确认 Flink lib 中是否混入重复 metrics jar；再评估 classloader parent-first &#x2F; child-first；优先使用官方匹配 bundle 或重新 shade；只有单机测试无法继续时，才临时删除 bundle 内冲突类，并保留 <code>.orig</code> 备份。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/module/flink-1.20.1/lib
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> <span class="token punctuation">\</span>
+  /opt/module/hudi-1.0.2/lib/hudi-flink1.20-bundle-1.0.2.jar <span class="token punctuation">\</span>
+  hudi-flink1.20-bundle-1.0.2.jar.orig
+
+<span class="token function">cp</span> <span class="token parameter variable">-f</span> hudi-flink1.20-bundle-1.0.2.jar.orig <span class="token punctuation">\</span>
+  hudi-flink1.20-bundle-1.0.2.jar
+
+<span class="token function">zip</span> <span class="token parameter variable">-q</span> <span class="token parameter variable">-d</span> hudi-flink1.20-bundle-1.0.2.jar <span class="token string">'com/codahale/metrics/*'</span>
+
+jar tf hudi-flink1.20-bundle-1.0.2.jar <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">'com/codahale/metrics/Meter.class'</span> <span class="token operator">||</span> <span class="token builtin class-name">echo</span> <span class="token string">'metrics classes removed'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">metrics classes removed<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>然后在 Flink 1.20.1 的 <code>config.yaml</code> 中增加 parent-first 配置：</p>
+<pre class="line-numbers language-yaml" data-language="yaml"><code class="language-yaml"><span class="token key atrule">classloader</span><span class="token punctuation">:</span>
+  <span class="token key atrule">resolve</span><span class="token punctuation">:</span>
+    <span class="token key atrule">order</span><span class="token punctuation">:</span> parent<span class="token punctuation">-</span>first<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这个配置会影响整个 Flink 集群的类加载顺序，不是只影响 Hudi connector。生产环境应在独立测试集群验证，避免影响其他 Flink 作业。Flink 1.20 的默认配置文件可以是 <code>config.yaml</code>；如果你的发行包仍使用 <code>flink-conf.yaml</code> 的 key-value 写法，应改成对应格式，例如 <code>classloader.resolve-order: parent-first</code> 或当前版本文档要求的键名。具体以当前 Flink 发行包配置文件为准。</p>
+<p>再次重启 Flink：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/stop-cluster.sh
+/opt/module/flink-1.20.1/bin/start-cluster.sh<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这不是一个通用“必须删除 jar 内容”的建议，而是这套单机环境真实遇到的版本冲突处理。生产环境更推荐使用官方匹配的二进制包、统一依赖来源，或者在构建阶段解决 shading 冲突。</p>
+<h2 id="2-写入和查询实践"><a href="#2-写入和查询实践" class="headerlink" title="2. 写入和查询实践"></a>2. 写入和查询实践</h2><h3 id="2-1-Flink-写-Hudi-的运行组件"><a href="#2-1-Flink-写-Hudi-的运行组件" class="headerlink" title="2.1 Flink 写 Hudi 的运行组件"></a>2.1 Flink 写 Hudi 的运行组件</h3><p>Flink 写 Hudi 时，SQL DDL 只是入口。真正运行起来以后，会有 source、bucket assigner、stream writer、checkpoint coordinator 等组件参与。</p>
+<p><img src="https://images.hnbian.cn/new/n-2f7e2d0300ddd8e7a9d3aefd4a90e7da.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Flink 写 Hudi 的运行组件"></p>
+<p>这张图主要说明 Flink Hudi Sink 的运行时组件，包括 bucket assigner、writer task、checkpoint coordinator 和 Hudi commit。</p>
+<p>几个核心点：</p>
+<ol>
+<li><code>PRIMARY KEY NOT ENFORCED</code> 定义 Hudi record key。</li>
+<li><code>precombine.field</code> 决定同一个 key 多条记录谁更新谁。</li>
+<li><code>write.bucket_assign.tasks</code> 负责把记录分配到 FileGroup。</li>
+<li><code>write.tasks</code> 负责实际写文件。</li>
+<li>checkpoint 成功后，Hudi commit 才进入 completed。</li>
+<li>单机测试时并行度不能盲目调大，否则 slot 不够会让 job 卡在 CREATED &#x2F; SCHEDULED。</li>
+</ol>
+<p>本文的 <code>VALUES</code> source 是小规模有界输入，作业结束也会推进最终写入提交；长期 Kafka CDC 流任务中更应关注持续 checkpoint 是否稳定成功。</p>
+<h3 id="2-2-准备-Flink-SQL-写入脚本"><a href="#2-2-准备-Flink-SQL-写入脚本" class="headerlink" title="2.2 准备 Flink SQL 写入脚本"></a>2.2 准备 Flink SQL 写入脚本</h3><p>本文主线使用 streaming runtime，是为了按实时入湖方式验证 checkpoint 与 Hudi commit 的协调。Flink Hudi 也存在 batch &#x2F; bounded 写入场景，具体运行模式要按 source 类型和写入需求确认。测试数据用 <code>VALUES</code> source，一次写入 5 条订单，其中 <code>order_id=10002</code> 出现两次，后一次状态是 <code>PAID</code>，时间戳更大。</p>
+<p>这里的 <code>dt</code> 是模拟业务分区日期，用于演示多分区写入，不代表文章实际写作日期。<code>ts</code> 是模拟业务事件时间，用作 <code>precombine</code> 排序字段；<code>dt</code> 是模拟业务分区字段，本文只用于验证多分区写入。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_sql_stream_insert.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+SET 'execution.runtime-mode' = 'streaming';
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
+SET 'execution.checkpointing.interval' = '5s';
+SET 'execution.checkpointing.dir' = 'hdfs:///flink-checkpoints/hudi_sql_stream_demo';
+SET 'state.backend.type' = 'rocksdb';
+
+DROP TABLE IF EXISTS demo_flink_hudi_orders;
+
+CREATE TABLE demo_flink_hudi_orders (
+  order_id BIGINT PRIMARY KEY NOT ENFORCED,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING
+) PARTITIONED BY (dt)
+WITH (
+  'connector' = 'hudi',
+  'path' = 'hdfs:///hudi/demo_flink_hudi_orders',
+  'table.type' = 'COPY_ON_WRITE',
+  'write.operation' = 'upsert',
+  'precombine.field' = 'ts',
+  'hoodie.datasource.write.recordkey.field' = 'order_id',
+  'hoodie.datasource.write.partitionpath.field' = 'dt',
+  'hoodie.metadata.enable' = 'false',
+  'write.tasks' = '1',
+  'write.bucket_assign.tasks' = '1',
+  'read.tasks' = '1'
+);
+
+INSERT INTO demo_flink_hudi_orders VALUES
+  (10001, 'u001', CAST(99.90 AS DECIMAL(10,2)), 'CREATED', 1757149200000, '2025-09-06'),
+  (10002, 'u002', CAST(168.00 AS DECIMAL(10,2)), 'CREATED', 1757149260000, '2025-09-06'),
+  (10003, 'u003', CAST(39.90 AS DECIMAL(10,2)), 'CREATED', 1757149320000, '2025-09-07'),
+  (10002, 'u002', CAST(168.00 AS DECIMAL(10,2)), 'PAID', 1757149500000, '2025-09-06'),
+  (10004, 'u004', CAST(258.00 AS DECIMAL(10,2)), 'CREATED', 1757149560000, '2025-09-07');
+SQL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里有两个配置我单独说明一下。</p>
+<p>第一，<code>state.backend.type</code> 这种包含 <code>state</code> 的配置在 Flink SQL 文件里最好写成带引号的形式：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> <span class="token string">'state.backend.type'</span> <span class="token operator">=</span> <span class="token string">'rocksdb'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果写成下面这样，SQL Parser 可能直接报语法错误：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> state<span class="token punctuation">.</span>backend<span class="token punctuation">.</span><span class="token keyword">type</span> <span class="token operator">=</span> rocksdb<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>实际错误如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org.apache.flink.sql.parser.impl.ParseException:
+Encountered "state" at line 1, column 5.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>本文 Flink 1.20.1 环境中 <code>SET &#39;state.backend.type&#39; = &#39;rocksdb&#39;</code> 实测可用；如果启动时报 state backend 配置错误，应按当前 Flink 1.20 配置文档检查取值是否需要写成 <code>embedded-rocksdb</code> 或其他形式。</p>
+<p>这里的 <code>DROP TABLE</code> 主要清理 Flink SQL 当前 Catalog 中的表定义；为了保证测试数据重跑一致，本文还会手工删除 HDFS 表路径。生产环境不要直接 <code>hdfs dfs -rm</code> Hudi 表目录。本文显式写出 datasource 风格 record key &#x2F; partition path 配置，是为了让 Hudi 表属性更清晰；在 Flink SQL 中部分信息也可以从 <code>PRIMARY KEY</code> 和 <code>PARTITIONED BY</code> 推断，具体以 Hudi 1.0.2 Flink connector 行为为准。本文关闭 metadata table 是为了减少单机测试变量；生产环境是否开启要结合表规模、文件数量、查询方式和 Hudi &#x2F; Flink connector 版本评估。</p>
+<p>第二，本文把 <code>write.tasks</code> 和 <code>write.bucket_assign.tasks</code> 都设置为 <code>1</code>，不是因为生产环境应该这么配，而是单机测试环境 slot 有限。之前设置成 <code>2</code> 时，Flink Web UI 中任务一直卡住，因为需要的 subtask 数超过可用 slot。</p>
+<h4 id="2-2-1-Flink-SQL-的更新语义"><a href="#2-2-1-Flink-SQL-的更新语义" class="headerlink" title="2.2.1 Flink SQL 的更新语义"></a>2.2.1 Flink SQL 的更新语义</h4><p>在本文的 Flink Hudi 流式 upsert 场景中，更新更常见的表达方式不是手写 <code>UPDATE</code> SQL，而是再次写入相同主键、更大 <code>precombine.field</code> 的变更记录，让 Hudi 在写入阶段完成合并。Flink SQL DML 的 <code>UPDATE</code> &#x2F; <code>DELETE</code> 支持情况需要按 Hudi 1.0.2 Flink connector 文档和实测确认。</p>
+<p>例如下面这条数据会把 <code>order_id=10001</code> 的状态更新为 <code>CANCELLED</code>：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">INSERT</span> <span class="token keyword">INTO</span> demo_flink_hudi_orders <span class="token keyword">VALUES</span>
+  <span class="token punctuation">(</span><span class="token number">10001</span><span class="token punctuation">,</span> <span class="token string">'u001'</span><span class="token punctuation">,</span> CAST<span class="token punctuation">(</span><span class="token number">99.90</span> <span class="token keyword">AS</span> <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'CANCELLED'</span><span class="token punctuation">,</span> <span class="token number">1757149800000</span><span class="token punctuation">,</span> <span class="token string">'2025-09-06'</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这和普通数据库的 <code>UPDATE table SET ... WHERE ...</code> 不完全一样。Flink SQL 负责把变更记录送进 Hudi Sink，Hudi 根据 <code>PRIMARY KEY NOT ENFORCED</code> 和 <code>precombine.field</code> 判断同一条业务记录应该保留哪个版本。</p>
+<p>所以这里有两个约束：</p>
+<ol>
+<li>Hudi record key &#x2F; 业务主键字段必须稳定，不能一会儿用 <code>order_id</code>，一会儿用组合字段；这里的 <code>PRIMARY KEY NOT ENFORCED</code> 不是数据库强约束。</li>
+<li><code>precombine.field</code> 要能表达事件先后顺序，比如业务更新时间、binlog 时间或递增版本号。</li>
+</ol>
+<h4 id="2-2-2-datagen-流式插入示例"><a href="#2-2-2-datagen-流式插入示例" class="headerlink" title="2.2.2 datagen 流式插入示例"></a>2.2.2 datagen 流式插入示例</h4><p>如果只是验证 Flink Hudi Sink 是否能持续接收流式数据，可以用 Flink 内置的 <code>datagen</code> connector 造数。下面这个例子不作为本文主线实测结果，只是补充一个持续写入模板：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> <span class="token string">'execution.runtime-mode'</span> <span class="token operator">=</span> <span class="token string">'streaming'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'sql-client.execution.result-mode'</span> <span class="token operator">=</span> <span class="token string">'TABLEAU'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'execution.checkpointing.interval'</span> <span class="token operator">=</span> <span class="token string">'10s'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'execution.checkpointing.dir'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///flink-checkpoints/hudi_datagen_demo'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'state.backend.type'</span> <span class="token operator">=</span> <span class="token string">'rocksdb'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> source_orders <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt <span class="token keyword">AS</span> CAST<span class="token punctuation">(</span><span class="token string">'2025-09-06'</span> <span class="token keyword">AS</span> STRING<span class="token punctuation">)</span>
+<span class="token punctuation">)</span> <span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'datagen'</span><span class="token punctuation">,</span>
+  <span class="token string">'rows-per-second'</span> <span class="token operator">=</span> <span class="token string">'1'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.order_id.kind'</span> <span class="token operator">=</span> <span class="token string">'sequence'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.order_id.start'</span> <span class="token operator">=</span> <span class="token string">'20001'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.order_id.end'</span> <span class="token operator">=</span> <span class="token string">'20100'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.ts.kind'</span> <span class="token operator">=</span> <span class="token string">'sequence'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.ts.start'</span> <span class="token operator">=</span> <span class="token string">'1757149200000'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.ts.end'</span> <span class="token operator">=</span> <span class="token string">'1757152800000'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.user_id.length'</span> <span class="token operator">=</span> <span class="token string">'4'</span><span class="token punctuation">,</span>
+  <span class="token string">'fields.status.length'</span> <span class="token operator">=</span> <span class="token string">'6'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> demo_flink_hudi_orders_stream <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span> PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/demo_flink_hudi_orders_stream'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.operation'</span> <span class="token operator">=</span> <span class="token string">'upsert'</span><span class="token punctuation">,</span>
+  <span class="token string">'precombine.field'</span> <span class="token operator">=</span> <span class="token string">'ts'</span><span class="token punctuation">,</span>
+  <span class="token string">'hoodie.metadata.enable'</span> <span class="token operator">=</span> <span class="token string">'false'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.tasks'</span> <span class="token operator">=</span> <span class="token string">'1'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.bucket_assign.tasks'</span> <span class="token operator">=</span> <span class="token string">'1'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">INSERT</span> <span class="token keyword">INTO</span> demo_flink_hudi_orders_stream
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> amount<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> ts<span class="token punctuation">,</span> dt
+<span class="token keyword">FROM</span> source_orders<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>datagen</code> 很适合验证 checkpoint、writer task 和文件增长，但它生成的是随机或规则数据，不能替代真实 CDC 测试。这里的 <code>status</code> 只是随机字符串，不代表真实订单状态；这个例子只用于验证持续写入、checkpoint 和文件增长，不用于验证业务枚举语义。如果 datagen 用来验证 upsert 更新语义，需要为 <code>ts</code> 配置可控生成规则；本文这个 datagen 模板只验证持续写入，不验证同 key 更新顺序。</p>
+<h3 id="2-3-执行-Flink-SQL-写入"><a href="#2-3-执行-Flink-SQL-写入" class="headerlink" title="2.3 执行 Flink SQL 写入"></a>2.3 执行 Flink SQL 写入</h3><p>清理旧表和 checkpoint：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-rm</span> <span class="token parameter variable">-r</span> <span class="token parameter variable">-f</span> <span class="token punctuation">\</span>
+  /hudi/demo_flink_hudi_orders <span class="token punctuation">\</span>
+  /flink-checkpoints/hudi_sql_stream_demo<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>本文使用默认 &#x2F; 临时 Catalog，所以 <code>DROP TABLE</code> + 删除 HDFS 路径能保证单机测试重跑。若使用 Hive Catalog 或持久化 Catalog，删除表定义和删除 HDFS 数据要分别确认。</p>
+<p>执行 SQL 文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">unset</span> HADOOP_CLASSPATH
+<span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop
+
+/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_sql_stream_insert.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里 <code>unset HADOOP_CLASSPATH</code> 是为了避免把本机 Hadoop 依赖再次通过环境变量注入 Flink，造成和 Flink lib 中已有依赖重复。本文依赖主要放在 Flink lib 中，再通过 <code>HADOOP_CONF_DIR</code> 提供 Hadoop 配置。</p>
+<p>输出中可以看到 job 提交成功：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Flink SQL>
+> INSERT INTO demo_flink_hudi_orders VALUES
+>   (10001, 'u001', CAST(99.90 AS DECIMAL(10,2)), 'CREATED', 1757149200000, '2025-09-06'),
+>   (10002, 'u002', CAST(168.00 AS DECIMAL(10,2)), 'CREATED', 1757149260000, '2025-09-06'),
+>   (10003, 'u003', CAST(39.90 AS DECIMAL(10,2)), 'CREATED', 1757149320000, '2025-09-07'),
+>   (10002, 'u002', CAST(168.00 AS DECIMAL(10,2)), 'PAID', 1757149500000, '2025-09-06'),
+>   (10004, 'u004', CAST(258.00 AS DECIMAL(10,2)), 'CREATED', 1757149560000, '2025-09-07')
+[INFO] Submitting SQL update statement to the cluster...
+[INFO] SQL update statement has been successfully submitted to the cluster:
+Job ID: a7ddebc5c86313940da40cb98504089b<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>查看 Flink job：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink list<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>写入完成后没有运行中的 job：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">No running jobs.
+No scheduled jobs.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>虽然 runtime-mode 是 streaming，但本文的 <code>VALUES</code> 输入是有界数据，写完后 job 会结束；如果 source 是 Kafka CDC 这类无界流，job 正常情况下会长期运行。</p>
+<h3 id="2-4-查看-Hudi-Timeline-和文件"><a href="#2-4-查看-Hudi-Timeline-和文件" class="headerlink" title="2.4 查看 Hudi Timeline 和文件"></a>2.4 查看 Hudi Timeline 和文件</h3><p>查看 Hudi Timeline：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_flink_hudi_orders/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 4 items
+-rw-r--r--   1 root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/timeline/20250907152932141.commit.requested
+-rw-r--r--   1 root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/timeline/20250907152932141.inflight
+-rw-r--r--   1 root supergroup       4372 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/timeline/20250907152932141_20250907152934179.commit
+drwxr-xr-x   - root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/timeline/history<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Hudi 1.0.x 中，完成态 Instant 文件名里可以看到 begin instant 和 completion instant，例如 <code>begin_completion.commit</code>；这里前半段更接近请求 &#x2F; 开始时间，后半段是完成时间。这里是 Hudi 1.0.x Timeline 布局下的实测输出，<code>requested</code> &#x2F; <code>inflight</code> 用于表达 Instant 状态流转；判断已经成功提交的动作时，主要看完成态 commit 文件。</p>
+<p>查看数据文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> <span class="token parameter variable">-R</span> /hudi/demo_flink_hudi_orders <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-E</span> <span class="token string">'2025-09-0[78]|parquet|ckp_meta'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">drwxr-xr-x   - root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/.aux/ckp_meta
+-rw-r--r--   1 root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/.aux/ckp_meta/20250907152932141.COMPLETED
+-rw-r--r--   1 root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/.hoodie/.aux/ckp_meta/20250907152932141.INFLIGHT
+drwxr-xr-x   - root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/2025-09-06
+-rw-r--r--   1 root supergroup     435903 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/2025-09-06/4910892f-4e0e-47f4-8364-da0110e33d9e_0-1-0_20250907152932141.parquet
+drwxr-xr-x   - root supergroup          0 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/2025-09-07
+-rw-r--r--   1 root supergroup     435972 2025-09-07 15:29 /hudi/demo_flink_hudi_orders/2025-09-07/2ff86876-7b5e-404f-9a30-9514b4471312_0-1-0_20250907152932141.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>可以看到：</p>
+<ol>
+<li>Timeline 中生成了一个 completed commit。</li>
+<li><code>.hoodie/.aux/ckp_meta</code> 中有 Flink Hudi 写入过程使用的 checkpoint &#x2F; instant 辅助元信息。它和前一篇 HoodieStreamer 的 Kafka source checkpoint 不是同一个概念，不要混淆。</li>
+<li>两个分区分别生成了 Parquet 文件。</li>
+<li>文件名里带有同一个 instant：<code>20250907152932141</code>。文件名前半段是 fileId，中间的 <code>0-1-0</code> 类似写入任务相关 token，最后的 <code>20250907152932141</code> 是写入 instant，不要把整个文件名都理解成 fileId。</li>
+</ol>
+<p>下面这张图对应的就是 checkpoint 到 Hudi commit 的关系：</p>
+<p><img src="https://images.hnbian.cn/new/n-d195c5387f9a14cfa29f7b873c5b0b87.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Checkpoint 驱动 Hudi Commit"></p>
+<p>这张图主要说明 checkpoint 成功后，Hudi commit 才会稳定进入 completed 状态，查询侧才能基于 completed instant 构造可见快照。</p>
+<h3 id="2-5-使用-Flink-SQL-查询-Hudi-表"><a href="#2-5-使用-Flink-SQL-查询-Hudi-表" class="headerlink" title="2.5 使用 Flink SQL 查询 Hudi 表"></a>2.5 使用 Flink SQL 查询 Hudi 表</h3><p>准备查询脚本：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_sql_query.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+SET 'execution.runtime-mode' = 'batch';
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
+
+CREATE TABLE demo_flink_hudi_orders (
+  order_id BIGINT PRIMARY KEY NOT ENFORCED,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING
+) PARTITIONED BY (dt)
+WITH (
+  'connector' = 'hudi',
+  'path' = 'hdfs:///hudi/demo_flink_hudi_orders',
+  'table.type' = 'COPY_ON_WRITE',
+  'hoodie.metadata.enable' = 'false',
+  'read.tasks' = '1'
+);
+
+SELECT dt, COUNT(*) AS cnt, MIN(order_id) AS min_order_id, MAX(order_id) AS max_order_id
+FROM demo_flink_hudi_orders
+GROUP BY dt
+ORDER BY dt;
+
+SELECT order_id, user_id, amount, status, dt
+FROM demo_flink_hudi_orders
+ORDER BY order_id;
+SQL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>查询脚本使用 batch runtime，只读取已经完成的 Hudi commit，不需要配置 checkpoint。这里不是重新写表，而是在 Flink SQL 中用同样 schema 注册已有 Hudi 路径用于查询。字段、<code>PRIMARY KEY</code>、<code>PARTITIONED BY</code>、<code>table.type</code> 必须和已有表配置保持一致。</p>
+<p>执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">unset</span> HADOOP_CLASSPATH
+<span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop
+
+/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_sql_query.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>分区统计结果：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+------------+-----+--------------+--------------+
+|         dt | cnt | min_order_id | max_order_id |
++------------+-----+--------------+--------------+
+| 2025-09-06 |   2 |        10001 |        10002 |
+| 2025-09-07 |   2 |        10003 |        10004 |
++------------+-----+--------------+--------------+
+2 rows in set (6.15 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>明细查询结果：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+----------+---------+--------+---------+------------+
+| order_id | user_id | amount |  status |         dt |
++----------+---------+--------+---------+------------+
+|    10001 |    u001 |  99.90 | CREATED | 2025-09-06 |
+|    10002 |    u002 | 168.00 |    PAID | 2025-09-06 |
+|    10003 |    u003 |  39.90 | CREATED | 2025-09-07 |
+|    10004 |    u004 | 258.00 | CREATED | 2025-09-07 |
++----------+---------+--------+---------+------------+
+4 rows in set (1.18 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>order_id=10002</code> 最终状态是 <code>PAID</code>，说明 Hudi 根据 Flink SQL 中声明的 <code>PRIMARY KEY NOT ENFORCED</code>，也就是 Hudi record key，以及 <code>precombine.field=ts</code> 做了更新合并。</p>
+<h2 id="3-部署与类型补充"><a href="#3-部署与类型补充" class="headerlink" title="3. 部署与类型补充"></a>3. 部署与类型补充</h2><h3 id="3-1-yarn-session-模式说明"><a href="#3-1-yarn-session-模式说明" class="headerlink" title="3.1 yarn-session 模式说明"></a>3.1 yarn-session 模式说明</h3><p>本文实际跑的是 standalone 单机模式。生产或更接近集群测试时，可以使用 yarn-session、per-job 或 application mode。本文只简单给出 yarn-session 形态，具体部署模式要按集群标准选择：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/yarn-session.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-jm</span> 1024m <span class="token punctuation">\</span>
+  <span class="token parameter variable">-tm</span> 2048m <span class="token punctuation">\</span>
+  <span class="token parameter variable">-s</span> <span class="token number">2</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-d</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>-s 2</code> 表示每个 TaskManager 的 slot 数，实际值要结合 <code>write.tasks</code>、<code>write.bucket_assign.tasks</code>、source 并行度和集群资源设置。</p>
+<p>然后再启动 SQL Client：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop
+
+/opt/module/flink-1.20.1/bin/sql-client.sh<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>如果使用 yarn-session，要确认 Hudi bundle、Hadoop 依赖、Flink 配置在提交到 YARN 的环境中也能被 TaskManager 读取到。只在客户端机器上 <code>-j</code> 一个 jar，有时 SQL Client 能识别 connector，但真正的 TaskManager 不一定有同样的依赖。这也是本文第 3 节选择把 Hudi bundle 放入 Flink lib，而不是长期依赖 <code>sql-client -j</code> 的原因。</p>
+<h3 id="3-2-Java-程序提交方式"><a href="#3-2-Java-程序提交方式" class="headerlink" title="3.2 Java 程序提交方式"></a>3.2 Java 程序提交方式</h3><p>除了 SQL Client，也可以用 Java 程序创建 <code>StreamTableEnvironment</code> 后执行同样的 DDL &#x2F; DML。核心依赖节选如下，不是完整 POM：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.flink<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>flink-table-api-java-bridge<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>1.20.1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
+
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.apache.hudi<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>hudi-flink1.20-bundle<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>1.0.2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>scope</span><span class="token punctuation">></span></span>provided<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>scope</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>完整 Maven 依赖还需要根据 Flink 1.20.1 的 Table &#x2F; Streaming API、planner &#x2F; runtime 和提交方式确认。Hudi bundle 如果已经放在 Flink lib，业务 jar 中通常用 <code>provided</code>。本文以 Hudi 1.0.2 的 <code>hudi-flink1.20-bundle</code> 为准；如果使用 Hudi 1.1+ 或其他 Flink 版本，要回到对应版本 Maven Central &#x2F; 官方文档核对 artifactId。</p>
+<p>程序结构大致如下：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token class-name">StreamExecutionEnvironment</span> env <span class="token operator">=</span> <span class="token class-name">StreamExecutionEnvironment</span><span class="token punctuation">.</span><span class="token function">getExecutionEnvironment</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+env<span class="token punctuation">.</span><span class="token function">enableCheckpointing</span><span class="token punctuation">(</span><span class="token number">5000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">EnvironmentSettings</span> settings <span class="token operator">=</span> <span class="token class-name">EnvironmentSettings</span>
+    <span class="token punctuation">.</span><span class="token function">newInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">inStreamingMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">StreamTableEnvironment</span> tableEnv <span class="token operator">=</span> <span class="token class-name">StreamTableEnvironment</span><span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>env<span class="token punctuation">,</span> settings<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+tableEnv<span class="token punctuation">.</span><span class="token function">executeSql</span><span class="token punctuation">(</span><span class="token string">"CREATE TABLE demo_flink_hudi_orders (...) WITH (...)"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+tableEnv<span class="token punctuation">.</span><span class="token function">executeSql</span><span class="token punctuation">(</span><span class="token string">"INSERT INTO demo_flink_hudi_orders SELECT ..."</span><span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这只是结构示意。实际程序中需要保存 <code>TableResult</code>，并根据任务类型决定是否调用 <code>await</code>，或者由 <code>flink run</code> 提交后在集群中长期运行。</p>
+<p>如果是长期运行的流式任务，不建议只写一行 <code>enableCheckpointing</code>。至少要把 checkpoint 目录、语义、超时时间和外部化 checkpoint 配清楚：</p>
+<pre class="line-numbers language-java" data-language="java"><code class="language-java"><span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>configuration<span class="token punctuation">.</span></span><span class="token class-name">Configuration</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span></span><span class="token class-name">CheckpointingMode</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>environment<span class="token punctuation">.</span></span><span class="token class-name">CheckpointConfig</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>streaming<span class="token punctuation">.</span>api<span class="token punctuation">.</span>environment<span class="token punctuation">.</span></span><span class="token class-name">StreamExecutionEnvironment</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>table<span class="token punctuation">.</span>api<span class="token punctuation">.</span></span><span class="token class-name">EnvironmentSettings</span></span><span class="token punctuation">;</span>
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>flink<span class="token punctuation">.</span>table<span class="token punctuation">.</span>api<span class="token punctuation">.</span>bridge<span class="token punctuation">.</span>java<span class="token punctuation">.</span></span><span class="token class-name">StreamTableEnvironment</span></span><span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> <span class="token import"><span class="token namespace">java<span class="token punctuation">.</span>time<span class="token punctuation">.</span></span><span class="token class-name">Duration</span></span><span class="token punctuation">;</span>
+
+<span class="token class-name">Configuration</span> conf <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Configuration</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+conf<span class="token punctuation">.</span><span class="token function">setString</span><span class="token punctuation">(</span><span class="token string">"state.backend.type"</span><span class="token punctuation">,</span> <span class="token string">"rocksdb"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+conf<span class="token punctuation">.</span><span class="token function">setString</span><span class="token punctuation">(</span><span class="token string">"execution.checkpointing.dir"</span><span class="token punctuation">,</span> <span class="token string">"hdfs:///flink/checkpoints/hudi_java_demo"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">StreamExecutionEnvironment</span> env <span class="token operator">=</span> <span class="token class-name">StreamExecutionEnvironment</span><span class="token punctuation">.</span><span class="token function">getExecutionEnvironment</span><span class="token punctuation">(</span>conf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+env<span class="token punctuation">.</span><span class="token function">enableCheckpointing</span><span class="token punctuation">(</span><span class="token number">5000</span><span class="token punctuation">,</span> <span class="token class-name">CheckpointingMode</span><span class="token punctuation">.</span><span class="token constant">EXACTLY_ONCE</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">CheckpointConfig</span> checkpointConfig <span class="token operator">=</span> env<span class="token punctuation">.</span><span class="token function">getCheckpointConfig</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+checkpointConfig<span class="token punctuation">.</span><span class="token function">setMinPauseBetweenCheckpoints</span><span class="token punctuation">(</span><span class="token number">3000</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+checkpointConfig<span class="token punctuation">.</span><span class="token function">setCheckpointTimeout</span><span class="token punctuation">(</span><span class="token class-name">Duration</span><span class="token punctuation">.</span><span class="token function">ofMinutes</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toMillis</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+checkpointConfig<span class="token punctuation">.</span><span class="token function">setTolerableCheckpointFailureNumber</span><span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+checkpointConfig<span class="token punctuation">.</span><span class="token function">enableExternalizedCheckpoints</span><span class="token punctuation">(</span>
+    <span class="token class-name">CheckpointConfig<span class="token punctuation">.</span>ExternalizedCheckpointCleanup</span><span class="token punctuation">.</span><span class="token constant">RETAIN_ON_CANCELLATION</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">EnvironmentSettings</span> settings <span class="token operator">=</span> <span class="token class-name">EnvironmentSettings</span>
+    <span class="token punctuation">.</span><span class="token function">newInstance</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">inStreamingMode</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token class-name">StreamTableEnvironment</span> tableEnv <span class="token operator">=</span> <span class="token class-name">StreamTableEnvironment</span><span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>env<span class="token punctuation">,</span> settings<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 checkpoint 目录必须是 TaskManager 能访问的持久化路径。单机调试可以用本地路径，和 Hudi&#x2F;HDFS 联调时更建议直接放到 HDFS。</p>
+<p>Java API 以 Flink 1.20.1 为准；如果编译时报 API 变化，按当前 Flink 版本的 <code>CheckpointConfig</code> 文档调整。</p>
+<p>提交命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink run <span class="token punctuation">\</span>
+  <span class="token parameter variable">-c</span> cn.hnbian.hudi.FlinkHudiSqlDemo <span class="token punctuation">\</span>
+  /opt/app/hudi-flink-demo.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>如果是 YARN per-job，可以这样提交：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink run <span class="token punctuation">\</span>
+  <span class="token parameter variable">-t</span> yarn-per-job <span class="token punctuation">\</span>
+  <span class="token parameter variable">-c</span> cn.hnbian.hudi.FlinkHudiSqlDemo <span class="token punctuation">\</span>
+/opt/app/hudi-flink-demo.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>不同 Flink 版本和集群发行版对 <code>yarn-per-job</code> &#x2F; <code>yarn-application</code> &#x2F; session 的推荐不同，本文只是给出命令形态；生产提交模式以当前集群标准为准。</p>
+<p>如果 Hudi bundle 已经放在 Flink lib，业务 jar 中不要再打入一份完整 Hudi bundle，否则很容易再次遇到类冲突。</p>
+<h3 id="3-3-Flink-SQL-类型映射"><a href="#3-3-Flink-SQL-类型映射" class="headerlink" title="3.3 Flink SQL 类型映射"></a>3.3 Flink SQL 类型映射</h3><p>Flink SQL 写入 Hudi 时，最终底层仍然要落到 Hudi 表的 Avro schema 和 Parquet&#x2F;Log 文件里。类型映射如果不清楚，最容易在 <code>DECIMAL</code>、<code>TIMESTAMP</code>、<code>DATE</code> 这些字段上踩坑。</p>
+<p>常用类型可以按下面理解：</p>
+<table>
+<thead>
+<tr>
+<th>Flink SQL Type</th>
+<th>Hudi &#x2F; Avro 表达</th>
+<th>使用建议</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CHAR</code> &#x2F; <code>VARCHAR</code> &#x2F; <code>STRING</code></td>
+<td><code>string</code></td>
+<td>业务 ID、枚举、状态字段最常用</td>
+</tr>
+<tr>
+<td><code>BOOLEAN</code></td>
+<td><code>boolean</code></td>
+<td>布尔标记</td>
+</tr>
+<tr>
+<td><code>TINYINT</code> &#x2F; <code>SMALLINT</code> &#x2F; <code>INT</code></td>
+<td><code>int</code></td>
+<td>普通整数</td>
+</tr>
+<tr>
+<td><code>BIGINT</code></td>
+<td><code>long</code></td>
+<td>主键、毫秒时间戳、计数字段</td>
+</tr>
+<tr>
+<td><code>FLOAT</code></td>
+<td><code>float</code></td>
+<td>一般业务较少用</td>
+</tr>
+<tr>
+<td><code>DOUBLE</code></td>
+<td><code>double</code></td>
+<td>浮点指标</td>
+</tr>
+<tr>
+<td><code>DECIMAL(p,s)</code></td>
+<td>Avro decimal logical type</td>
+<td>金额字段建议用 <code>DECIMAL</code>，不要用 <code>DOUBLE</code></td>
+</tr>
+<tr>
+<td><code>DATE</code></td>
+<td>Avro date logical type</td>
+<td>日期字段，常用于分区或统计日期</td>
+</tr>
+<tr>
+<td><code>TIME</code></td>
+<td>Avro time logical type</td>
+<td>单独使用较少</td>
+</tr>
+<tr>
+<td><code>TIMESTAMP(3)</code></td>
+<td>Avro timestamp logical type</td>
+<td>事件时间、更新时间</td>
+</tr>
+<tr>
+<td><code>ARRAY&lt;T&gt;</code></td>
+<td>Avro array</td>
+<td>嵌套字段需要确认查询引擎兼容性</td>
+</tr>
+<tr>
+<td><code>MAP&lt;K,V&gt;</code></td>
+<td>Avro map</td>
+<td>key 通常为 string 更稳</td>
+</tr>
+<tr>
+<td><code>ROW&lt;...&gt;</code></td>
+<td>Avro record</td>
+<td>复杂结构建议先做小表验证</td>
+</tr>
+</tbody></table>
+<p>这篇主线里我把 <code>ts</code> 写成 <code>BIGINT</code>，是为了让 <code>precombine.field</code> 的比较非常直接。也可以写成 <code>TIMESTAMP(3)</code>，但要确认上游时间语义和 Flink&#x2F;Hudi 类型转换一致。如果用 <code>TIMESTAMP(3)</code> 做 <code>precombine.field</code>，需要单独验证同 key 多版本比较结果，尤其是时区、精度和 null 值处理。</p>
+<p>金额字段我使用：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql">amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>而不是：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql">amount <span class="token keyword">DOUBLE</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>原因是订单金额属于精确数值，<code>DOUBLE</code> 更适合指标近似计算，不适合保存交易金额。</p>
+<p>分区字段这里使用字符串日期：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql">dt STRING<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这是为了让 HDFS 分区目录直观稳定，比如 <code>/hudi/demo_flink_hudi_orders/2025-09-06</code>。如果 <code>DATE</code> 类型直接作为分区字段，需要额外确认 Hudi 分区路径格式、Hive Sync 类型映射和下游引擎识别方式；本文主线用 <code>STRING</code> 是为了路径稳定直观。</p>
+<h2 id="4-常见问题与接入判断"><a href="#4-常见问题与接入判断" class="headerlink" title="4. 常见问题与接入判断"></a>4. 常见问题与接入判断</h2><h3 id="4-1-常见问题"><a href="#4-1-常见问题" class="headerlink" title="4.1 常见问题"></a>4.1 常见问题</h3><h4 id="4-1-1-SQL-Client-能建表，但-INSERT-报-ClassNotFoundException"><a href="#4-1-1-SQL-Client-能建表，但-INSERT-报-ClassNotFoundException" class="headerlink" title="4.1.1 SQL Client 能建表，但 INSERT 报 ClassNotFoundException"></a>4.1.1 SQL Client 能建表，但 INSERT 报 ClassNotFoundException</h4><p>现象：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.lang.ClassNotFoundException: org.apache.hadoop.conf.Configuration<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>原因通常是 Flink runtime 缺 Hadoop 依赖。解决方式是补 Hadoop jar 到 Flink lib，或者使用和集群匹配的 Flink Hadoop 发行包，并设置：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h4 id="4-1-2-bundle-通过-j-加载后作业端找不到-jar"><a href="#4-1-2-bundle-通过-j-加载后作业端找不到-jar" class="headerlink" title="4.1.2 bundle 通过 -j 加载后作业端找不到 jar"></a>4.1.2 bundle 通过 <code>-j</code> 加载后作业端找不到 jar</h4><p>现象：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">java.nio.file.NoSuchFileException:
+/opt/module/flink-1.20.1/lib/hudi-flink1.20-bundle-1.0.2.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果使用 <code>sql-client.sh -j</code> 指定本地 jar，SQL Client 端可能能识别 connector，但 TaskManager 端未必能访问同一路径，可能出现 <code>NoSuchFileException</code> 或 <code>ClassNotFoundException</code>。本文最终采用的是把 Hudi Flink bundle 放进 Flink lib，并重启集群。</p>
+<h4 id="4-1-3-不要重复加载-Hudi-bundle"><a href="#4-1-3-不要重复加载-Hudi-bundle" class="headerlink" title="4.1.3 不要重复加载 Hudi bundle"></a>4.1.3 不要重复加载 Hudi bundle</h4><p>如果既放进 Flink lib，又在 <code>sql-client.sh -j</code> 里再传一次同一个 bundle，可能出现重复类加载问题。本文最终使用的是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_sql_stream_insert.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>也就是不再额外加 <code>-j</code>。</p>
+<h4 id="4-1-4-非交互模式查询必须使用-TABLEAU"><a href="#4-1-4-非交互模式查询必须使用-TABLEAU" class="headerlink" title="4.1.4 非交互模式查询必须使用 TABLEAU"></a>4.1.4 非交互模式查询必须使用 TABLEAU</h4><p>如果在 <code>sql-client.sh -f</code> 中执行查询，结果模式需要设置为 <code>TABLEAU</code>：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> <span class="token string">'sql-client.execution.result-mode'</span> <span class="token operator">=</span> <span class="token string">'TABLEAU'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>否则可能报：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">In non-interactive mode, it only supports to use TABLEAU as value of
+sql-client.execution.result-mode when execute query.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h4 id="4-1-5-slot-不够会导致-job-一直不动"><a href="#4-1-5-slot-不够会导致-job-一直不动" class="headerlink" title="4.1.5 slot 不够会导致 job 一直不动"></a>4.1.5 slot 不够会导致 job 一直不动</h4><p>本文一开始把 <code>write.tasks</code> 和 <code>write.bucket_assign.tasks</code> 都设为 <code>2</code>，单机可用 slot 不够，Flink Web UI 里 job 一直处于 RUNNING，但顶点是 CREATED &#x2F; SCHEDULED，没有实际写数据。</p>
+<p>可以在 Flink Web UI 的 Job Graph &#x2F; SubTasks 页面查看每个 vertex 的状态，确认是否因为 slot 不足没有被调度执行。</p>
+<p>单机测试可以先降到：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token string">'write.tasks'</span> <span class="token operator">=</span> <span class="token string">'1'</span><span class="token punctuation">,</span>
+<span class="token string">'write.bucket_assign.tasks'</span> <span class="token operator">=</span> <span class="token string">'1'</span><span class="token punctuation">,</span>
+<span class="token string">'read.tasks'</span> <span class="token operator">=</span> <span class="token string">'1'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>生产环境再结合 TaskManager 数量、slot 数、Kafka 分区数、写入吞吐逐步调大。</p>
+<h3 id="4-2-Flink-SQL-接入判断"><a href="#4-2-Flink-SQL-接入判断" class="headerlink" title="4.2 Flink SQL 接入判断"></a>4.2 Flink SQL 接入判断</h3><p>Flink 集成 Hudi 的重点不是 SQL 语法，而是运行时。Spark 写 Hudi 更像一次批处理提交，Flink 写 Hudi 更像一个持续运行的事务协调系统：数据先进入 state 和 writer，checkpoint 成功后再推进 Hudi Timeline。本文 <code>VALUES</code> 小样本是为了快速验证链路；真正的 Kafka CDC 长期流任务中，checkpoint 是否持续成功才是 Hudi commit 稳定推进的关键。</p>
+<p>这也是为什么 Flink Hudi 的问题经常出在这些地方：</p>
+<ol>
+<li>bundle 没放对位置。</li>
+<li>TaskManager classpath 和 SQL Client classpath 不一致。</li>
+<li>checkpoint 没开或 checkpoint 不成功。</li>
+<li>并行度超过 slot，任务看起来 RUNNING，实际没有写。</li>
+<li><code>precombine.field</code> 选错，导致同一个 key 的更新顺序不符合预期。</li>
+</ol>
+<p>我更建议先用很小的数据、很低的并行度把“写入、commit、查询”跑通，再逐步增加 Kafka source、CDC 格式、并行度、compaction 和 Hive Sync。否则一上来就把 CDC、Kafka、Hudi、Hive、YARN、checkpoint 全放进去，排查会非常混乱。</p>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>本文用 Flink SQL 跑通了 Hudi COW 表写入和查询：</p>
+<ol>
+<li>Hudi Flink bundle 使用 <code>hudi-flink1.20-bundle-1.0.2.jar</code>。</li>
+<li>bundle 放到 Flink lib 后必须重启 Flink。</li>
+<li>Flink 流式写入 Hudi 要重点关注 checkpoint、state backend 和 writer 并行度；batch &#x2F; bounded 写入还需要结合 source 类型和作业结束提交语义单独验证。</li>
+<li>单机测试不要盲目调大 <code>write.tasks</code>，slot 不够会让任务卡住。</li>
+<li>Hudi commit 形成后，可以在 <code>.hoodie/timeline</code> 中看到 completed commit。</li>
+<li>Flink SQL 查询结果验证了 <code>order_id=10002</code> 的 upsert 更新生效。</li>
+<li><code>DECIMAL</code>、<code>TIMESTAMP</code>、<code>DATE</code> 等类型要结合 Avro logical type 和下游查询引擎一起验证。</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/f4d8a2b7.html">https://www.hnbian.cn/posts/f4d8a2b7.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/data-lake/">
+                                    <span class="chip bg-color">data-lake</span>
+                                </a>
+                            
+                                <a href="/tags/flink-sql/">
+                                    <span class="chip bg-color">flink-sql</span>
+                                </a>
+                            
+                                <a href="/tags/checkpoint/">
+                                    <span class="chip bg-color">checkpoint</span>
+                                </a>
+                            
+                                <a href="/tags/rocksdb/">
+                                    <span class="chip bg-color">rocksdb</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/a9e7c4d1.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f10d259d1c507cbab549e6914844911f.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-09-18
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/compaction/">
+                        <span class="chip bg-color">compaction</span>
+                    </a>
+                    
+                    <a href="/tags/tuning/">
+                        <span class="chip bg-color">tuning</span>
+                    </a>
+                    
+                    <a href="/tags/performance/">
+                        <span class="chip bg-color">performance</span>
+                    </a>
+                    
+                    <a href="/tags/checkpoint/">
+                        <span class="chip bg-color">checkpoint</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e91c6f2a.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-6cd19b33edb0013c448feb28ac37f452.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 09：并发控制、锁机制与 Spark 写入调优">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 09：并发控制、锁机制与 Spark 写入调优</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-08-28
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/concurrency/">
+                        <span class="chip bg-color">concurrency</span>
+                    </a>
+                    
+                    <a href="/tags/tuning/">
+                        <span class="chip bg-color">tuning</span>
+                    </a>
+                    
+                    <a href="/tags/lock/">
+                        <span class="chip bg-color">lock</span>
+                    </a>
+                    
+                    <a href="/tags/performance/">
+                        <span class="chip bg-color">performance</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,2107 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Redis 系列 5. 主从复制原理与实践, hnbian">
+    <meta name="description" content="1. 主从复制是什么Redis 主从复制指的是：一台 Redis 作为 master，其他 Redis 实例作为 replica，从 master 同步数据。
+在旧资料里经常看到 master&amp;#x2F;slave、slaveof 这些说法">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Redis 系列 5. 主从复制原理与实践 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-8acec5de84a18caec09c2c86f2de946d.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Redis 系列 5. 主从复制原理与实践</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/redis/">
+                                <span class="chip bg-color">redis</span>
+                            </a>
+                        
+                            <a href="/tags/replica/">
+                                <span class="chip bg-color">replica</span>
+                            </a>
+                        
+                            <a href="/tags/replication/">
+                                <span class="chip bg-color">replication</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/redis/" class="post-category">
+                                redis
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2024-10-14
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.2k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    18 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-主从复制是什么"><a href="#1-主从复制是什么" class="headerlink" title="1. 主从复制是什么"></a>1. 主从复制是什么</h2><p>Redis 主从复制指的是：一台 Redis 作为 master，其他 Redis 实例作为 replica，从 master 同步数据。</p>
+<p>在旧资料里经常看到 master&#x2F;slave、slaveof 这些说法。Redis 新版本更推荐使用 master&#x2F;replica、REPLICAOF，不过很多命令和配置仍然保留了兼容旧写法。</p>
+<p>主从复制示意如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-2a345a8e0303886bc06013d2604d4572.png" alt="Redis 主从复制"></p>
+<p>一句话总结：master 负责写，replica 复制 master 数据，通常承担读请求或备份角色。</p>
+<p>这里有两个边界需要先说清楚：</p>
+<ol>
+<li>replica 是否承担读请求，取决于业务读写路由和 replica-read-only 等配置。</li>
+<li>Redis 主从复制默认是异步复制，不提供强一致复制语义。</li>
+</ol>
+<h2 id="2-主从复制能解决什么"><a href="#2-主从复制能解决什么" class="headerlink" title="2. 主从复制能解决什么"></a>2. 主从复制能解决什么</h2><p>主从复制主要解决三个问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>主从复制的作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>读压力过大</td>
+<td>可以把部分读请求分散到 replica</td>
+</tr>
+<tr>
+<td>数据备份</td>
+<td>replica 保留 master 数据副本</td>
+</tr>
+<tr>
+<td>高可用基础</td>
+<td>Sentinel 和 Cluster 的故障转移都依赖复制关系</td>
+</tr>
+</tbody></table>
+<p>但主从复制本身不等于高可用。普通主从结构下，master 宕机后 replica 不会自动升级为新 master，需要人工处理。自动故障检测、选主和 failover 通常由 Sentinel 或 Cluster 提供。</p>
+<h2 id="3-常用命令"><a href="#3-常用命令" class="headerlink" title="3. 常用命令"></a>3. 常用命令</h2><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>INFO replication</td>
+<td>查看复制状态</td>
+</tr>
+<tr>
+<td>ROLE</td>
+<td>查看当前实例角色</td>
+</tr>
+<tr>
+<td>REPLICAOF host port</td>
+<td>让当前实例成为指定 master 的 replica</td>
+</tr>
+<tr>
+<td>REPLICAOF NO ONE</td>
+<td>取消复制，让当前实例变成 master</td>
+</tr>
+<tr>
+<td>SLAVEOF host port</td>
+<td>旧命令，仍能在很多版本中看到</td>
+</tr>
+<tr>
+<td>SLAVEOF NO ONE</td>
+<td>旧命令，效果类似 REPLICAOF NO ONE</td>
+</tr>
+</tbody></table>
+<p>示例：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 在 6380 实例执行，让它复制 6379</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span>
+
+<span class="token comment"># 查看复制状态</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> info replication
+
+<span class="token comment"># 让 6380 脱离主从关系，变成 master</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof no one<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="4-一主二从实验架构"><a href="#4-一主二从实验架构" class="headerlink" title="4. 一主二从实验架构"></a>4. 一主二从实验架构</h2><p>这里用一台机器上的三个端口举例：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>端口</th>
+<th>配置文件</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>master</td>
+<td>6379</td>
+<td>&#x2F;myredis&#x2F;redis6379.conf</td>
+</tr>
+<tr>
+<td>replica-1</td>
+<td>6380</td>
+<td>&#x2F;myredis&#x2F;redis6380.conf</td>
+</tr>
+<tr>
+<td>replica-2</td>
+<td>6381</td>
+<td>&#x2F;myredis&#x2F;redis6381.conf</td>
+</tr>
+</tbody></table>
+<p><img src="https://images.hnbian.cn/new/n-8587fc41b135fc359c9fee896b1357d4.png" alt="一主二从架构"></p>
+<h2 id="5-配置文件方式"><a href="#5-配置文件方式" class="headerlink" title="5. 配置文件方式"></a>5. 配置文件方式</h2><p>master 配置示例：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">bind 0.0.0.0
+protected-mode no
+port 6379
+daemonize yes
+requirepass 111111
+dir &#x2F;myredis
+logfile &quot;&#x2F;myredis&#x2F;redis6379.log&quot;
+pidfile &#x2F;var&#x2F;run&#x2F;redis_6379.pid
+dbfilename dump6379.rdb
+appendonly yes
+appendfilename &quot;appendonly6379.aof&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>replica 配置示例：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">bind 0.0.0.0
+protected-mode no
+port 6380
+daemonize yes
+requirepass 111111
+masterauth 111111
+replicaof 127.0.0.1 6379
+replica-read-only yes
+dir &#x2F;myredis
+logfile &quot;&#x2F;myredis&#x2F;redis6380.log&quot;
+pidfile &#x2F;var&#x2F;run&#x2F;redis_6380.pid
+dbfilename dump6380.rdb
+appendonly yes
+appendfilename &quot;appendonly6380.aof&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>几个关键配置：</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>replicaof host port</td>
+<td>指定 master</td>
+</tr>
+<tr>
+<td>masterauth</td>
+<td>replica 连接 master 使用的密码</td>
+</tr>
+<tr>
+<td>replica-read-only yes</td>
+<td>replica 只读，默认建议开启</td>
+</tr>
+<tr>
+<td>requirepass</td>
+<td>当前实例对客户端的访问密码</td>
+</tr>
+</tbody></table>
+<p>如果使用 Redis 6 及以上版本，生产环境更推荐用 ACL 管理用户与权限，而不是所有客户端共享同一个 requirepass。当 master 启用 ACL 用户后，replica 侧还需要按实际认证方式配置 masteruser 和 masterauth。</p>
+<p>replica-read-only yes 建议保持开启。如果关闭只读限制，replica 上的本地写入不会反向同步到 master，也可能在后续全量同步时被覆盖，容易造成数据不一致。</p>
+<p>部分配置命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 绑定 Redis 监听地址</span>
+<span class="token comment"># 这里注释掉 bind 127.0.0.1 -::1，表示不只限制本机访问</span>
+<span class="token comment"># bind 127.0.0.1 -::1</span>
+<span class="token comment"># Redis 进程 PID 文件路径</span>
+pidfile /var/run/redis_6379.pid
+
+<span class="token comment"># Redis 访问密码</span>
+requirepass <span class="token number">111111</span>
+
+<span class="token comment"># 配置当前 Redis 实例作为从库，指定主库 IP 和端口</span>
+<span class="token comment"># 格式：replicaof &lt;masterip> &lt;masterport></span>
+replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span>
+
+<span class="token comment"># 如果主库设置了密码，从库需要配置 masterauth</span>
+<span class="token comment"># 否则从库连接主库时会因为认证失败而无法同步数据</span>
+<span class="token comment"># 格式：masterauth &lt;master-password></span>
+masterauth <span class="token number">111111</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<p>启动顺序建议先 master，再 replica：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-server /myredis/redis6379.conf
+redis-server /myredis/redis6380.conf
+redis-server /myredis/redis6381.conf<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h2 id="6-验证复制关系"><a href="#6-验证复制关系" class="headerlink" title="6. 验证复制关系"></a>6. 验证复制关系</h2><p>进入 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>查看复制信息：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">info replication<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>master 上应看到：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">role:master
+connected_slaves:2<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>replica 上应看到：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">role:slave
+master_host:127.0.0.1
+master_port:6379
+master_link_status:up<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>虽然新术语叫 replica，INFO replication 输出里仍可能看到 slave 字段，这是 Redis 兼容历史名称的表现。</p>
+<p>除了 INFO replication，ROLE 也适合快速判断实例角色。日常排查可以组合使用：ROLE 看角色和复制对象，INFO replication 看 offset、lag、backlog 等详细状态。</p>
+<p>下面是三台虚拟机环境中的日志和 INFO replication 示例，所以 IP 地址使用 192.168.10.x。如果按前面的单机多端口实验操作，则 master 地址可以继续使用 127.0.0.1。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Master 日志：从库发起同步请求，Master 执行 BGSAVE 并将 RDB 数据同步给 Replica</span>
+
+<span class="token number">2925</span>:M * Delay next BGSAVE <span class="token keyword">for</span> diskless SYNC
+<span class="token number">2925</span>:M * Starting BGSAVE <span class="token keyword">for</span> SYNC with target: replicas sockets
+<span class="token number">2925</span>:M * Background RDB transfer started by pid <span class="token number">2931</span>
+<span class="token number">2931</span>:C * Fork CoW <span class="token keyword">for</span> RDB: current <span class="token number">2</span> MB, peak <span class="token number">2</span> MB, average <span class="token number">2</span> MB
+<span class="token number">2925</span>:M <span class="token comment"># Diskless rdb transfer, done reading from pipe, 1 replicas still up.</span>
+<span class="token number">2925</span>:M * Background RDB transfer terminated with success
+<span class="token number">2925</span>:M * Streamed RDB transfer with replica <span class="token number">192.168</span>.10.102:6380 succeeded <span class="token punctuation">(</span>socket<span class="token punctuation">)</span>. Waiting <span class="token keyword">for</span> REPLCONF ACK from slave to <span class="token builtin class-name">enable</span> streaming
+<span class="token number">2925</span>:M * Synchronization with replica <span class="token number">192.168</span>.10.102:6380 succeeded
+
+<span class="token number">2925</span>:M * Replica <span class="token number">192.168</span>.10.103:6381 asks <span class="token keyword">for</span> synchronization
+<span class="token number">2925</span>:M * Full resync requested by replica <span class="token number">192.168</span>.10.103:6381
+<span class="token number">2925</span>:M * Delay next BGSAVE <span class="token keyword">for</span> diskless SYNC
+<span class="token number">2925</span>:M * Starting BGSAVE <span class="token keyword">for</span> SYNC with target: replicas sockets
+<span class="token number">2925</span>:M * Background RDB transfer started by pid <span class="token number">2942</span>
+<span class="token number">2942</span>:C * Fork CoW <span class="token keyword">for</span> RDB: current <span class="token number">2</span> MB, peak <span class="token number">2</span> MB, average <span class="token number">2</span> MB
+<span class="token number">2925</span>:M <span class="token comment"># Diskless rdb transfer, done reading from pipe, 1 replicas still up.</span>
+<span class="token number">2925</span>:M * Background RDB transfer terminated with success
+<span class="token number">2925</span>:M * Streamed RDB transfer with replica <span class="token number">192.168</span>.10.103:6381 succeeded <span class="token punctuation">(</span>socket<span class="token punctuation">)</span>. Waiting <span class="token keyword">for</span> REPLCONF ACK from slave to <span class="token builtin class-name">enable</span> streaming
+<span class="token number">2925</span>:M * Synchronization with replica <span class="token number">192.168</span>.10.103:6381 succeeded<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Replica 日志：从库连接 Master，并完成全量同步</span>
+
+<span class="token number">2096</span>:S * Connecting to MASTER <span class="token number">192.168</span>.10.101:6379
+<span class="token number">2096</span>:S * MASTER <span class="token operator">&lt;</span>-<span class="token operator">></span> REPLICA <span class="token function">sync</span> started
+<span class="token number">2096</span>:S * Non blocking connect <span class="token keyword">for</span> SYNC fired the event.
+<span class="token number">2096</span>:S * Master replied to PING, replication can continue<span class="token punctuation">..</span>.
+<span class="token number">2096</span>:S * Partial resynchronization not possible <span class="token punctuation">(</span>no cached master<span class="token punctuation">)</span>
+<span class="token number">2096</span>:S * Full resync from master: 6f56ae34d5b7f0b90dc28c786b04a0ac142c6818:14
+<span class="token number">2096</span>:S * MASTER <span class="token operator">&lt;</span>-<span class="token operator">></span> REPLICA sync: receiving streamed RDB from master with EOF to disk
+<span class="token number">2096</span>:S * MASTER <span class="token operator">&lt;</span>-<span class="token operator">></span> REPLICA sync: Flushing old data
+<span class="token number">2096</span>:S * MASTER <span class="token operator">&lt;</span>-<span class="token operator">></span> REPLICA sync: Loading DB <span class="token keyword">in</span> memory
+<span class="token number">2096</span>:S * Loading RDB produced by version <span class="token number">7.0</span>.11
+<span class="token number">2096</span>:S * RDB age <span class="token number">0</span> seconds
+<span class="token number">2096</span>:S * RDB memory usage when created <span class="token number">0.94</span> Mb
+<span class="token number">2096</span>:S * Done loading RDB, keys loaded: <span class="token number">3</span>, keys expired: <span class="token number">0</span>.
+<span class="token number">2096</span>:S * MASTER <span class="token operator">&lt;</span>-<span class="token operator">></span> REPLICA sync: Finished with success<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:637<span class="token operator"><span class="token file-descriptor important">9</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:master
+connected_slaves:2
+slave0:ip<span class="token operator">=</span><span class="token number">192.168</span>.10.102,port<span class="token operator">=</span><span class="token number">6380</span>,state<span class="token operator">=</span>online,offset<span class="token operator">=</span><span class="token number">516</span>,lag<span class="token operator">=</span><span class="token number">0</span>
+slave1:ip<span class="token operator">=</span><span class="token number">192.168</span>.10.103,port<span class="token operator">=</span><span class="token number">6381</span>,state<span class="token operator">=</span>online,offset<span class="token operator">=</span><span class="token number">516</span>,lag<span class="token operator">=</span><span class="token number">1</span>
+master_failover_state:no-failover
+master_replid:6f56ae34d5b7f0b90dc28c786b04a0ac142c6818
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:516
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1
+repl_backlog_histlen:516
+
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:slave
+master_host:192.168.10.101
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:6
+master_sync_in_progress:0
+slave_read_repl_offset:530
+slave_repl_offset:530
+slave_priority:100
+slave_read_only:1
+replica_announced:1
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:6f56ae34d5b7f0b90dc28c786b04a0ac142c6818
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:530
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:15
+repl_backlog_histlen:516<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="7-主从读写行为"><a href="#7-主从读写行为" class="headerlink" title="7. 主从读写行为"></a>7. 主从读写行为</h2><p>在 master 上写入：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">set</span> k1 v1<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>在 replica 上读取：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">get k1<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>正常可以读到。</p>
+<p>但这不代表读写强一致。主从复制默认异步，master 写入成功后，replica 可能还没有追上。对 read-after-write 一致性敏感的请求，应继续读 master，或者在业务层增加一致性保护。</p>
+<p>但默认情况下，replica 不允许写：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">set</span> k2 v2<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>会得到类似错误：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">READONLY You can't <span class="token function">write</span> against a <span class="token builtin class-name">read</span> only replica.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> <span class="token builtin class-name">set</span> k2 v2
+<span class="token punctuation">(</span>error<span class="token punctuation">)</span> READONLY You can't <span class="token function">write</span> against a <span class="token builtin class-name">read</span> only replica.
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="8-master-宕机后会自动切换吗"><a href="#8-master-宕机后会自动切换吗" class="headerlink" title="8. master 宕机后会自动切换吗"></a>8. master 宕机后会自动切换吗</h2><p>普通主从复制不会自动切换。</p>
+<p>如果 master 停掉：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> <span class="token function">shutdown</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>replica 仍然是 replica，不会自动升级为 master。它会持续尝试重连 master。</p>
+<p>可以通过复制状态验证这一点：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:slave
+master_host:192.168.10.101
+master_port:6379
+master_link_status:down
+master_last_io_seconds_ago:-1
+master_sync_in_progress:0
+slave_read_repl_offset:853<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<p>如果希望 master 故障后自动切换，需要 Sentinel 或 Cluster。它们负责故障检测、选主和客户端拓扑更新，主从复制只提供数据复制基础。</p>
+<h2 id="9-命令方式指定主从"><a href="#9-命令方式指定主从" class="headerlink" title="9. 命令方式指定主从"></a>9. 命令方式指定主从</h2><p>除了写配置文件，也可以在线执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>旧写法是：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> slaveof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>命令方式成功后，可以看到当前实例变成 replica：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:master
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:e3c389d13376380bbc7a1ea353d4a5bd5ed0798d
+master_replid2:f3b36637a1be19ac8e09b4493080693b67eaa7ef
+master_repl_offset:1271
+second_repl_offset:1272
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1272
+repl_backlog_histlen:0
+
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span>
+OK
+
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">0</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:slave
+master_host:127.0.0.1
+master_port:6379
+master_link_status:up
+master_last_io_seconds_ago:1
+master_sync_in_progress:0
+slave_read_repl_offset:1271
+slave_repl_offset:1271
+slave_priority:100
+slave_read_only:1
+replica_announced:1
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:e3c389d13376380bbc7a1ea353d4a5bd5ed0798d
+master_replid2:f3b36637a1be19ac8e09b4493080693b67eaa7ef
+master_repl_offset:1271
+second_repl_offset:1272
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1272
+repl_backlog_histlen:0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<p>配置方式和命令方式的区别：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>配置文件</td>
+<td>重启后关系仍然存在，适合稳定部署</td>
+</tr>
+<tr>
+<td>命令方式</td>
+<td>当前运行期生效，重启后是否还在取决于配置是否被重写</td>
+</tr>
+</tbody></table>
+<p>生产环境建议使用配置管理或编排系统，不要靠手工命令维持长期拓扑。</p>
+<h2 id="10-薪火相传：链式复制"><a href="#10-薪火相传：链式复制" class="headerlink" title="10. 薪火相传：链式复制"></a>10. 薪火相传：链式复制</h2><p>Redis replica 也可以被其他 replica 复制。比如：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">6379</span><span class="token punctuation">(</span>master<span class="token punctuation">)</span> -<span class="token operator">></span> <span class="token number">6380</span><span class="token punctuation">(</span>replica<span class="token punctuation">)</span> -<span class="token operator">></span> <span class="token number">6381</span><span class="token punctuation">(</span>replica<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这种结构可以减少 master 直接连接的 replica 数量，但也会增加链路延迟。写入需要沿链路逐级传播，越靠后的 replica 越容易出现 latency amplification。</p>
+<p>链式复制还会放大故障影响。上游 replica 出现网络抖动或重启时，下游节点也会受到影响。因此生产环境只有在明确需要降低 master 复制连接压力时才建议使用，并且要监控每一层的复制延迟。</p>
+<p>配置示例：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 6380 复制 6379</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6379</span>
+
+<span class="token comment"># 6381 复制 6380</span>
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6381</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof <span class="token number">127.0</span>.0.1 <span class="token number">6380</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这种模式适合了解原理，生产上要谨慎使用，尤其要关注复制延迟和故障影响范围。</p>
+<h2 id="11-反客为主：手动晋升"><a href="#11-反客为主：手动晋升" class="headerlink" title="11. 反客为主：手动晋升"></a>11. 反客为主：手动晋升</h2><p>如果 master 不可用，可以手动让某个 replica 脱离复制关系：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> replicaof no one<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>旧写法：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6380</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> slaveof no one<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>执行后，6380 会变成 master。</p>
+<p>手动晋升后，可以看到角色已经变成 master：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">1</span>></span> replicaof no one
+OK
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">1</span>></span> info replication
+<span class="token comment"># Replication</span>
+role:master
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:33b0eebeea65c789fba91fd94b1e4987754532a2
+master_replid2:f3b36637a1be19ac8e09b4493080693b67eaa7ef
+master_repl_offset:1954
+second_repl_offset:1955
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1636
+repl_backlog_histlen:319
+<span class="token number">127.0</span>.0.1:638<span class="token operator"><span class="token file-descriptor important">1</span>></span> keys *
+<span class="token number">1</span><span class="token punctuation">)</span> <span class="token string">"k2"</span>
+<span class="token number">2</span><span class="token punctuation">)</span> <span class="token string">"k1"</span>
+<span class="token number">3</span><span class="token punctuation">)</span> <span class="token string">"k4"</span>
+<span class="token number">4</span><span class="token punctuation">)</span> <span class="token string">"k3"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<p>但手动晋升只是临时处理。要让其他 replica 改为复制新 master，还需要继续调整它们的 REPLICAOF 配置，并同步更新客户端或代理层的连接目标。</p>
+<p>旧 master 恢复后也不能直接继续承担读写，需要先确认拓扑和数据方向，避免形成两个可写 master 带来的 split-brain 风险。</p>
+<h2 id="12-复制原理"><a href="#12-复制原理" class="headerlink" title="12. 复制原理"></a>12. 复制原理</h2><p>Redis 复制大致分为两个阶段：</p>
+<ol>
+<li>全量复制</li>
+<li>增量复制，也叫部分重同步</li>
+</ol>
+<h3 id="12-1-首次连接"><a href="#12-1-首次连接" class="headerlink" title="12.1 首次连接"></a>12.1 首次连接</h3><p>replica 启动后连接 master，并发起同步请求。现代 Redis 使用 PSYNC 协议来支持全量复制和部分重同步。</p>
+<p>首次连接通常无法部分重同步，因此会走全量复制。</p>
+<h3 id="12-2-全量复制"><a href="#12-2-全量复制" class="headerlink" title="12.2 全量复制"></a>12.2 全量复制</h3><p>全量复制过程如下：</p>
+<ol>
+<li>replica 连接 master。</li>
+<li>master 后台生成 RDB 快照。</li>
+<li>master 在生成快照期间缓存新的写命令。</li>
+<li>master 把 RDB 文件发送给 replica。</li>
+<li>replica 清空旧数据，加载 RDB。</li>
+<li>master 再把期间缓存的写命令发送给 replica。</li>
+<li>replica 追上 master 后进入正常复制状态。</li>
+</ol>
+<p>可以把全量复制理解成下面这条链路：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">replica 发起 PSYNC
+  -> master fork 子进程生成 RDB
+  -> master 记录快照期间的新增写命令
+  -> replica 加载 RDB
+  -> master 发送缓存的写命令
+  -> replica 进入持续复制状态<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>全量复制不是没有成本。master 生成 RDB 时需要 fork 子进程，fork 本身会带来瞬时开销；写入量较大时，copy-on-write 可能显著增加内存占用，极端情况下会接近额外占用一份数据页。与此同时，RDB 传输和后续命令回放也会带来网络与 IO 压力。</p>
+<p>需要注意：replica 首次全量复制会清理自身旧数据，所以不要把已有重要数据的 Redis 实例随便配置成 replica。</p>
+<h3 id="12-3-心跳和持续同步"><a href="#12-3-心跳和持续同步" class="headerlink" title="12.3 心跳和持续同步"></a>12.3 心跳和持续同步</h3><p>主从之间会持续保持连接。master 后续收到写命令后，会把写命令发送给 replica。</p>
+<h3 id="12-4-部分重同步"><a href="#12-4-部分重同步" class="headerlink" title="12.4 部分重同步"></a>12.4 部分重同步</h3><p>如果 replica 短暂断线后重新连接，Redis 会尝试部分重同步。</p>
+<p>关键机制有三个：</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>replication backlog</td>
+<td>master 维护的一段环形复制缓冲区</td>
+</tr>
+<tr>
+<td>offset</td>
+<td>master 和 replica 各自记录复制偏移量</td>
+</tr>
+<tr>
+<td>replid</td>
+<td>master 的复制 ID</td>
+</tr>
+<tr>
+<td>replid2</td>
+<td>故障切换后保留的旧复制 ID，用于提升重同步成功率</td>
+</tr>
+</tbody></table>
+<p>如果 replica 断线期间缺失的数据仍然在 backlog 中，master 只需要把缺失部分补给 replica。否则只能重新全量复制。</p>
+<p>可以通过配置调整 backlog 大小：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">repl-backlog-size 64mb<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>backlog 是环形 buffer，不是普通队列。新的复制数据会不断写入，空间不足时会覆盖更早的数据。</p>
+<p>backlog 太小，replica 稍微断线久一点就容易触发全量复制；backlog 太大，会占用更多内存。生产环境通常按写入速率和可接受断线窗口估算，例如：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">repl-backlog-size >= 峰值写入字节率 * 期望容忍的断线秒数<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>网络频繁抖动时，replica 可能反复错过 backlog 窗口，从而触发多次 full resync。这类问题表面看是同步慢，本质上通常是网络稳定性、backlog 容量和写入流量共同作用。</p>
+<h2 id="13-复制延迟问题"><a href="#13-复制延迟问题" class="headerlink" title="13. 复制延迟问题"></a>13. 复制延迟问题</h2><p>主从复制默认是异步复制。master 写成功后，不需要等待所有 replica 都确认完成。</p>
+<p>这会带来复制延迟：</p>
+<ol>
+<li>master 写入成功，但 replica 还没同步到。</li>
+<li>客户端立刻去 replica 读取，可能读到旧值。</li>
+<li>master 宕机时，尚未同步到 replica 的数据可能丢失。</li>
+</ol>
+<p>可以用下面命令观察：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">info replication<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>重点看 master 和 replica 的 offset 差距。</p>
+<p>如果业务不能接受读旧数据，就不要把强一致读请求打到 replica。高写入场景下还要持续监控 master_repl_offset、slave_repl_offset 或 replica_repl_offset，以及 slave0、slave1 字段里的 lag。</p>
+<h2 id="14-防止-master-在-replica-不足时继续写"><a href="#14-防止-master-在-replica-不足时继续写" class="headerlink" title="14. 防止 master 在 replica 不足时继续写"></a>14. 防止 master 在 replica 不足时继续写</h2><p>Redis 提供了两个配置，可以在 replica 不足时让 master 拒绝写入：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">min-replicas-to-write 1
+min-replicas-max-lag 10<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>含义是：至少要有 1 个 replica 延迟不超过 10 秒，否则 master 拒绝写命令。</p>
+<p>这不是强一致复制，但可以降低“master 孤岛写入”带来的数据风险。</p>
+<p>更准确地说，它是一种弱一致性保护机制。它只能限制 master 在 replica 数量或延迟不满足条件时继续写入，并不保证每次写入都已经被所有 replica 应用，也不能完全消除故障窗口内的数据丢失风险。</p>
+<h2 id="15-常见问题"><a href="#15-常见问题" class="headerlink" title="15. 常见问题"></a>15. 常见问题</h2><h3 id="15-1-replica-为什么连不上-master"><a href="#15-1-replica-为什么连不上-master" class="headerlink" title="15.1 replica 为什么连不上 master"></a>15.1 replica 为什么连不上 master</h3><p>优先检查：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ping</span> master-ip
+telnet master-ip <span class="token number">6379</span>
+redis-cli <span class="token parameter variable">-h</span> master-ip <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> <span class="token function">ping</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>再检查：</p>
+<ol>
+<li>bind 是否监听正确地址</li>
+<li>protected-mode 是否阻止远程连接</li>
+<li>防火墙或安全组是否放行端口</li>
+<li>requirepass 和 masterauth 是否一致</li>
+<li>master 日志是否有认证失败</li>
+</ol>
+<h3 id="15-2-为什么-replica-不能写"><a href="#15-2-为什么-replica-不能写" class="headerlink" title="15.2 为什么 replica 不能写"></a>15.2 为什么 replica 不能写</h3><p>默认配置：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">replica-read-only yes<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这正是推荐行为。否则 replica 上写入的数据不会同步回 master，还可能在下一次全量复制时被覆盖。</p>
+<h3 id="15-3-master-重启后复制关系还在吗"><a href="#15-3-master-重启后复制关系还在吗" class="headerlink" title="15.3 master 重启后复制关系还在吗"></a>15.3 master 重启后复制关系还在吗</h3><p>如果复制关系写在配置文件里，重启后还在。如果只是在线执行 REPLICAOF，需要确认是否写回配置。</p>
+<p>master 重启后是否还能让 replica 部分重同步，取决于复制元数据是否连续，以及 backlog 是否覆盖 replica 缺失的 offset。条件满足时可能继续部分重同步；不满足时会退回全量复制。</p>
+<h3 id="15-4-replica-重启后会从头复制吗"><a href="#15-4-replica-重启后会从头复制吗" class="headerlink" title="15.4 replica 重启后会从头复制吗"></a>15.4 replica 重启后会从头复制吗</h3><p>不一定。能否部分重同步，取决于 replica 保存的复制 ID、offset，以及 master backlog 中是否还保留缺失数据。如果条件不满足，就会全量复制。</p>
+<h2 id="16-本文小结"><a href="#16-本文小结" class="headerlink" title="16. 本文小结"></a>16. 本文小结</h2><p>主从复制是 Redis 高可用体系的基础，但它本身不等于高可用。</p>
+<p>核心结论如下：</p>
+<ol>
+<li>新版本建议使用 REPLICAOF，旧资料中的 SLAVEOF 需要知道但不优先使用。</li>
+<li>master 负责写，replica 默认只读。</li>
+<li>普通主从下 master 宕机，replica 不会自动升级。</li>
+<li>首次同步通常是全量复制，后续尽量走部分重同步。</li>
+<li>replication backlog 是部分重同步的关键，大小要结合写入速率和断线窗口评估。</li>
+<li>主从复制默认异步，存在复制延迟、read-after-write 不一致和数据丢失窗口。</li>
+<li>如果要无人值守故障转移，需要继续引入 Sentinel 或 Cluster。</li>
+</ol>
+<p>下一篇继续看 Redis Sentinel 哨兵，它就是为了解决普通主从“master 挂了没人自动接班”的问题。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/f16d8a30.html">https://www.hnbian.cn/posts/f16d8a30.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/redis/">
+                                    <span class="chip bg-color">redis</span>
+                                </a>
+                            
+                                <a href="/tags/replica/">
+                                    <span class="chip bg-color">replica</span>
+                                </a>
+                            
+                                <a href="/tags/replication/">
+                                    <span class="chip bg-color">replication</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/c40b7e19.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-4e6eb4677fa2fb0cc1d4f16aa1ad40fb.jpg" class="responsive-img" alt="Redis 系列 6. Sentinel 哨兵高可用机制">
+                        
+                        <span class="card-title">Redis 系列 6. Sentinel 哨兵高可用机制</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2024-10-22
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/sentinel/">
+                        <span class="chip bg-color">sentinel</span>
+                    </a>
+                    
+                    <a href="/tags/high-availability/">
+                        <span class="chip bg-color">high-availability</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e92c4b78.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-09f5b9053a16bd5250db93fc8af66f80.jpg" class="responsive-img" alt="Redis 系列 4. 事务、Pipeline 与发布订阅">
+                        
+                        <span class="card-title">Redis 系列 4. 事务、Pipeline 与发布订阅</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2024-10-06
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/transaction/">
+                        <span class="chip bg-color">transaction</span>
+                    </a>
+                    
+                    <a href="/tags/pipeline/">
+                        <span class="chip bg-color">pipeline</span>
+                    </a>
+                    
+                    <a href="/tags/pubsub/">
+                        <span class="chip bg-color">pubsub</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

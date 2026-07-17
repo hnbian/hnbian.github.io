@@ -1,0 +1,2156 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Redis 系列 3. 持久化机制：RDB、AOF 与混合持久化, hnbian">
+    <meta name="description" content="1. Redis 为什么需要持久化Redis 主要在内存中读写数据。如果只把它当纯缓存，进程重启后缓存丢失通常可以接受；但如果 Redis 中保存了排行榜、计数器、会话、消息流、库存扣减中间状态等数据，就要考虑重启后的恢复问题。
+Redis">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Redis 系列 3. 持久化机制：RDB、AOF 与混合持久化 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-628d0d1922fa35414e1ddc19ad74cebd.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Redis 系列 3. 持久化机制：RDB、AOF 与混合持久化</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/redis/">
+                                <span class="chip bg-color">redis</span>
+                            </a>
+                        
+                            <a href="/tags/rdb/">
+                                <span class="chip bg-color">rdb</span>
+                            </a>
+                        
+                            <a href="/tags/aof/">
+                                <span class="chip bg-color">aof</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/redis/" class="post-category">
+                                redis
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2024-09-28
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    18 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h2 id="1-Redis-为什么需要持久化"><a href="#1-Redis-为什么需要持久化" class="headerlink" title="1. Redis 为什么需要持久化"></a>1. Redis 为什么需要持久化</h2><p>Redis 主要在内存中读写数据。如果只把它当纯缓存，进程重启后缓存丢失通常可以接受；但如果 Redis 中保存了排行榜、计数器、会话、消息流、库存扣减中间状态等数据，就要考虑重启后的恢复问题。</p>
+<p>Redis 持久化主要有两种方式：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>核心思路</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RDB</td>
+<td>按时间点生成内存快照</td>
+<td>备份、全量恢复、对数据实时性要求不高</td>
+</tr>
+<tr>
+<td>AOF</td>
+<td>记录每次写命令，重启时重放</td>
+<td>对数据丢失更敏感，希望恢复到更近时间点</td>
+</tr>
+</tbody></table>
+<p>可以先明确一个判断原则：如果 Redis 中只是缓存，持久化可以关闭；如果 Redis 中有业务状态，至少要开启 AOF everysec，并结合磁盘性能、fsync 策略和业务容忍度评估数据丢失窗口。</p>
+<h2 id="2-RDB-是什么"><a href="#2-RDB-是什么" class="headerlink" title="2. RDB 是什么"></a>2. RDB 是什么</h2><p>RDB，全称 Redis Database，是 Redis 在某个时间点生成的内存快照文件。</p>
+<p>可以把 RDB 理解成“拍照”：Redis 在某个时刻把内存里的数据集保存成一个二进制文件，默认文件名通常是 dump.rdb。真正落地时，BGSAVE 的核心机制是 fork 子进程，并依赖操作系统的 copy-on-write 让子进程看到生成快照时的数据视图。</p>
+<p><img src="https://images.hnbian.cn/new/n-09df49cff55fd9e417a269e5d9298ca9.png" alt="RDB快照"></p>
+<h3 id="2-1-RDB-的特点"><a href="#2-1-RDB-的特点" class="headerlink" title="2.1 RDB 的特点"></a>2.1 RDB 的特点</h3><table>
+<thead>
+<tr>
+<th>特点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件紧凑</td>
+<td>RDB 是压缩后的二进制快照，适合备份和传输</td>
+</tr>
+<tr>
+<td>恢复速度快</td>
+<td>恢复时直接加载快照，比逐条命令重放更快</td>
+</tr>
+<tr>
+<td>有时间窗口</td>
+<td>两次快照之间如果 Redis 宕机，中间写入会丢失</td>
+</tr>
+<tr>
+<td>fork 子进程</td>
+<td>BGSAVE 会 fork 子进程做持久化，主进程继续服务</td>
+</tr>
+<tr>
+<td>可能有额外内存压力</td>
+<td>fork 后写时复制可能带来内存放大</td>
+</tr>
+</tbody></table>
+<h2 id="3-RDB-如何触发"><a href="#3-RDB-如何触发" class="headerlink" title="3. RDB 如何触发"></a>3. RDB 如何触发</h2><p>RDB 有自动触发和手动触发两类。</p>
+<h3 id="3-1-自动触发"><a href="#3-1-自动触发" class="headerlink" title="3.1 自动触发"></a>3.1 自动触发</h3><p>配置文件中通过 save 规则控制：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">save 3600 1
+save 300 100
+save 60 10000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>含义是：</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>save 3600 1</td>
+<td>3600 秒内至少 1 次修改则触发</td>
+</tr>
+<tr>
+<td>save 300 100</td>
+<td>300 秒内至少 100 次修改则触发</td>
+</tr>
+<tr>
+<td>save 60 10000</td>
+<td>60 秒内至少 10000 次修改则触发</td>
+</tr>
+</tbody></table>
+<p>注意：不同 Redis 版本默认 save 配置可能不同，实际以本机 redis.conf 为准。</p>
+<p>多条 save 规则之间是 OR 关系，只要任意一条规则满足，就会触发一次后台快照。</p>
+<h3 id="3-2-手动触发"><a href="#3-2-手动触发" class="headerlink" title="3.2 手动触发"></a>3.2 手动触发</h3><p>手动触发有两个命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">save
+bgsave<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>区别如下：</p>
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th>说明</th>
+<th>是否阻塞</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SAVE</td>
+<td>主进程直接执行 RDB 保存</td>
+<td>会完全阻塞 Redis 主线程</td>
+</tr>
+<tr>
+<td>BGSAVE</td>
+<td>fork 子进程执行 RDB 保存</td>
+<td>主进程不长时间阻塞，但 fork 有瞬时开销</td>
+</tr>
+</tbody></table>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 生产环境一般不要直接执行 SAVE，更常用 BGSAVE</span>
+<span class="token number">127.0</span>.0.1:637<span class="token operator"><span class="token file-descriptor important">9</span>></span> SAVE          <span class="token comment"># 手动执行 RDB 持久化，会阻塞 Redis 主线程，生产环境慎用</span>
+OK
+<span class="token number">127.0</span>.0.1:637<span class="token operator"><span class="token file-descriptor important">9</span>></span> BGSAVE        <span class="token comment"># 后台异步执行 RDB 持久化，生产环境更常用</span>
+Background saving started
+<span class="token number">127.0</span>.0.1:637<span class="token operator"><span class="token file-descriptor important">9</span>></span> LASTSAVE      <span class="token comment"># 查看最近一次 RDB 保存成功的 Unix 时间戳</span>
+<span class="token punctuation">(</span>integer<span class="token punctuation">)</span> <span class="token number">1727500200</span>
+
+<span class="token comment"># RDB 自动保存规则</span>
+<span class="token comment"># 表示 3600 秒内至少有 1 个 key 发生变化，就触发一次 RDB 保存</span>
+<span class="token comment"># 表示 300 秒内至少有 100 个 key 发生变化，就触发一次 RDB 保存</span>
+<span class="token comment"># 表示 60 秒内至少有 10000 个 key 发生变化，就触发一次 RDB 保存</span>
+save <span class="token number">3600</span> <span class="token number">1</span> <span class="token number">300</span> <span class="token number">100</span> <span class="token number">60</span> <span class="token number">10000</span>
+
+<span class="token comment"># 自定义保存规则</span>
+<span class="token comment"># 表示 5 秒内至少有 2 个 key 发生变化，就触发一次 RDB 保存</span>
+save <span class="token number">5</span> <span class="token number">2</span>
+<span class="token comment"># 注意：这里必须指定目录，而不是文件名</span>
+<span class="token comment"># RDB 文件保存目录</span>
+<span class="token function">dir</span> ./myredis/dumpfiles
+<span class="token comment"># RDB 文件名</span>
+dbfilename dump6379.rdb<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>SAVE 会让 Redis 主线程直接做快照保存。在 Redis 单线程执行命令的模型下，这意味着保存期间其它客户端请求都无法被正常处理，所以生产环境通常不直接使用。</p>
+<p>BGSAVE 的主要保存工作由子进程完成，但不能理解为完全没有影响。fork 本身会短暂阻塞主线程；如果实例内存很大，fork 延迟会变明显。fork 之后如果主进程持续写入大量数据，copy-on-write 会带来额外内存占用。</p>
+<h2 id="4-RDB-相关配置"><a href="#4-RDB-相关配置" class="headerlink" title="4. RDB 相关配置"></a>4. RDB 相关配置</h2><p>常用配置项如下：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">dir &#x2F;myredis
+dbfilename dump6379.rdb
+rdbcompression yes
+rdbchecksum yes
+stop-writes-on-bgsave-error yes
+save 3600 1 300 100 60 10000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>参数说明：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>dir</td>
+<td>RDB 文件所在目录</td>
+</tr>
+<tr>
+<td>dbfilename</td>
+<td>RDB 文件名</td>
+</tr>
+<tr>
+<td>rdbcompression</td>
+<td>是否压缩 RDB 文件</td>
+</tr>
+<tr>
+<td>rdbchecksum</td>
+<td>是否开启校验</td>
+</tr>
+<tr>
+<td>stop-writes-on-bgsave-error</td>
+<td>后台保存失败后是否停止写入，用来避免“写入成功但无法持久化”的风险</td>
+</tr>
+<tr>
+<td>save</td>
+<td>自动快照触发规则</td>
+</tr>
+</tbody></table>
+<p>如果想关闭自动 RDB 快照：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">save &quot;&quot;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>也可以在线修改：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">config <span class="token builtin class-name">set</span> save <span class="token string">""</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>但在线修改只是当前实例生效，是否持久保存取决于后续是否执行 CONFIG REWRITE 以及配置文件权限，生产上更推荐直接改配置并走发布流程。</p>
+<h2 id="5-RDB-文件检查和恢复"><a href="#5-RDB-文件检查和恢复" class="headerlink" title="5. RDB 文件检查和恢复"></a>5. RDB 文件检查和恢复</h2><p>检查 RDB 文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-check-rdb /myredis/dump6379.rdb<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>下面检查命令如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token punctuation">[</span>root@hadoop100 ~<span class="token punctuation">]</span><span class="token comment"># cd /usr/local/bin/</span>
+<span class="token punctuation">[</span>root@hadoop100 bin<span class="token punctuation">]</span><span class="token comment"># ll</span>
+总用量 <span class="token number">21552</span>
+-rwxr-xr-x. <span class="token number">1</span> root root  <span class="token number">5205192</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-benchmark
+lrwxrwxrwx. <span class="token number">1</span> root root       <span class="token number">12</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-check-aof -<span class="token operator">></span> redis-server
+lrwxrwxrwx. <span class="token number">1</span> root root       <span class="token number">12</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-check-rdb -<span class="token operator">></span> redis-server
+-rwxr-xr-x. <span class="token number">1</span> root root  <span class="token number">5422600</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-cli
+lrwxrwxrwx. <span class="token number">1</span> root root       <span class="token number">12</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-sentinel -<span class="token operator">></span> redis-server
+-rwxr-xr-x. <span class="token number">1</span> root root <span class="token number">11436976</span> <span class="token number">9</span>月 <span class="token number">28</span> <span class="token number">13</span>:10 redis-server
+<span class="token punctuation">[</span>root@hadoop100 bin<span class="token punctuation">]</span><span class="token comment"># redis-check-rdb /myredis/dumpfiles/dump6379.rdb</span>
+<span class="token punctuation">[</span>offset <span class="token number">0</span><span class="token punctuation">]</span> Checking RDB <span class="token function">file</span> /myredis/dumpfiles/dump6379.rdb
+<span class="token punctuation">[</span>offset <span class="token number">27</span><span class="token punctuation">]</span> AUX FIELD redis-ver <span class="token operator">=</span> <span class="token string">'7.0.11'</span>
+<span class="token punctuation">[</span>offset <span class="token number">41</span><span class="token punctuation">]</span> AUX FIELD redis-bits <span class="token operator">=</span> <span class="token string">'64'</span>
+<span class="token punctuation">[</span>offset <span class="token number">53</span><span class="token punctuation">]</span> AUX FIELD ctime <span class="token operator">=</span> <span class="token string">'1727500200'</span>
+<span class="token punctuation">[</span>offset <span class="token number">68</span><span class="token punctuation">]</span> AUX FIELD used-mem <span class="token operator">=</span> <span class="token string">'1029512'</span>
+<span class="token punctuation">[</span>offset <span class="token number">80</span><span class="token punctuation">]</span> AUX FIELD aof-base <span class="token operator">=</span> <span class="token string">'0'</span>
+<span class="token punctuation">[</span>offset <span class="token number">89</span><span class="token punctuation">]</span> Checksum OK
+<span class="token punctuation">[</span>offset <span class="token number">89</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>o/ RDB looks OK<span class="token operator">!</span> <span class="token punctuation">\</span>o/
+<span class="token punctuation">[</span>info<span class="token punctuation">]</span> <span class="token number">0</span> keys <span class="token builtin class-name">read</span>
+<span class="token punctuation">[</span>info<span class="token punctuation">]</span> <span class="token number">0</span> expires
+<span class="token punctuation">[</span>info<span class="token punctuation">]</span> <span class="token number">0</span> already expired
+<span class="token punctuation">[</span>root@hadoop100 bin<span class="token punctuation">]</span><span class="token comment">#</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<p>恢复 RDB 的基本过程：</p>
+<ol>
+<li>停止 Redis</li>
+<li>将 RDB 文件放到 dir 指定目录</li>
+<li>文件名改成 dbfilename 配置的名字</li>
+<li>启动 Redis</li>
+<li>使用 dbsize、业务 key、抽样查询验证恢复结果</li>
+</ol>
+<p>示例：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> <span class="token function">shutdown</span>
+<span class="token function">cp</span> dump6379.rdb /myredis/dump6379.rdb
+redis-server /myredis/redis7.conf
+redis-cli <span class="token parameter variable">-p</span> <span class="token number">6379</span> <span class="token parameter variable">--pass</span> <span class="token number">111111</span> dbsize<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>实际恢复时，Redis 启动会自动在 dir 指定目录查找 dbfilename 对应的 RDB 文件并加载，不需要额外执行“恢复命令”。手动步骤的重点是把文件放到正确目录、使用正确文件名，并在启动后验证 key 数量和业务数据。</p>
+<h2 id="6-RDB-的优缺点"><a href="#6-RDB-的优缺点" class="headerlink" title="6. RDB 的优缺点"></a>6. RDB 的优缺点</h2><h3 id="6-1-优点"><a href="#6-1-优点" class="headerlink" title="6.1 优点"></a>6.1 优点</h3><ol>
+<li>文件紧凑，适合做周期性备份。</li>
+<li>恢复速度快，适合大规模数据全量恢复。</li>
+<li>对主进程影响相对较小，BGSAVE 由子进程完成主要工作。</li>
+</ol>
+<h3 id="6-2-缺点"><a href="#6-2-缺点" class="headerlink" title="6.2 缺点"></a>6.2 缺点</h3><ol>
+<li>两次快照之间的数据可能丢失。</li>
+<li>fork 时可能带来内存压力，copy-on-write 在高写入场景下可能让内存占用明显放大，极端情况下接近额外一份数据集。</li>
+<li>快照很大时，磁盘 IO 会明显上升，也可能带来延迟抖动。</li>
+</ol>
+<p>所以 RDB 更适合“允许丢一段时间窗口数据，但希望恢复快”的场景。</p>
+<h2 id="7-AOF-是什么"><a href="#7-AOF-是什么" class="headerlink" title="7. AOF 是什么"></a>7. AOF 是什么</h2><p>AOF，全称 Append Only File。它不是保存某个时刻的数据快照，而是把 Redis 执行过的写命令追加到日志文件中。Redis 重启时重新执行这些命令，从而恢复数据。</p>
+<p>对比 RDB：</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>RDB</th>
+<th>AOF</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>记录内容</td>
+<td>数据快照</td>
+<td>写命令日志</td>
+</tr>
+<tr>
+<td>恢复方式</td>
+<td>加载快照</td>
+<td>重放命令</td>
+</tr>
+<tr>
+<td>文件大小</td>
+<td>通常较小</td>
+<td>通常较大，需要重写</td>
+</tr>
+<tr>
+<td>数据丢失窗口</td>
+<td>取决于快照间隔</td>
+<td>取决于 fsync 策略</td>
+</tr>
+<tr>
+<td>恢复速度</td>
+<td>通常更快</td>
+<td>命令多时更慢</td>
+</tr>
+</tbody></table>
+<h3 id="7-1-AOF-持久化工作流程"><a href="#7-1-AOF-持久化工作流程" class="headerlink" title="7.1 AOF 持久化工作流程"></a>7.1 AOF 持久化工作流程</h3><p>AOF 的全称是 Append Only File，它会把 Redis 执行过的写命令追加保存到 AOF 文件中。Redis 重启时，可以通过重新执行 AOF 文件中的命令来恢复数据。</p>
+<p>AOF 持久化的大致流程如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-bf58a245cd93259caac322528de220dd.png" alt="AOF 工作流程"></p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Client 作为命令的来源，会不断向 Redis Server 发送写命令。</td>
+</tr>
+<tr>
+<td>2</td>
+<td>写命令到达 Redis Server 后，并不是直接写入 AOF 文件，而是先写入 AOF 缓冲区。AOF 缓冲区是内存中的一片区域，用来临时保存写命令，避免每条命令都立即进行磁盘 IO。</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Redis 会根据 AOF 缓冲区同步文件的写回策略，将缓冲区中的命令写入磁盘上的 AOF 文件。</td>
+</tr>
+<tr>
+<td>4</td>
+<td>随着 AOF 内容不断增加，AOF 文件会越来越大。为了避免文件膨胀，Redis 会根据规则进行命令合并，也就是 AOF 重写，从而达到压缩 AOF 文件的目的。</td>
+</tr>
+<tr>
+<td>5</td>
+<td>当 Redis Server 重启时，会从 AOF 文件 中重新加载数据，恢复 Redis 中的数据状态。</td>
+</tr>
+</tbody></table>
+<p>这里有两层缓冲要区分：第一层是 Redis 自己维护的 AOF buffer，第二层是操作系统的 page cache。Redis 把数据写给内核之后，并不等于数据已经落到物理磁盘，真正落盘还取决于 fsync 策略和操作系统调度。</p>
+<p>简单来说，AOF 的流程可以理解为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Client 写命令
+    ↓
+Redis Server 接收命令
+    ↓
+写入 AOF 缓冲区
+    ↓
+根据写回策略刷入 AOF 文件
+    ↓
+AOF 文件过大时触发 AOF 重写
+    ↓
+Redis 重启时加载 AOF 文件恢复数据<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="8-开启-AOF"><a href="#8-开启-AOF" class="headerlink" title="8. 开启 AOF"></a>8. 开启 AOF</h2><p>核心配置：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">appendonly yes
+appendfilename &quot;appendonly.aof&quot;
+appenddirname &quot;appendonlydir&quot;
+appendfsync everysec<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Redis 7 需要特别注意：AOF 默认采用 multi-part AOF 机制，不一定只看到一个单独的 appendonly.aof 文件。通常会在 appenddirname 指定目录下看到 manifest、base、incr 等文件。其中 manifest 是核心索引文件，用来记录当前有效的 base 文件和 incr 文件。</p>
+<p>可以在数据目录下查看：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-lh</span> /myredis/appendonlydir<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果使用 Redis 7，看到类似下面的文件是正常的：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">appendonly.aof.manifest
+appendonly.aof.1.base.rdb
+appendonly.aof.1.incr.aof<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>其中 base.rdb 是重写时生成的全量基线文件，incr.aof 是基线之后继续追加的增量写命令。Redis 启动恢复时会根据 manifest 组合加载这些文件。这点和很多旧文章只讲单个 AOF 文件不同。</p>
+<h2 id="9-AOF-三种写回策略"><a href="#9-AOF-三种写回策略" class="headerlink" title="9. AOF 三种写回策略"></a>9. AOF 三种写回策略</h2><p>AOF 写命令进入缓冲区后，需要通过 fsync 刷到磁盘。appendfsync 有三种策略：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>配置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>每条命令刷盘</td>
+<td>appendfsync always</td>
+<td>最安全，但性能损耗最大</td>
+</tr>
+<tr>
+<td>每秒刷盘</td>
+<td>appendfsync everysec</td>
+<td>性能和可靠性折中，通常最多丢 1 秒级数据</td>
+</tr>
+<tr>
+<td>交给系统决定</td>
+<td>appendfsync no</td>
+<td>性能好，但丢失窗口不可控</td>
+</tr>
+</tbody></table>
+<p>生产上最常见的是：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">appendfsync everysec<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这是 Redis 官方实践中很常见的折中选择。它不保证绝对零丢失，但性能和可靠性比较平衡。</p>
+<p>需要注意，everysec 的“1 秒”是通常情况下的经验窗口，不是严格承诺。Linux 磁盘 flush、虚拟化存储、IO 拥塞或系统极端抖动，都可能让实际落盘延迟变大。生产环境要结合磁盘性能、监控指标和业务可接受丢失窗口评估，而不是只记“最多丢 1 秒”。</p>
+<h2 id="10-AOF-文件检查和修复"><a href="#10-AOF-文件检查和修复" class="headerlink" title="10. AOF 文件检查和修复"></a>10. AOF 文件检查和修复</h2><p>检查 AOF 前先看当前是不是 Redis 7 的 multi-part AOF。如果 appendonlydir 下存在 manifest 文件，先根据 manifest 和启动日志确认具体的 base、incr 文件，再检查对应文件；如果是旧版本或单文件 AOF，再检查具体的 AOF 文件。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Redis 7 multi-part AOF，按实际文件名检查 incr 或 base 文件</span>
+redis-check-aof /myredis/appendonlydir/appendonly.aof.1.incr.aof
+
+<span class="token comment"># 旧版或单文件 AOF</span>
+redis-check-aof /myredis/appendonly.aof<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 AOF 尾部损坏，可以尝试修复。修复前必须先备份目录或文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cp</span> <span class="token parameter variable">-r</span> /myredis/appendonlydir /myredis/appendonlydir.bak<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>然后按实际文件形态执行修复：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># Redis 7 multi-part AOF，按日志提示修复具体损坏的 AOF 文件</span>
+redis-check-aof <span class="token parameter variable">--fix</span> /myredis/appendonlydir/appendonly.aof.1.incr.aof
+
+<span class="token comment"># 旧版或单文件 AOF</span>
+redis-check-aof <span class="token parameter variable">--fix</span> /myredis/appendonly.aof<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 Redis 启动日志明确提示某个 AOF 文件损坏，则以日志中的文件路径为准。不要在没有备份的情况下直接执行 –fix。</p>
+<p>常见 AOF 配置如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 开启 AOF 持久化</span>
+<span class="token comment"># yes 表示开启，Redis 会把执行过的写命令追加保存到 AOF 文件中</span>
+appendonly <span class="token function">yes</span>
+<span class="token comment"># AOF 写回策略：每次写命令都同步写入磁盘</span>
+<span class="token comment"># 数据安全性最高，但性能影响最大，生产环境一般不推荐</span>
+<span class="token comment"># appendfsync always</span>
+<span class="token comment"># AOF 写回策略：每秒写入一次磁盘</span>
+<span class="token comment"># 性能和数据安全比较均衡，生产环境常用配置</span>
+appendfsync everysec
+<span class="token comment"># AOF 写回策略：由操作系统决定什么时候写入磁盘</span>
+<span class="token comment"># 性能最好，但宕机时可能丢失较多数据</span>
+<span class="token comment"># appendfsync no</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="11-AOF-重写机制"><a href="#11-AOF-重写机制" class="headerlink" title="11. AOF 重写机制"></a>11. AOF 重写机制</h2><p>AOF 是追加日志，随着写入越来越多，文件会越来越大。比如对同一个 key 执行了 100 次 INCR，最终恢复数据时其实只需要最后的值，不需要完整保留中间 100 条命令。</p>
+<p>AOF 重写就是把冗余命令压缩成恢复当前数据集所需的最小命令集合。重写由 BGREWRITEAOF fork 出的子进程完成，主线程仍然可以继续处理请求，但 fork、磁盘写入和后续文件切换都会带来额外 CPU、内存和 IO 压力。</p>
+<p>手动触发：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">bgrewriteaof<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>自动触发常用配置：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>含义是：当 AOF 文件比上次重写后增长 100%，并且文件至少达到 64MB 时，触发重写。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 几种类型文件的前缀，后跟有关序列和类型的附加信息</span>
+appendfilename <span class="token string">"appendonly.aof"</span>
+
+<span class="token comment"># 新版本增加的目录配置项目</span>
+appenddirname <span class="token string">"appendonlydir"</span>
+
+<span class="token comment"># 如果 appendonlydir 下存在 multi-part AOF，通常会看到下面几类文件：</span>
+<span class="token number">1</span>. 基础文件
+   appendonly.aof.1.base.rdb
+<span class="token number">2</span>. 增量文件
+   appendonly.aof.1.incr.aof
+   appendonly.aof.2.incr.aof
+<span class="token number">3</span>. 清单文件
+   appendonly.aof.manifest<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>重写后的结果通常是：</p>
+<ol>
+<li>文件更小</li>
+<li>重启恢复更快</li>
+<li>冗余历史命令减少</li>
+</ol>
+<p>所以 bgrewriteaof 不应理解成“完全无影响”。大实例或慢磁盘环境里，AOF rewrite 可能造成 IO 抢占和 latency spike。生产上要关注 INFO persistence、磁盘 util、fork 耗时和 Redis 延迟监控。</p>
+<h2 id="12-AOF-的优缺点"><a href="#12-AOF-的优缺点" class="headerlink" title="12. AOF 的优缺点"></a>12. AOF 的优缺点</h2><h3 id="12-1-优点"><a href="#12-1-优点" class="headerlink" title="12.1 优点"></a>12.1 优点</h3><ol>
+<li>数据丢失窗口更小。</li>
+<li>日志追加，语义直观。</li>
+<li>everysec 策略在性能和可靠性之间比较平衡。</li>
+</ol>
+<h3 id="12-2-缺点"><a href="#12-2-缺点" class="headerlink" title="12.2 缺点"></a>12.2 缺点</h3><ol>
+<li>文件通常比 RDB 大。</li>
+<li>恢复时需要重放命令，可能比 RDB 慢。</li>
+<li>AOF 写入、fsync 和 rewrite 会带来额外 IO，并可能造成延迟抖动。</li>
+<li>如果不了解 Redis 7 multi-part AOF，排查文件时容易误判。</li>
+</ol>
+<h2 id="13-RDB-和-AOF-同时开启"><a href="#13-RDB-和-AOF-同时开启" class="headerlink" title="13. RDB 和 AOF 同时开启"></a>13. RDB 和 AOF 同时开启</h2><p>Redis 可以同时开启 RDB 和 AOF。</p>
+<p>配置示例：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">save 3600 1 300 100 60 10000
+appendonly yes
+appendfsync everysec
+aof-use-rdb-preamble yes<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>当 RDB 和 AOF 同时存在时，Redis 重启恢复通常会优先使用 AOF，因为 AOF 往往包含更完整的数据变化。</p>
+<p>aof-use-rdb-preamble yes 表示 AOF 重写时使用 RDB 格式作为 AOF 文件的前半部分，再追加增量 AOF 内容。这就是 RDB + AOF 的混合格式。它的核心收益是提升恢复速度：启动时先快速加载 RDB 基线，再重放较短的增量 AOF。</p>
+<table>
+<thead>
+<tr>
+<th>配置指令</th>
+<th>配置含义</th>
+<th>配置示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>appendonly</td>
+<td>是否开启 AOF</td>
+<td>appendonly yes</td>
+</tr>
+<tr>
+<td>appendfilename</td>
+<td>AOF 文件名称</td>
+<td>appendfilename “appendonly.aof”</td>
+</tr>
+<tr>
+<td>appendfsync</td>
+<td>AOF 同步方式</td>
+<td>everysec &#x2F; always &#x2F; no</td>
+</tr>
+<tr>
+<td>no-appendfsync-on-rewrite</td>
+<td>AOF 重写期间是否同步</td>
+<td>no-appendfsync-on-rewrite no</td>
+</tr>
+<tr>
+<td>auto-aof-rewrite-percentage</td>
+<td>AOF 自动重写触发比例</td>
+<td>auto-aof-rewrite-percentage 100</td>
+</tr>
+<tr>
+<td>auto-aof-rewrite-min-size</td>
+<td>AOF 自动重写触发的最小文件大小</td>
+<td>auto-aof-rewrite-min-size 64mb</td>
+</tr>
+</tbody></table>
+<h2 id="14-如何选择持久化方案"><a href="#14-如何选择持久化方案" class="headerlink" title="14. 如何选择持久化方案"></a>14. 如何选择持久化方案</h2><p>可以按下面这张表判断。</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐方式</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>纯缓存，数据可从数据库重建</td>
+<td>关闭持久化或只保留 RDB</td>
+<td>重启后重新预热即可</td>
+</tr>
+<tr>
+<td>普通业务缓存，希望重启恢复快</td>
+<td>RDB</td>
+<td>文件小，恢复快</td>
+</tr>
+<tr>
+<td>计数、排行、状态等不希望丢太多</td>
+<td>AOF everysec</td>
+<td>通常是秒级丢失窗口，但要结合磁盘和 fsync 状态评估</td>
+</tr>
+<tr>
+<td>希望兼顾恢复速度和较小丢失窗口</td>
+<td>AOF + 混合持久化</td>
+<td>重写后前半段是 RDB，后半段是增量 AOF</td>
+</tr>
+<tr>
+<td>极端要求零丢失</td>
+<td>Redis 不应作为唯一存储</td>
+<td>即使 always 也要考虑系统、磁盘、复制链路和业务事务</td>
+</tr>
+</tbody></table>
+<p>我个人更常用的组合是：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">appendonly yes
+appendfsync everysec
+aof-use-rdb-preamble yes
+save 3600 1 300 100 60 10000<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>但最终要看业务是否允许丢失、磁盘性能和恢复时间要求。纯 cache、业务 state、轻量 queue 的持久化策略不应该完全相同：缓存更看重恢复速度和预热能力，状态数据更看重丢失窗口，队列类数据还要评估 ACK、重复消费和业务补偿。</p>
+<p>本质上，持久化选择是在恢复速度、数据完整性、CPU&#x2F;fork 成本和磁盘 IO 之间做权衡。RDB 更偏 CPU&#x2F;fork 和快照备份，AOF 更偏持续 IO 和更小丢失窗口，混合持久化则试图在恢复速度和完整性之间取中间值。</p>
+<h2 id="15-纯缓存模式"><a href="#15-纯缓存模式" class="headerlink" title="15. 纯缓存模式"></a>15. 纯缓存模式</h2><p>如果 Redis 明确只做缓存，不需要落盘，可以关闭 RDB 和 AOF：</p>
+<pre class="line-numbers language-conf" data-language="conf"><code class="language-conf">save &quot;&quot;
+appendonly no<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<img src="https://images.hnbian.cn/new/n-9771b9fd551baa1aad6969d5a197b725.png" alt="纯缓存模式" style="zoom:25%;" />
+
+<p>这种方式重启最快，也避免了持久化 IO，但代价是 Redis 重启后数据全部丢失。</p>
+<h2 id="16-排查持久化问题的常用命令"><a href="#16-排查持久化问题的常用命令" class="headerlink" title="16. 排查持久化问题的常用命令"></a>16. 排查持久化问题的常用命令</h2><p>实际排查时常用这些命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token comment"># 查看持久化相关信息</span>
+info persistence
+
+<span class="token comment"># 查看配置</span>
+config get save
+config get appendonly
+config get appendfsync
+config get <span class="token function">dir</span>
+config get dbfilename
+config get appendfilename
+config get appenddirname
+
+<span class="token comment"># 手动触发</span>
+bgsave
+bgrewriteaof
+
+<span class="token comment"># 检查文件</span>
+redis-check-rdb /myredis/dump6379.rdb
+redis-check-aof /myredis/appendonlydir/appendonly.aof.1.incr.aof<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>INFO persistence 里重点看：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rdb_last_bgsave_status</td>
+<td>最近一次 RDB 是否成功</td>
+</tr>
+<tr>
+<td>rdb_last_save_time</td>
+<td>最近一次 RDB 保存时间</td>
+</tr>
+<tr>
+<td>aof_enabled</td>
+<td>AOF 是否开启</td>
+</tr>
+<tr>
+<td>aof_last_bgrewrite_status</td>
+<td>最近一次 AOF 重写是否成功</td>
+</tr>
+<tr>
+<td>aof_current_size</td>
+<td>当前 AOF 大小</td>
+</tr>
+<tr>
+<td>aof_base_size</td>
+<td>上次重写后的 AOF 基准大小</td>
+</tr>
+</tbody></table>
+<h2 id="17-本文小结"><a href="#17-本文小结" class="headerlink" title="17. 本文小结"></a>17. 本文小结</h2><p>Redis 持久化不要只记“RDB 快、AOF 安全”这种口号，要看数据丢失窗口、恢复速度、fork&#x2F;COW 内存压力、磁盘 IO 和运维复杂度。</p>
+<p>核心结论如下：</p>
+<ol>
+<li>RDB 是快照，适合备份和快速恢复，但可能丢失两次快照之间的数据。</li>
+<li>AOF 是写命令日志，everysec 是常见折中，通常是秒级丢失窗口，但极端 IO 抖动下可能更大。</li>
+<li>Redis 7 的 AOF 可能是 multi-part AOF，要根据 manifest 找 base 和 incr 文件，不要只找一个单独的 appendonly.aof。</li>
+<li>混合持久化通过 aof-use-rdb-preamble yes 使用 RDB 基线加增量 AOF，核心收益是提高恢复速度。</li>
+<li>如果 Redis 只是缓存，可以关闭持久化；如果 Redis 保存业务状态，必须明确最多能接受丢多少数据。</li>
+</ol>
+<p>下一篇继续看 Redis 单机能力：事务、Pipeline 和发布订阅。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/d3a8f091.html">https://www.hnbian.cn/posts/d3a8f091.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/redis/">
+                                    <span class="chip bg-color">redis</span>
+                                </a>
+                            
+                                <a href="/tags/rdb/">
+                                    <span class="chip bg-color">rdb</span>
+                                </a>
+                            
+                                <a href="/tags/aof/">
+                                    <span class="chip bg-color">aof</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/e92c4b78.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-09f5b9053a16bd5250db93fc8af66f80.jpg" class="responsive-img" alt="Redis 系列 4. 事务、Pipeline 与发布订阅">
+                        
+                        <span class="card-title">Redis 系列 4. 事务、Pipeline 与发布订阅</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2024-10-06
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/transaction/">
+                        <span class="chip bg-color">transaction</span>
+                    </a>
+                    
+                    <a href="/tags/pipeline/">
+                        <span class="chip bg-color">pipeline</span>
+                    </a>
+                    
+                    <a href="/tags/pubsub/">
+                        <span class="chip bg-color">pubsub</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/b7f4c612.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-dcca91c4f8d92f780b19491a126dab32.jpg" class="responsive-img" alt="Redis 系列 2. 数据类型与常用命令">
+                        
+                        <span class="card-title">Redis 系列 2. 数据类型与常用命令</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2024-09-20
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/redis/" class="post-category">
+                                    redis
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/command/">
+                        <span class="chip bg-color">command</span>
+                    </a>
+                    
+                    <a href="/tags/redis/">
+                        <span class="chip bg-color">redis</span>
+                    </a>
+                    
+                    <a href="/tags/datatype/">
+                        <span class="chip bg-color">datatype</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,2108 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式, hnbian">
+    <meta name="description" content="前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-9810ef18e76a29d003d833c02a55a5da.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/data-lake/">
+                                <span class="chip bg-color">data-lake</span>
+                            </a>
+                        
+                            <a href="/tags/cow/">
+                                <span class="chip bg-color">cow</span>
+                            </a>
+                        
+                            <a href="/tags/mor/">
+                                <span class="chip bg-color">mor</span>
+                            </a>
+                        
+                            <a href="/tags/query/">
+                                <span class="chip bg-color">query</span>
+                            </a>
+                        
+                            <a href="/tags/compaction/">
+                                <span class="chip bg-color">compaction</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-07-17
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    25 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？</p>
+<p>Hudi 的两种表类型 Copy On Write 和 Merge On Read，本质上就是围绕这个问题做的取舍。COW 更像“写时整理”，MOR 更像“读时合并”。它们都会通过 Timeline 保证事务提交，但文件形态、写入延迟、查询成本、compaction 依赖完全不同。</p>
+<h2 id="1-表类型与查询语义"><a href="#1-表类型与查询语义" class="headerlink" title="1. 表类型与查询语义"></a>1. 表类型与查询语义</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>还是用订单表举例。</p>
+<p>第一次写入三条订单：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">order_id=2001, status=CREATED
+order_id=2002, status=CREATED
+order_id=2003, status=CREATED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>过几分钟，订单 <code>2001</code> 支付成功，同时新增订单 <code>2004</code>：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">order_id=2001, status=PAID
+order_id=2004, status=CREATED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果这张表是普通 Parquet 表，通常有两种处理方式：</p>
+<ol>
+<li>重写整个分区，把 <code>2001</code> 改成 <code>PAID</code>，再加上 <code>2004</code>。</li>
+<li>追加一批增量文件，查询时自己合并最新状态。</li>
+</ol>
+<p>第一种方式查询简单，但写入成本高；第二种方式写入快，但查询复杂。Hudi 的 COW 和 MOR 也是围绕这两类思路设计的，只是它把文件版本、提交状态、索引定位、增量读取和表服务都收敛到了表自身。</p>
+<h3 id="1-2-表类型和查询类型先分清"><a href="#1-2-表类型和查询类型先分清" class="headerlink" title="1.2 表类型和查询类型先分清"></a>1.2 表类型和查询类型先分清</h3><p>Hudi 里有两组概念容易混在一起：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>关注点</th>
+<th>常见取值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>表类型</td>
+<td>数据如何写入和组织文件</td>
+<td>Copy On Write、Merge On Read</td>
+</tr>
+<tr>
+<td>查询类型</td>
+<td>读取时看什么文件视图</td>
+<td>Snapshot Query、Incremental Query、Read Optimized Query</td>
+</tr>
+</tbody></table>
+<p>表类型决定的是写入和存储形态。查询类型决定的是读取视角。</p>
+<p>一张 COW 表可以做 Snapshot Query，也可以做 Incremental Query。一张 MOR 表可以做 Snapshot Query、Incremental Query，也可以做 Read Optimized Query。不要把 COW 等同于 Snapshot，也不要把 MOR 等同于 Read Optimized。</p>
+<h3 id="1-3-Copy-On-Write"><a href="#1-3-Copy-On-Write" class="headerlink" title="1.3 Copy On Write"></a>1.3 Copy On Write</h3><p>Copy On Write 通常简称 COW。</p>
+<p>COW 表中，数据主要存放在 Base File 里，通常是 Parquet 文件。发生更新时，Hudi 不会原地修改旧 Parquet，而是读取旧文件、合并新记录、写出新的 Base File，再通过 Timeline 提交新的 FileSlice。</p>
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-ccc0d6854d0a0a3cd8fff0a399952382.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Copy On Write 写入流程"></p>
+<p>这张图主要说明 COW 表在更新时会读取旧 Base File、合并新记录并写出新的 Base File，成本主要发生在写入阶段。</p>
+<p>可以把 COW 理解成：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">更新到来
+  -> 找到旧 Base File
+  -> 读取旧记录
+  -> 合并新记录
+  -> 写出新 Base File
+  -> 提交 commit<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h4 id="1-3-1-COW-的优点"><a href="#1-3-1-COW-的优点" class="headerlink" title="1.3.1 COW 的优点"></a>1.3.1 COW 的优点</h4><p>COW 最大的优点是查询简单。</p>
+<p>读取端通常只需要读当前有效的 Base File，不需要在查询时合并大量增量日志。Hive、Spark SQL、Trino 这类查询引擎读取 COW 表时，整体模型更接近普通 Parquet 表。</p>
+<p>这也意味着 COW 更适合：</p>
+<ol>
+<li>读多写少的表。</li>
+<li>更新比例不高的事实表。</li>
+<li>查询延迟要求稳定的明细表。</li>
+<li>需要让多种查询引擎低成本读取的表。</li>
+</ol>
+<h4 id="1-3-2-COW-的缺点"><a href="#1-3-2-COW-的缺点" class="headerlink" title="1.3.2 COW 的缺点"></a>1.3.2 COW 的缺点</h4><p>COW 的代价在写入侧。</p>
+<p>如果一个 Base File 里只有一条记录发生变化，COW 仍然可能要重写整个 Base File。更新比例越高、文件越大、写入越频繁，写放大越明显。</p>
+<p>所以 COW 不适合所有场景。如果表是高频 CDC 更新，写入端会承受更大的 merge 和 rewrite 成本。</p>
+<h3 id="1-4-Merge-On-Read"><a href="#1-4-Merge-On-Read" class="headerlink" title="1.4 Merge On Read"></a>1.4 Merge On Read</h3><p>Merge On Read 通常简称 MOR。</p>
+<p>MOR 表中，一个 FileSlice 可以由 Base File 和 Log File 组成。更新到来时，Hudi 可以先把变更追加到 Log File，降低写入延迟；读取最新状态时，再把 Base File 和 Log File 合并起来。</p>
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-d33286ad46da700d1a4f94f542760ecf.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Merge On Read 写入流程"></p>
+<p>这张图主要说明 MOR 表可以先把更新写入 Log File，再通过 Snapshot Query 或后台 Compaction 完成合并。</p>
+<p>可以把 MOR 理解成：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">更新到来
+  -> 找到 FileGroup
+  -> 典型情况下把增量追加到 Log File
+  -> 提交 deltacommit
+  -> Snapshot Query 读取时按需要合并 Base File + Log File
+  -> 后台 Compaction 合并成新的 Base File<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h4 id="1-4-1-MOR-的优点"><a href="#1-4-1-MOR-的优点" class="headerlink" title="1.4.1 MOR 的优点"></a>1.4.1 MOR 的优点</h4><p>MOR 的优势在写入侧。</p>
+<p>更新不一定马上重写 Base File，可以先追加 Log File。这对实时入湖、CDC 写入、低延迟写入很有吸引力。</p>
+<p>MOR 更适合：</p>
+<ol>
+<li>写入频繁、更新比例高的表。</li>
+<li>希望降低写入延迟的 CDC 入湖。</li>
+<li>可以接受后台 compaction 的场景。</li>
+<li>查询侧愿意在新鲜度和性能之间做权衡的场景。</li>
+</ol>
+<h4 id="1-4-2-MOR-的缺点"><a href="#1-4-2-MOR-的缺点" class="headerlink" title="1.4.2 MOR 的缺点"></a>1.4.2 MOR 的缺点</h4><p>MOR 的复杂度在读取和表服务。</p>
+<p>如果 Log File 积累太多，Snapshot Query 每次都要合并 Base File 和 Log File，查询会变慢。为了控制长期查询性能，需要配置 compaction，把 Log File 合并进新的 Base File。</p>
+<p>所以 MOR 的核心不是“写入变快就完了”，而是要持续管理：</p>
+<ol>
+<li>compaction 触发频率。</li>
+<li>Log File 大小。</li>
+<li>Snapshot Query 的合并成本。</li>
+<li>Read Optimized Query 能接受的数据延迟。</li>
+<li>Flink &#x2F; Spark 写入任务和 compaction 任务的资源竞争。</li>
+</ol>
+<h4 id="1-4-3-MOR-写入不等于所有数据都写-Log-File"><a href="#1-4-3-MOR-写入不等于所有数据都写-Log-File" class="headerlink" title="1.4.3 MOR 写入不等于所有数据都写 Log File"></a>1.4.3 MOR 写入不等于所有数据都写 Log File</h4><p>刚开始学 MOR 时，很容易把它理解成“所有写入都先进 Log File”。这个理解不够准确。</p>
+<p>MOR 的文件形态会受到索引能力和写入引擎影响。以 Spark 常见的 Bloom Index 为例，Bloom Index 的定位能力更多依赖 Base File 侧的文件级信息，因此在 Spark 小规模 DataSource 示例中，MOR 表也可能先写出 Base File，未必立刻形成明显的业务 Log File。UPDATE 是否追加到 Log File，还会受到 small file 策略、索引、写入引擎和 compaction 状态影响。</p>
+<p>在 Flink 长流写入中，如果使用 State Index，任务可以在 state 中维护 key 到 FileGroup 的映射，写入行为又会不一样。它更容易持续追加 Log File，并在达到大小阈值后 roll over。</p>
+<p>所以判断 MOR 表不要只看“有没有 <code>.log</code> 文件”这一件事。更可靠的判断方式是：</p>
+<ol>
+<li>看 <code>hoodie.table.type</code> 是否为 <code>MERGE_ON_READ</code>。</li>
+<li>看 Timeline 中是否出现 <code>deltacommit</code>。</li>
+<li>看当前写入引擎和索引是否支持对 Log File 做有效定位。</li>
+<li>看 compaction 是否已经把 Log File 合并成新的 Base File。</li>
+</ol>
+<h4 id="1-4-4-Compaction-有内联和异步两种思路"><a href="#1-4-4-Compaction-有内联和异步两种思路" class="headerlink" title="1.4.4 Compaction 有内联和异步两种思路"></a>1.4.4 Compaction 有内联和异步两种思路</h4><p>MOR 表迟早要面对 compaction。Log File 越积越多，Snapshot Query 的合并成本就越高；compaction 太频繁，又会挤占写入资源。</p>
+<p>常见思路有两种：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>含义</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Inline Compaction</td>
+<td>写入任务内顺带执行 compaction</td>
+<td>单任务、低复杂度、数据量不大的测试或简单链路</td>
+</tr>
+<tr>
+<td>Async Compaction</td>
+<td>写入和 compaction 分开调度</td>
+<td>持续流式写入、希望隔离写入延迟和整理资源</td>
+</tr>
+</tbody></table>
+<p>触发策略也有多种，学习阶段最容易理解的是按 delta commits 数量触发。比如按 delta commits 数量触发：每产生若干次 deltacommit，就安排一次 compaction。具体参数名和默认值需要按 Spark &#x2F; Flink 写入引擎与 Hudi 1.0.2 文档确认，后续实测文章再展开。</p>
+<p>后面讲 Flink 参数和底层读写原理时，还会看到更具体的配置，例如 compaction 是否异步、多少个 delta commits 触发、compaction task 并行度、每次 compaction 能处理多少 IO。本文先记住一件事：MOR 的性能不是只由写入决定，compaction 才是长期稳定运行的关键。</p>
+<h3 id="1-5-COW-和-MOR-对比"><a href="#1-5-COW-和-MOR-对比" class="headerlink" title="1.5 COW 和 MOR 对比"></a>1.5 COW 和 MOR 对比</h3><p>先用表格放在一起看。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Copy On Write</th>
+<th>Merge On Read</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件形态</td>
+<td>主要是 Base File</td>
+<td>Base File + Log File</td>
+</tr>
+<tr>
+<td>写入方式</td>
+<td>更新时合并并重写 Base File</td>
+<td>更新可先追加 Log File</td>
+</tr>
+<tr>
+<td>写入延迟</td>
+<td>较高</td>
+<td>较低</td>
+</tr>
+<tr>
+<td>Snapshot Query</td>
+<td>读当前 Base File</td>
+<td>合并 Base File + Log File</td>
+</tr>
+<tr>
+<td>Read Optimized Query</td>
+<td>通常不单独强调，Snapshot 读取最新 Base File 即可</td>
+<td>只读已压缩 &#x2F; 列式 Base File，可能不包含未合并 Log File 中的最新变更</td>
+</tr>
+<tr>
+<td>Compaction 依赖</td>
+<td>不强</td>
+<td>强</td>
+</tr>
+<tr>
+<td>适合场景</td>
+<td>读多写少、查询稳定</td>
+<td>写入频繁、近实时入湖、可以通过 compaction 管理查询成本的场景</td>
+</tr>
+<tr>
+<td>主要风险</td>
+<td>写放大</td>
+<td>Log File 膨胀、compaction 滞后</td>
+</tr>
+</tbody></table>
+<p>我的经验判断是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">COW = 写入时付成本，查询时少付成本
+MOR = 写入时少付成本，查询或 compaction 时再付成本<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果一张表是 BI 查询、离线分析、更新不频繁，COW 通常更省心。如果一张表持续接收 CDC，业务希望几分钟内可见，MOR 更值得考虑。</p>
+<h3 id="1-6-三种查询方式"><a href="#1-6-三种查询方式" class="headerlink" title="1.6 三种查询方式"></a>1.6 三种查询方式</h3><p>在本文这一阶段，先重点理解三类最常用的查询视角：Snapshot Query、Incremental Query、Read Optimized Query。CDC Query、Time Travel Query 等能力后续再单独展开。</p>
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-a7046d9e89af06c22f39129e57f05d22.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Snapshot &#x2F; Incremental &#x2F; Read Optimized 查询对比"></p>
+<p>这张图主要说明表类型和查询类型是两组概念：COW &#x2F; MOR 决定文件组织方式，Snapshot &#x2F; Incremental &#x2F; Read Optimized 决定读取视角。</p>
+<p>不同表类型对查询方式的支持可以先这样理解：</p>
+<table>
+<thead>
+<tr>
+<th>表类型</th>
+<th>Snapshot Query</th>
+<th>Incremental Query</th>
+<th>Read Optimized Query</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Copy On Write</td>
+<td>支持，读取最新 Base File</td>
+<td>支持，按 commit 范围读取</td>
+<td>通常不单独强调，直接读 Base File 已经是优化后的列式文件</td>
+</tr>
+<tr>
+<td>Merge On Read</td>
+<td>支持，需要合并 Base File 和 Log File</td>
+<td>支持，按 commit &#x2F; deltacommit 范围读取</td>
+<td>支持，只读已压缩 &#x2F; 列式 Base File，可能牺牲新鲜度</td>
+</tr>
+</tbody></table>
+<p>也就是说，Read Optimized Query 主要是为了 MOR 表存在的。COW 表本身没有未合并的 Log File，读取最新 Base File 已经足够直接。</p>
+<p>MOR 表的写入类 Instant 常见为 <code>deltacommit</code>，COW 表常见为 <code>commit</code>。</p>
+<h4 id="1-6-1-Snapshot-Query"><a href="#1-6-1-Snapshot-Query" class="headerlink" title="1.6.1 Snapshot Query"></a>1.6.1 Snapshot Query</h4><p>Snapshot Query 查询最新表状态。</p>
+<p>对 COW 表来说，Snapshot Query 通常读取最新有效的 Base File。</p>
+<p>对 MOR 表来说，Snapshot Query 需要把 Base File 和 Log File 合并，返回最新状态。也就是说，Snapshot Query 更关注数据新鲜度。</p>
+<h4 id="1-6-2-Incremental-Query"><a href="#1-6-2-Incremental-Query" class="headerlink" title="1.6.2 Incremental Query"></a>1.6.2 Incremental Query</h4><p>Incremental Query 按 commit 范围读取增量。</p>
+<p>它适合下游增量 Pipeline。比如 DWD 层任务记录自己上一次消费到的 commit，下次只读取这个 commit 之后的数据变化。</p>
+<p>但要注意：Incremental Query 不等同于数据库 binlog 那种逐行 before &#x2F; after 明细。在某些 COW 写入和读取配置下，更新重写 Base File 后，增量读结果可能包含同一 FileGroup &#x2F; FileSlice 中被带出的记录。因此下游不能只依赖“这一定是业务变化行”的假设，而要结合 record key、commit time、precombine 字段做幂等处理。</p>
+<p>如果后续需要精确变更明细，应单独研究 Hudi CDC Query &#x2F; changelog 相关能力，而不是把普通 Incremental Query 当成数据库 CDC 明细。</p>
+<h4 id="1-6-3-Read-Optimized-Query"><a href="#1-6-3-Read-Optimized-Query" class="headerlink" title="1.6.3 Read Optimized Query"></a>1.6.3 Read Optimized Query</h4><p>Read Optimized Query 只暴露当前可用于读优化视图的 Base &#x2F; Columnar 文件，不合并尚未压缩的 Log File。</p>
+<p>对 MOR 表来说，它可以绕开 Log File 合并，查询成本更低，但可能看不到最新 Log File 中尚未 compaction 的变更。</p>
+<p>这是一种典型取舍：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Snapshot Query: 更新鲜，但可能要合并 Log File
+Read Optimized Query: 更快，但可能不是最新<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<h2 id="2-实测验证"><a href="#2-实测验证" class="headerlink" title="2. 实测验证"></a>2. 实测验证</h2><h3 id="2-1-Spark-示例：创建-COW-和-MOR-表"><a href="#2-1-Spark-示例：创建-COW-和-MOR-表" class="headerlink" title="2.1 Spark 示例：创建 COW 和 MOR 表"></a>2.1 Spark 示例：创建 COW 和 MOR 表</h3><p>下面用当前环境真实跑一遍。脚本会创建两张表：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hdfs://localhost:9000/hudi/demo_cow_query_orders
+hdfs://localhost:9000/hudi/demo_mor_query_orders<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>核心脚本如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_table_query_demo.py <span class="token operator">&lt;&lt;</span><span class="token string">'PY'
+from pyspark.sql import SparkSession
+
+spark = (SparkSession.builder
+    .appName("hudi-table-query-demo")
+    .master("local[2]")
+    .config("spark.sql.catalogImplementation", "in-memory")
+    .getOrCreate())
+
+spark.sparkContext.setLogLevel("WARN")
+
+cow_path = "hdfs://localhost:9000/hudi/demo_cow_query_orders"
+mor_path = "hdfs://localhost:9000/hudi/demo_mor_query_orders"
+
+rows1 = [
+    (2001, "2025-07-17", "CREATED", 120.5, 20250717195000),
+    (2002, "2025-07-17", "CREATED", 35.0, 20250717195010),
+    (2003, "2025-07-17", "CREATED", 78.8, 20250717195020),
+]
+
+rows2 = [
+    (2001, "2025-07-17", "PAID", 120.5, 20250717195300),
+    (2004, "2025-07-17", "CREATED", 19.9, 20250717195310),
+]
+
+schema = ["order_id", "dt", "status", "amount", "ts"]
+
+def write_table(path, table_name, table_type, rows, mode):
+    df = spark.createDataFrame(rows, schema)
+    writer = (df.write.format("hudi")
+        .option("hoodie.table.name", table_name)
+        .option("hoodie.datasource.write.table.type", table_type)
+        .option("hoodie.datasource.write.recordkey.field", "order_id")
+        .option("hoodie.datasource.write.partitionpath.field", "dt")
+        .option("hoodie.datasource.write.precombine.field", "ts")
+        .option("hoodie.datasource.write.operation", "upsert")
+        .option("hoodie.metadata.enable", "true"))
+
+    if table_type == "MERGE_ON_READ":
+        writer = (writer
+            .option("hoodie.compact.inline", "false")
+            .option("hoodie.compact.schedule.inline", "false"))
+
+    writer.mode(mode).save(path)
+
+for path, table, table_type in [
+    (cow_path, "demo_cow_query_orders", "COPY_ON_WRITE"),
+    (mor_path, "demo_mor_query_orders", "MERGE_ON_READ"),
+]:
+    write_table(path, table, table_type, rows1, "overwrite")
+    write_table(path, table, table_type, rows2, "append")
+
+print("=== COW snapshot ===")
+(spark.read.format("hudi")
+    .load(cow_path)
+    .select("_hoodie_commit_time", "order_id", "dt", "status", "amount", "ts")
+    .orderBy("order_id")
+    .show(truncate=False))
+
+print("=== MOR snapshot ===")
+(spark.read.format("hudi")
+    .load(mor_path)
+    .select("_hoodie_commit_time", "order_id", "dt", "status", "amount", "ts")
+    .orderBy("order_id")
+    .show(truncate=False))
+
+print("=== MOR read optimized ===")
+(spark.read.format("hudi")
+    .option("hoodie.datasource.query.type", "read_optimized")
+    .load(mor_path)
+    .select("_hoodie_commit_time", "order_id", "dt", "status", "amount", "ts")
+    .orderBy("order_id")
+    .show(truncate=False))
+
+print("=== COW commits ===")
+commits = ["20250717195456598", "20250717195510091"]
+for commit in commits:
+    print(commit)
+
+begin_instant = "20250717195456599"
+print(f"=== incremental begin &#123;begin_instant&#125; ===")
+(spark.read.format("hudi")
+    .option("hoodie.datasource.query.type", "incremental")
+    .option("hoodie.datasource.read.begin.instanttime", begin_instant)
+    .load(cow_path)
+    .select("_hoodie_commit_time", "order_id", "dt", "status", "amount", "ts")
+    .orderBy("order_id")
+    .show(truncate=False))
+
+spark.stop()
+PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> /etc/profile.d/bigdata_env.sh
+
+hdfs dfs <span class="token parameter variable">-rm</span> <span class="token parameter variable">-r</span> <span class="token parameter variable">-f</span> <span class="token punctuation">\</span>
+  /hudi/demo_cow_query_orders <span class="token punctuation">\</span>
+  /hudi/demo_mor_query_orders
+
+spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalogImplementation</span><span class="token operator">=</span>in-memory <span class="token punctuation">\</span>
+  <span class="token parameter variable">--jars</span> /opt/module/hudi/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  /tmp/hudi_table_query_demo.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>后续 <code>hdfs dfs</code> 命令中的 <code>/hudi/demo_cow_query_orders</code> 与 Spark 代码中的 <code>hdfs://localhost:9000/hudi/demo_cow_query_orders</code> 指向同一张 Hudi 表，只是省略了默认文件系统前缀；MOR 表路径同理。本文示例使用 <code>--jars</code> 显式指定 Hudi Spark bundle；如果已经在 Spark <code>jars</code> 目录中放入同版本 bundle，可以省略 <code>--jars</code>，但不要同时混入多个 Hudi 版本的 bundle。</p>
+<p>这里关闭 inline compaction 的两个参数，是本文 Hudi 1.0.2 Spark DataSource 环境中的实测配置；不同版本参数名可能变化，落地时要回到当前版本配置文档核对。</p>
+<h3 id="2-2-Snapshot-Query-验证"><a href="#2-2-Snapshot-Query-验证" class="headerlink" title="2.2 Snapshot Query 验证"></a>2.2 Snapshot Query 验证</h3><p>脚本中对应的读取代码是：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>load<span class="token punctuation">(</span>cow_path<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"_hoodie_commit_time"</span><span class="token punctuation">,</span> <span class="token string">"order_id"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">,</span> <span class="token string">"status"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"ts"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>orderBy<span class="token punctuation">(</span><span class="token string">"order_id"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>show<span class="token punctuation">(</span>truncate<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>load<span class="token punctuation">(</span>mor_path<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"_hoodie_commit_time"</span><span class="token punctuation">,</span> <span class="token string">"order_id"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">,</span> <span class="token string">"status"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"ts"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>orderBy<span class="token punctuation">(</span><span class="token string">"order_id"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>show<span class="token punctuation">(</span>truncate<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>COW Snapshot Query 输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== COW snapshot ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250717195510091  |2001    |2025-07-17|PAID   |120.5 |20250717195300|
+|20250717195456598  |2002    |2025-07-17|CREATED|35.0  |20250717195010|
+|20250717195456598  |2003    |2025-07-17|CREATED|78.8  |20250717195020|
+|20250717195510091  |2004    |2025-07-17|CREATED|19.9  |20250717195310|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>MOR Snapshot Query 输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== MOR snapshot ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250717195519248  |2001    |2025-07-17|PAID   |120.5 |20250717195300|
+|20250717195512924  |2002    |2025-07-17|CREATED|35.0  |20250717195010|
+|20250717195512924  |2003    |2025-07-17|CREATED|78.8  |20250717195020|
+|20250717195519248  |2004    |2025-07-17|CREATED|19.9  |20250717195310|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>两张表都能看到最新状态：<code>order_id=2001</code> 已经从 <code>CREATED</code> 变成 <code>PAID</code>，<code>order_id=2004</code> 已经插入。</p>
+<h3 id="2-3-HDFS-文件结构验证"><a href="#2-3-HDFS-文件结构验证" class="headerlink" title="2.3 HDFS 文件结构验证"></a>2.3 HDFS 文件结构验证</h3><p>先看 COW 表数据文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_cow_query_orders/2025-07-17<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>真实输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 3 items
+-rw-r--r--   1 root supergroup         96 2025-07-17 19:55 /hudi/demo_cow_query_orders/2025-07-17/.hoodie_partition_metadata
+-rw-r--r--   1 root supergroup     435642 2025-07-17 19:55 /hudi/demo_cow_query_orders/2025-07-17/4a275f7a-31ff-49f5-9acd-046900a64dc1-0_0-31-32_20250717195456598.parquet
+-rw-r--r--   1 root supergroup     435626 2025-07-17 19:55 /hudi/demo_cow_query_orders/2025-07-17/4a275f7a-31ff-49f5-9acd-046900a64dc1-0_0-61-73_20250717195510091.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>同一个 fileId 前缀出现了两个 Parquet 文件版本，这就是 COW 更新时重写 Base File 的直观结果。这里判断同一个 FileGroup，主要看文件名前半段的 fileId；后面的 <code>0_0-31-32</code>、<code>0_0-61-73</code> 更接近写入任务相关的 write token，最后的 <code>20250717195456598</code>、<code>20250717195510091</code> 是 commit time，不要把整个文件名都理解成 fileId。</p>
+<p>再看 MOR 表：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_mor_query_orders/2025-07-17<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>真实输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 3 items
+-rw-r--r--   1 root supergroup         96 2025-07-17 19:55 /hudi/demo_mor_query_orders/2025-07-17/.hoodie_partition_metadata
+-rw-r--r--   1 root supergroup     435650 2025-07-17 19:55 /hudi/demo_mor_query_orders/2025-07-17/ca7c069c-4d62-45d4-900c-daa5d736c815-0_0-108-129_20250717195512924.parquet
+-rw-r--r--   1 root supergroup     435629 2025-07-17 19:55 /hudi/demo_mor_query_orders/2025-07-17/ca7c069c-4d62-45d4-900c-daa5d736c815-0_0-138-170_20250717195519248.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里要如实说明：这个小规模 Spark DataSource 示例里，MOR 表目录没有明显出现业务数据 Log File，而是看到了两个 Parquet 文件版本。但它的表类型确实是 MOR，Timeline 上使用的是 <code>deltacommit</code>。</p>
+<p>查看表属性：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-cat</span> /hudi/demo_mor_query_orders/.hoodie/hoodie.properties <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">egrep</span> <span class="token string">"hoodie.table.name|hoodie.table.type|hoodie.timeline.path"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hoodie.table.type=MERGE_ON_READ
+hoodie.table.name=demo_mor_query_orders
+hoodie.timeline.path=timeline<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>再看 MOR Timeline：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_mor_query_orders/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 7 items
+-rw-r--r--   1 root supergroup       3430 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195512924.deltacommit.inflight
+-rw-r--r--   1 root supergroup          0 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195512924.deltacommit.requested
+-rw-r--r--   1 root supergroup       3976 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195512924_20250717195519005.deltacommit
+-rw-r--r--   1 root supergroup       3534 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195519248.deltacommit.inflight
+-rw-r--r--   1 root supergroup          0 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195519248.deltacommit.requested
+-rw-r--r--   1 root supergroup       4065 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/20250717195519248_20250717195521809.deltacommit
+drwxr-xr-x   - root supergroup          0 2025-07-17 19:55 /hudi/demo_mor_query_orders/.hoodie/timeline/history<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里是 Hudi 1.0.x Timeline 布局下的实测输出，完成态 deltacommit 文件名包含 completion time；requested &#x2F; inflight 文件用于表达 Instant 状态流转，排查时以完成态文件作为已提交动作的主要依据。</p>
+<p>所以判断 COW &#x2F; MOR 不能只看数据目录里是不是立刻出现 <code>.log</code> 文件，还要看表属性、Timeline action、写入配置和后续 compaction 行为。</p>
+<h3 id="2-4-Read-Optimized-Query-验证"><a href="#2-4-Read-Optimized-Query-验证" class="headerlink" title="2.4 Read Optimized Query 验证"></a>2.4 Read Optimized Query 验证</h3><p>Spark DataSource 中可以这样指定 Read Optimized Query：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.query.type"</span><span class="token punctuation">,</span> <span class="token string">"read_optimized"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>load<span class="token punctuation">(</span>mor_path<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"_hoodie_commit_time"</span><span class="token punctuation">,</span> <span class="token string">"order_id"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">,</span> <span class="token string">"status"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"ts"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>orderBy<span class="token punctuation">(</span><span class="token string">"order_id"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>show<span class="token punctuation">(</span>truncate<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本次输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== MOR read optimized ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250717195519248  |2001    |2025-07-17|PAID   |120.5 |20250717195300|
+|20250717195512924  |2002    |2025-07-17|CREATED|35.0  |20250717195010|
+|20250717195512924  |2003    |2025-07-17|CREATED|78.8  |20250717195020|
+|20250717195519248  |2004    |2025-07-17|CREATED|19.9  |20250717195310|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这次 Read Optimized 和 Snapshot 输出一致，原因是这个小表的最新数据已经体现在 Base File 里，没有形成明显的“Base File + 未压缩 Log File”差异。</p>
+<p>这个结果只说明当前小样本中最新数据已经进入 Base File，不能推出 Read Optimized Query 总是和 Snapshot Query 一样新。</p>
+<p>在真实 MOR 流式写入中，如果更新大量追加到 Log File 且尚未 compaction，Snapshot Query 和 Read Optimized Query 就可能看到不同新鲜度的数据。</p>
+<h3 id="2-5-Incremental-Query-验证"><a href="#2-5-Incremental-Query-验证" class="headerlink" title="2.5 Incremental Query 验证"></a>2.5 Incremental Query 验证</h3><p>COW 表有两个 commit：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== COW commits ===
+20250717195456598
+20250717195510091<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>使用 Incremental Query：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">(</span>spark<span class="token punctuation">.</span>read<span class="token punctuation">.</span><span class="token builtin">format</span><span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.query.type"</span><span class="token punctuation">,</span> <span class="token string">"incremental"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>option<span class="token punctuation">(</span><span class="token string">"hoodie.datasource.read.begin.instanttime"</span><span class="token punctuation">,</span> <span class="token string">"20250717195456599"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>load<span class="token punctuation">(</span>cow_path<span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>select<span class="token punctuation">(</span><span class="token string">"_hoodie_commit_time"</span><span class="token punctuation">,</span> <span class="token string">"order_id"</span><span class="token punctuation">,</span> <span class="token string">"dt"</span><span class="token punctuation">,</span> <span class="token string">"status"</span><span class="token punctuation">,</span> <span class="token string">"amount"</span><span class="token punctuation">,</span> <span class="token string">"ts"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>orderBy<span class="token punctuation">(</span><span class="token string">"order_id"</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span>show<span class="token punctuation">(</span>truncate<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文使用的是 Hudi 1.0.2 Spark DataSource 实测参数；Hudi 1.0.x 中 begin instant 与 completion time 语义需要以当前版本文档为准。为了避免包含第一个 commit，这里使用 <code>20250717195456599</code>，而不是直接使用 <code>20250717195456598</code>。</p>
+<p>这里把 <code>begin.instanttime</code> 设置为第一个 commit 之后的时间，是为了只读取第二个 commit 之后的变化；如果直接使用第一个 commit time，具体是否包含该 commit 需要以当前版本的增量查询语义为准。</p>
+<p>实际输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== incremental begin 20250717195456599 ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250717195510091  |2001    |2025-07-17|PAID   |120.5 |20250717195300|
+|20250717195456598  |2002    |2025-07-17|CREATED|35.0  |20250717195010|
+|20250717195456598  |2003    |2025-07-17|CREATED|78.8  |20250717195020|
+|20250717195510091  |2004    |2025-07-17|CREATED|19.9  |20250717195310|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个结果很值得注意：虽然业务上第二次写入只更新了 <code>2001</code>、新增了 <code>2004</code>，但增量查询里也看到了 <code>2002</code> 和 <code>2003</code>。原因是 COW 更新会重写 Base File，增量读看到的是提交影响到的文件视图，不应该简单理解成数据库 binlog 那种精确行级变更。在这个例子里，<code>2002</code> 和 <code>2003</code> 的 <code>_hoodie_commit_time</code> 仍然是第一次提交时间，但它们被包含在第二次重写后的文件视图中，所以出现在增量读取结果里。下游应按 <code>order_id</code> 做 merge &#x2F; upsert，而不是把每一行都当成新的业务变更事件。</p>
+<p>所以增量 Pipeline 里通常要保证下游幂等：</p>
+<ol>
+<li>用 record key 做覆盖或 merge。</li>
+<li>用 <code>_hoodie_commit_time</code> 判断处理进度。</li>
+<li>用业务 <code>precombine.field</code> 解决同 key 多版本顺序。</li>
+<li>不要假设 Incremental Query 一定只包含业务变化行。</li>
+</ol>
+<h2 id="3-常见问题与选型"><a href="#3-常见问题与选型" class="headerlink" title="3. 常见问题与选型"></a>3. 常见问题与选型</h2><h3 id="3-1-常见问题"><a href="#3-1-常见问题" class="headerlink" title="3.1 常见问题"></a>3.1 常见问题</h3><h4 id="3-1-1-COW-表为什么有多个-Parquet-文件版本"><a href="#3-1-1-COW-表为什么有多个-Parquet-文件版本" class="headerlink" title="3.1.1 COW 表为什么有多个 Parquet 文件版本"></a>3.1.1 COW 表为什么有多个 Parquet 文件版本</h4><p>因为 COW 更新时会写出新的 Base File，旧 Base File 不会立刻删除。Hudi 会通过 Timeline 和 FileSlice 判断哪个版本对当前查询可见，再通过 clean 策略清理过旧文件。</p>
+<h4 id="3-1-2-MOR-表为什么我没看到-Log-File"><a href="#3-1-2-MOR-表为什么我没看到-Log-File" class="headerlink" title="3.1.2 MOR 表为什么我没看到 Log File"></a>3.1.2 MOR 表为什么我没看到 Log File</h4><p>MOR 的设计支持 Base File + Log File，但小规模 Spark DataSource 示例、写入配置、small file 策略、是否触发 compaction 等因素都会影响实际文件形态。</p>
+<p>INSERT、UPSERT、是否命中已有 FileGroup、small file 是否需要继续填充，都会影响最终是写 Base File 还是 Log File。</p>
+<p>所以判断 MOR 不要只看数据目录有没有 <code>.log</code> 文件，还要看：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-cat</span> /path/to/table/.hoodie/hoodie.properties
+hdfs dfs <span class="token parameter variable">-ls</span> /path/to/table/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果 <code>hoodie.table.type=MERGE_ON_READ</code>，Timeline 中出现 <code>deltacommit</code>，说明表语义已经是 MOR。</p>
+<h4 id="3-1-3-Snapshot-Query-和-Read-Optimized-Query-为什么结果一样"><a href="#3-1-3-Snapshot-Query-和-Read-Optimized-Query-为什么结果一样" class="headerlink" title="3.1.3 Snapshot Query 和 Read Optimized Query 为什么结果一样"></a>3.1.3 Snapshot Query 和 Read Optimized Query 为什么结果一样</h4><p>如果 MOR 表中的最新数据已经在 Base File 中，或者当前测试没有形成未压缩 Log File，那么二者结果可能一样。</p>
+<p>二者真正拉开差异的场景通常是：Log File 中有尚未 compaction 的新变更。Snapshot Query 会合并读取，Read Optimized Query 只看压缩后的 Base File。</p>
+<h4 id="3-1-4-Incremental-Query-是不是等于-CDC-明细"><a href="#3-1-4-Incremental-Query-是不是等于-CDC-明细" class="headerlink" title="3.1.4 Incremental Query 是不是等于 CDC 明细"></a>3.1.4 Incremental Query 是不是等于 CDC 明细</h4><p>不是。Incremental Query 是 Hudi 按 Timeline 提供的增量读取能力，不等同于数据库 binlog 的逐行变更明细。</p>
+<p>在 COW 表里，更新会导致 Base File 重写，增量结果可能包含同一个文件组里的其他记录。下游应该按 Hudi record key &#x2F; 业务主键做幂等 merge 或覆盖处理。</p>
+<h4 id="3-1-5-COW-和-MOR-能不能随便切换"><a href="#3-1-5-COW-和-MOR-能不能随便切换" class="headerlink" title="3.1.5 COW 和 MOR 能不能随便切换"></a>3.1.5 COW 和 MOR 能不能随便切换</h4><p>表类型属于表级设计，不建议在同一张表生命周期中随便切换。尤其是已经被 Hive Sync、Flink 作业、下游查询依赖以后，文件视图和查询语义变化会影响很多链路。</p>
+<p>不要简单通过修改 <code>hoodie.properties</code> 中的 <code>hoodie.table.type</code> 来切换表类型。更稳妥的做法是：先根据业务场景选型；如果确实需要切换，应建新表迁移并完整验证读写链路。</p>
+<h3 id="3-2-表类型与查询类型选型"><a href="#3-2-表类型与查询类型选型" class="headerlink" title="3.2 表类型与查询类型选型"></a>3.2 表类型与查询类型选型</h3><p>COW 和 MOR 的关键，不是“哪个更高级”，而是“成本放在哪里”。</p>
+<p>COW 把成本放在写入时。每次更新尽量把文件整理好，查询时就轻松很多。这种表更适合传统离线数仓和 BI 查询，因为下游大多数时候只关心稳定读取。</p>
+<p>MOR 把成本拆开。写入时先把变更快速落下来，读取最新状态时再合并，后台通过 compaction 慢慢整理文件。这种表更适合实时入湖，但它要求你认真管理 compaction、Log File、查询新鲜度和资源隔离。</p>
+<p>三种查询方式也不要混着用：</p>
+<ol>
+<li>Snapshot Query 面向“我要看这张表当前最新状态”。</li>
+<li>Incremental Query 面向“我要接着上次 commit 往后消费”。</li>
+<li>Read Optimized Query 面向“我愿意牺牲一点新鲜度，换更简单的文件读取”。</li>
+</ol>
+<p>如果把这几个概念混在一起，很容易出现错误判断：以为 MOR 一定查询慢、以为 Incremental Query 一定是 CDC 明细、以为 Read Optimized 一定看不到最近写入的数据。实际是否能看到，要看最近写入是否已经进入 Base File 或已经完成 compaction。</p>
+<h2 id="4-总结"><a href="#4-总结" class="headerlink" title="4. 总结"></a>4. 总结</h2><p>这篇主要讲了 Hudi 的两种表类型和三种查询方式。</p>
+<ol>
+<li>COW 表更新时重写 Base File，查询简单，但写放大明显。</li>
+<li>MOR 表可以先追加 Log File，写入更轻，但查询和 compaction 更复杂。</li>
+<li>MOR 是否出现 Log File，受写入引擎、索引能力、small file 策略和 compaction 状态影响。</li>
+<li>Snapshot Query 查询最新表状态。</li>
+<li>Incremental Query 按 commit 范围读取，适合增量 Pipeline，但不等同于精确 CDC 明细。</li>
+<li>Read Optimized Query 主要面向 MOR 表，只读当前可用于读优化视图的 Base &#x2F; Columnar 文件，适合低成本查询。</li>
+<li>COW &#x2F; MOR 是表类型，Snapshot &#x2F; Incremental &#x2F; Read Optimized 是查询类型，两组概念不能混淆。</li>
+<li>真实环境里要以表属性、Timeline、文件目录和查询输出一起判断，不要只凭某个目录现象下结论。</li>
+</ol>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/e62f9a31.html">https://www.hnbian.cn/posts/e62f9a31.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/data-lake/">
+                                    <span class="chip bg-color">data-lake</span>
+                                </a>
+                            
+                                <a href="/tags/cow/">
+                                    <span class="chip bg-color">cow</span>
+                                </a>
+                            
+                                <a href="/tags/mor/">
+                                    <span class="chip bg-color">mor</span>
+                                </a>
+                            
+                                <a href="/tags/query/">
+                                    <span class="chip bg-color">query</span>
+                                </a>
+                            
+                                <a href="/tags/compaction/">
+                                    <span class="chip bg-color">compaction</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/c8f4d6a2.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-4553ef91eaffd01205b8a2a6649611be.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-07-29
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/write/">
+                        <span class="chip bg-color">write</span>
+                    </a>
+                    
+                    <a href="/tags/upsert/">
+                        <span class="chip bg-color">upsert</span>
+                    </a>
+                    
+                    <a href="/tags/insert/">
+                        <span class="chip bg-color">insert</span>
+                    </a>
+                    
+                    <a href="/tags/delete/">
+                        <span class="chip bg-color">delete</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/a71f8c09.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-4f71c9677c858dca960e09101335be72.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 04：Hudi 索引机制与索引选型">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 04：Hudi 索引机制与索引选型</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-07-06
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/data-lake/">
+                        <span class="chip bg-color">data-lake</span>
+                    </a>
+                    
+                    <a href="/tags/index/">
+                        <span class="chip bg-color">index</span>
+                    </a>
+                    
+                    <a href="/tags/bloom/">
+                        <span class="chip bg-color">bloom</span>
+                    </a>
+                    
+                    <a href="/tags/bucket/">
+                        <span class="chip bg-color">bucket</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

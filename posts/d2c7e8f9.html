@@ -1,0 +1,2250 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 12：Flink Hudi 流读、CDC 入湖与全量接增量, hnbian">
+    <meta name="description" content="前面两篇已经把 Flink SQL 写 Hudi 和核心参数调优讲了一遍。本文继续往实时入湖方向走，重点看三个问题：Flink 怎么流式读取 Hudi 表？CDC 数据怎么从 Kafka 写入 Hudi？离线全量数据和实时增量数据怎么衔接？">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 12：Flink Hudi 流读、CDC 入湖与全量接增量 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-3fa28cc7cb27ef24ff2aa811843cd228.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 12：Flink Hudi 流读、CDC 入湖与全量接增量</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/flink/">
+                                <span class="chip bg-color">flink</span>
+                            </a>
+                        
+                            <a href="/tags/kafka/">
+                                <span class="chip bg-color">kafka</span>
+                            </a>
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/data-lake/">
+                                <span class="chip bg-color">data-lake</span>
+                            </a>
+                        
+                            <a href="/tags/cdc/">
+                                <span class="chip bg-color">cdc</span>
+                            </a>
+                        
+                            <a href="/tags/streaming/">
+                                <span class="chip bg-color">streaming</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-09-29
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6.8k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    30 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面两篇已经把 Flink SQL 写 Hudi 和核心参数调优讲了一遍。本文继续往实时入湖方向走，重点看三个问题：Flink 怎么流式读取 Hudi 表？CDC 数据怎么从 Kafka 写入 Hudi？离线全量数据和实时增量数据怎么衔接？</p>
+<p>这三个问题其实是一条链路上的不同阶段。CDC 入湖负责把变化写进去，Hudi Streaming Query 负责把新的 commit 持续读出来，全量接增量负责解决“实时任务启动前，表里已经有历史数据”的识别问题。</p>
+<h2 id="1-读取和-CDC-链路"><a href="#1-读取和-CDC-链路" class="headerlink" title="1. 读取和 CDC 链路"></a>1. 读取和 CDC 链路</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>实时入湖不是简单地把数据写到 HDFS。以 MySQL 订单表为例，真实链路里至少有这些问题：</p>
+<ol>
+<li>MySQL binlog 里既有 insert，也有 update 和 delete。</li>
+<li>同一个 Hudi record key &#x2F; 业务主键可能短时间内多次变化。</li>
+<li>Kafka 中的 CDC 消息需要能回放。</li>
+<li>Flink 任务失败后要从 checkpoint 恢复。</li>
+<li>Hudi 表需要根据 record key 做 upsert，而不是简单追加。</li>
+<li>下游任务希望持续消费 Hudi 新 commit。</li>
+<li>全量导入以后，实时任务不能把已有 record key 当成新记录重复插入。</li>
+</ol>
+<p>我把这类链路拆成四层：</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CDC Source</td>
+<td>从 MySQL binlog 抽取变化</td>
+</tr>
+<tr>
+<td>Kafka</td>
+<td>保存可回放的 CDC 事件日志</td>
+</tr>
+<tr>
+<td>Flink SQL</td>
+<td>解析 CDC、维护状态、写入 Hudi</td>
+</tr>
+<tr>
+<td>Hudi</td>
+<td>提供 upsert、Timeline、增量读取</td>
+</tr>
+</tbody></table>
+<p>本文实操部分用 Debezium JSON 消息模拟 MySQL binlog 已经进入 Kafka 的状态。这样可以把重点放在 Flink Hudi 的读写语义上，不把篇幅消耗在 MySQL CDC connector 的安装细节上。</p>
+<h3 id="1-2-Flink-Hudi-读取方式"><a href="#1-2-Flink-Hudi-读取方式" class="headerlink" title="1.2 Flink Hudi 读取方式"></a>1.2 Flink Hudi 读取方式</h3><p>Flink 读 Hudi 常见有三类：</p>
+<table>
+<thead>
+<tr>
+<th>读取方式</th>
+<th>说明</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Snapshot Query</td>
+<td>读取当前最新快照</td>
+<td>批量校验、临时查询、维表回填</td>
+</tr>
+<tr>
+<td>Streaming Query</td>
+<td>持续监听新 commit</td>
+<td>增量消费、实时下游 pipeline</td>
+</tr>
+<tr>
+<td>Time Travel</td>
+<td>读取指定时间点附近快照</td>
+<td>数据回溯、问题排查</td>
+</tr>
+</tbody></table>
+<p>Flink Streaming Read 的核心参数是：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token string">'read.streaming.enabled'</span> <span class="token operator">=</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+<span class="token string">'read.start-commit'</span> <span class="token operator">=</span> <span class="token string">'earliest'</span><span class="token punctuation">,</span>
+<span class="token string">'read.streaming.check-interval'</span> <span class="token operator">=</span> <span class="token string">'4'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>它的工作方式可以理解成下面这样：</p>
+<p><img src="https://images.hnbian.cn/new/n-03fbe10411f6c1ed2d8dd910322c55ae.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Flink Hudi 流式读取流程"></p>
+<p>这张图主要说明 Flink Hudi streaming source 会周期性轮询 Hudi Timeline，从指定 start commit 附近开始持续读取新的 completed instant。</p>
+<p><code>read.start-commit</code> 可以指定从哪个 instant 开始读。常见取值：</p>
+<table>
+<thead>
+<tr>
+<th>参数值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>earliest</code></td>
+<td>从最早可用 commit 开始消费</td>
+</tr>
+<tr>
+<td>具体 instant</td>
+<td>从指定 instant 附近开始消费；是否包含该 instant 需要以 Hudi 1.0.2 Flink connector 实测语义为准</td>
+</tr>
+<tr>
+<td>不设置</td>
+<td>通常从最新位置开始监听后续 commit</td>
+</tr>
+</tbody></table>
+<p>常见读取参数可以先记住这几个：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>read.streaming.enabled</code></td>
+<td>是否开启流式读取</td>
+</tr>
+<tr>
+<td><code>read.streaming.check-interval</code></td>
+<td>流读轮询 Timeline 的间隔，单位秒，默认 60</td>
+</tr>
+<tr>
+<td><code>read.start-commit</code></td>
+<td>增量读取起始 instant，支持 <code>earliest</code></td>
+</tr>
+<tr>
+<td><code>read.end-commit</code></td>
+<td>增量读取结束 instant</td>
+</tr>
+<tr>
+<td><code>read.streaming.skip_compaction</code></td>
+<td>流读时是否跳过 compaction instant，Hudi 1.0.2 默认开启</td>
+</tr>
+<tr>
+<td><code>read.streaming.skip_clustering</code></td>
+<td>流读时是否跳过 clustering instant，Hudi 1.0.2 默认开启</td>
+</tr>
+</tbody></table>
+<p>流读要特别注意清理策略。如果下游流读任务落后太多，而 Hudi clean 已经删除了它需要的历史 FileSlice，就可能读不到旧 commit 对应的数据。所以流读链路里，<code>clean.retain_commits</code> 不能只按写入端考虑，还要给下游消费延迟留余量。</p>
+<p><code>read.streaming.skip_compaction=true</code> 可以减少流读重复扫描 compaction 产物的开销，但它不是万能开关。MOR 表如果下游落后超过 <code>clean.retain_commits</code> 能保留的范围，旧的 FileSlice 已经被清理，流读仍然可能丢失需要补读的数据。我的经验是：只要下游依赖 Hudi 流读做准实时 pipeline，就要把 clean 保留策略和下游最大允许落后时间一起设计。</p>
+<h3 id="1-3-实测：Flink-Streaming-Read-读取-Hudi-表"><a href="#1-3-实测：Flink-Streaming-Read-读取-Hudi-表" class="headerlink" title="1.3 实测：Flink Streaming Read 读取 Hudi 表"></a>1.3 实测：Flink Streaming Read 读取 Hudi 表</h3><p>后面 CDC 入湖会生成一张表：<code>hdfs:///hudi/demo_flink_cdc_orders</code>。这一节是基于第 6、7 节已经写入完成后的验证结果，阅读时可以先看完 CDC 写入部分，再回来看流读 SQL：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_stream_read.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+SET 'execution.runtime-mode' = 'streaming';
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
+
+CREATE TABLE hudi_orders_stream_read (
+  order_id BIGINT PRIMARY KEY NOT ENFORCED,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING
+) PARTITIONED BY (dt)
+WITH (
+  'connector' = 'hudi',
+  'path' = 'hdfs:///hudi/demo_flink_cdc_orders',
+  'table.type' = 'COPY_ON_WRITE',
+  'hoodie.metadata.enable' = 'false',
+  'read.tasks' = '1',
+  'read.streaming.enabled' = 'true',
+  'read.start-commit' = 'earliest',
+  'read.streaming.check-interval' = '4'
+);
+
+SELECT order_id, user_id, status, dt
+FROM hudi_orders_stream_read
+WHERE order_id IN (12001, 12002, 12003)
+LIMIT 3;
+SQL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">unset</span> HADOOP_CLASSPATH
+<span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop
+
+/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_stream_read.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+----+----------------------+--------------------------------+--------------------------------+--------------------------------+
+| op |             order_id |                        user_id |                         status |                             dt |
++----+----------------------+--------------------------------+--------------------------------+--------------------------------+
+| +I |                12002 |                           u202 |                           PAID |                     2025-09-28 |
+| +I |                12001 |                           u201 |                        CREATED |                     2025-09-28 |
+| +I |                12003 |                           u203 |                        CREATED |                     2025-09-29 |
++----+----------------------+--------------------------------+--------------------------------+--------------------------------+
+3 rows in set<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个结果说明，在 <code>read.start-commit=&#39;earliest&#39;</code> 的配置下，Flink Hudi streaming source 可以从已有 commit 开始读取历史数据；如果不设置 start commit，通常更像从当前最新位置监听后续 commit。因为这里加了 <code>LIMIT 3</code>，SQL Client 输出 3 条后结束；如果不加限制，它会持续等待后续 Hudi commit。</p>
+<p>如果要观察持续监听，可以去掉 <code>LIMIT</code>：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt
+<span class="token keyword">FROM</span> hudi_orders_stream_read<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果只想做批式增量读取，可以同时指定 <code>read.start-commit</code> 和 <code>read.end-commit</code>。在本文 Hudi 1.0.2 Flink connector 实测中，指定 start 和 end commit 的 batch incremental read 会读取该范围内的变更数据；起止边界是否包含对应 instant，建议以当前版本文档和实测为准。如果要避免重复消费上一个 checkpoint，建议把 start commit 设置为上次已处理 completed instant 之后的下一个起点，或按当前版本文档确认边界语义。</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> hudi_orders_incremental_read <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span> PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/demo_flink_cdc_orders'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'hoodie.metadata.enable'</span> <span class="token operator">=</span> <span class="token string">'false'</span><span class="token punctuation">,</span>
+  <span class="token string">'read.start-commit'</span> <span class="token operator">=</span> <span class="token string">'20250929203945218'</span><span class="token punctuation">,</span>
+  <span class="token string">'read.end-commit'</span> <span class="token operator">=</span> <span class="token string">'20250929203949912'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> dt
+<span class="token keyword">FROM</span> hudi_orders_incremental_read
+<span class="token keyword">ORDER</span> <span class="token keyword">BY</span> order_id<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Flink Hudi 中，可以通过限定 <code>read.end-commit</code> 来读取某个 instant 范围内的数据；如果要严格表达 Time Travel 快照语义，需要按 Hudi 1.0.2 Flink 查询文档和实测确认：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> hudi_orders_time_travel <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span> PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/demo_flink_cdc_orders'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'hoodie.metadata.enable'</span> <span class="token operator">=</span> <span class="token string">'false'</span><span class="token punctuation">,</span>
+  <span class="token string">'read.end-commit'</span> <span class="token operator">=</span> <span class="token string">'20250929203949912'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="1-4-CDC-入湖整体链路"><a href="#1-4-CDC-入湖整体链路" class="headerlink" title="1.4 CDC 入湖整体链路"></a>1.4 CDC 入湖整体链路</h3><p>CDC 入湖可以有两种常见做法：</p>
+<ol>
+<li>Flink CDC connector 直接读取 MySQL binlog，然后写 Hudi。</li>
+<li>Debezium &#x2F; Canal &#x2F; Flink CDC 先把 binlog 写入 Kafka，再由 Flink SQL 消费 Kafka 写 Hudi。</li>
+</ol>
+<p>我更喜欢第二种，尤其是生产环境。原因是 Kafka 能保存 CDC 原始事件，方便回放、补偿、排查，也能把数据库采集和湖表写入解耦。</p>
+<p>本文实测链路如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-a773cfc92d2d898acff92522058eaaaf.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="CDC 入湖链路"></p>
+<p>这张图主要说明 MySQL binlog 先进入 Kafka，再由 Flink SQL 解析 Debezium JSON changelog，最终通过 Hudi upsert 写入湖表。</p>
+<p>如果要把 MySQL binlog 先写入 Kafka，Flink SQL 的形态一般是 <code>mysql-cdc</code> 源表加 <code>upsert-kafka</code> 目标表。下面是结构示例，<code>&lt;mysql-host&gt;</code> 替换为真实 MySQL 地址，账号和口令在博客里统一使用测试值：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> mysql_orders_cdc <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING<span class="token punctuation">,</span>
+  <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>order_id<span class="token punctuation">)</span> <span class="token operator">NOT</span> ENFORCED
+<span class="token punctuation">)</span> <span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'mysql-cdc'</span><span class="token punctuation">,</span>
+  <span class="token string">'hostname'</span> <span class="token operator">=</span> <span class="token string">'&lt;mysql-host>'</span><span class="token punctuation">,</span>
+  <span class="token string">'port'</span> <span class="token operator">=</span> <span class="token string">'3306'</span><span class="token punctuation">,</span>
+  <span class="token string">'username'</span> <span class="token operator">=</span> <span class="token string">'test_user'</span><span class="token punctuation">,</span>
+  <span class="token string">'password'</span> <span class="token operator">=</span> <span class="token string">'test_password'</span><span class="token punctuation">,</span>
+  <span class="token string">'database-name'</span> <span class="token operator">=</span> <span class="token string">'test'</span><span class="token punctuation">,</span>
+  <span class="token string">'table-name'</span> <span class="token operator">=</span> <span class="token string">'orders'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> kafka_orders_upsert <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING<span class="token punctuation">,</span>
+  <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>order_id<span class="token punctuation">)</span> <span class="token operator">NOT</span> ENFORCED
+<span class="token punctuation">)</span> <span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'upsert-kafka'</span><span class="token punctuation">,</span>
+  <span class="token string">'topic'</span> <span class="token operator">=</span> <span class="token string">'hudi_flink_cdc_orders_upsert'</span><span class="token punctuation">,</span>
+  <span class="token string">'properties.bootstrap.servers'</span> <span class="token operator">=</span> <span class="token string">'localhost:9092'</span><span class="token punctuation">,</span>
+  <span class="token string">'key.format'</span> <span class="token operator">=</span> <span class="token string">'json'</span><span class="token punctuation">,</span>
+  <span class="token string">'value.format'</span> <span class="token operator">=</span> <span class="token string">'json'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token keyword">INSERT</span> <span class="token keyword">INTO</span> kafka_orders_upsert
+<span class="token keyword">SELECT</span> order_id<span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> amount<span class="token punctuation">,</span> <span class="token keyword">status</span><span class="token punctuation">,</span> ts<span class="token punctuation">,</span> dt
+<span class="token keyword">FROM</span> mysql_orders_cdc<span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文账号和口令都只用于本地单机示例；生产环境应使用最小权限账号、强密码，并通过安全配置管理，不要把真实密码写入博客或仓库。</p>
+<p>这条链路适合把数据库采集和入湖写入拆开。需要注意，<code>upsert-kafka</code> 表输出的是按 key 更新后的 changelog，不是 Debezium 原始 JSON 的 <code>before</code> &#x2F; <code>after</code> &#x2F; <code>op</code> 结构。本文后面的实测从 Kafka Debezium JSON 开始，假设 Kafka 中已经是 Debezium JSON 格式，是为了把重点放在 Hudi 写入和读取语义上。</p>
+<p>需要补一个 Flink Kafka SQL connector：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /opt/module/flink-1.20.1/lib
+
+<span class="token function">curl</span> <span class="token parameter variable">-k</span> <span class="token parameter variable">-L</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-o</span> flink-sql-connector-kafka-3.4.0-1.20.jar <span class="token punctuation">\</span>
+  https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.4.0-1.20/flink-sql-connector-kafka-3.4.0-1.20.jar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>验证 jar 中有 Kafka SQL connector：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">jar tf flink-sql-connector-kafka-3.4.0-1.20.jar <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> KafkaDynamicTableFactory<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">org/apache/flink/streaming/connectors/kafka/table/KafkaDynamicTableFactory.class<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>修改 Flink lib 后重启 Flink：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/stop-cluster.sh
+/opt/module/flink-1.20.1/bin/start-cluster.sh<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果测试机系统时间早于证书生效时间，远端 Maven 证书校验可能失败。正常环境应恢复正确系统时间、开启 NTP，并使用 <code>curl -L</code> 或 <code>wget</code> 保留证书校验；<code>curl -k</code> 只适合隔离测试环境临时排错。本文使用的 <code>flink-sql-connector-kafka-3.4.0-1.20.jar</code> 与 Flink 1.20 配套，实际版本仍以对应版本的官方 connector 兼容说明为准。</p>
+<h2 id="2-CDC-写入验证"><a href="#2-CDC-写入验证" class="headerlink" title="2. CDC 写入验证"></a>2. CDC 写入验证</h2><h3 id="2-1-准备-Kafka-CDC-Topic"><a href="#2-1-准备-Kafka-CDC-Topic" class="headerlink" title="2.1 准备 Kafka CDC Topic"></a>2.1 准备 Kafka CDC Topic</h3><p>创建 Topic：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-topics.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--create</span> <span class="token punctuation">\</span>
+  --if-not-exists <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_flink_cdc_orders <span class="token punctuation">\</span>
+  <span class="token parameter variable">--partitions</span> <span class="token number">1</span> <span class="token punctuation">\</span>
+  --replication-factor <span class="token number">1</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果 Topic 不存在，输出类似：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Created topic hudi_flink_cdc_orders.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>准备 Debezium JSON 消息。这里的 <code>dt</code> 是模拟业务分区日期，用于演示多分区 CDC 入湖，不代表文章实际写作日期；<code>ts</code> 是模拟业务事件时间，用作 Hudi <code>precombine.field</code> 排序字段：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_cdc_orders.jsonl <span class="token operator">&lt;&lt;</span><span class="token string">'JSONL'
+&#123;"before":null,"after":&#123;"order_id":12001,"user_id":"u201","amount":39.90,"status":"CREATED","ts":1759063600000,"dt":"2025-09-28"&#125;,"op":"c","ts_ms":1759063601000&#125;
+&#123;"before":null,"after":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"CREATED","ts":1759063660000,"dt":"2025-09-28"&#125;,"op":"c","ts_ms":1759063661000&#125;
+&#123;"before":null,"after":&#123;"order_id":12003,"user_id":"u203","amount":168.00,"status":"CREATED","ts":1759063720000,"dt":"2025-09-29"&#125;,"op":"c","ts_ms":1759063721000&#125;
+&#123;"before":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"CREATED","ts":1759063660000,"dt":"2025-09-28"&#125;,"after":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"PAID","ts":1759063900000,"dt":"2025-09-28"&#125;,"op":"u","ts_ms":1759063901000&#125;
+JSONL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>写入 Kafka：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-console-producer.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_flink_cdc_orders <span class="token punctuation">\</span>
+  <span class="token operator">&lt;</span> /tmp/hudi_flink_cdc_orders.jsonl<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>消费验证：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/kafka/bin/kafka-console-consumer.sh <span class="token punctuation">\</span>
+  --bootstrap-server localhost:9092 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--topic</span> hudi_flink_cdc_orders <span class="token punctuation">\</span>
+  --from-beginning <span class="token punctuation">\</span>
+  --max-messages <span class="token number">4</span> <span class="token punctuation">\</span>
+  --timeout-ms <span class="token number">10000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">&#123;"before":null,"after":&#123;"order_id":12001,"user_id":"u201","amount":39.90,"status":"CREATED","ts":1759063600000,"dt":"2025-09-28"&#125;,"op":"c","ts_ms":1759063601000&#125;
+&#123;"before":null,"after":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"CREATED","ts":1759063660000,"dt":"2025-09-28"&#125;,"op":"c","ts_ms":1759063661000&#125;
+&#123;"before":null,"after":&#123;"order_id":12003,"user_id":"u203","amount":168.00,"status":"CREATED","ts":1759063720000,"dt":"2025-09-29"&#125;,"op":"c","ts_ms":1759063721000&#125;
+&#123;"before":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"CREATED","ts":1759063660000,"dt":"2025-09-28"&#125;,"after":&#123;"order_id":12002,"user_id":"u202","amount":88.00,"status":"PAID","ts":1759063900000,"dt":"2025-09-28"&#125;,"op":"u","ts_ms":1759063901000&#125;
+Processed a total of 4 messages<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文实测只演示 Debezium insert &#x2F; update 进入 Hudi；delete 事件需要单独验证，尤其要确认 Flink <code>debezium-json</code> 如何把 delete changelog 转给 Hudi sink。</p>
+<h3 id="2-2-Flink-SQL：Kafka-CDC-写入-Hudi"><a href="#2-2-Flink-SQL：Kafka-CDC-写入-Hudi" class="headerlink" title="2.2 Flink SQL：Kafka CDC 写入 Hudi"></a>2.2 Flink SQL：Kafka CDC 写入 Hudi</h3><p>准备 SQL：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_cdc_kafka_to_hudi.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+SET 'execution.runtime-mode' = 'streaming';
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
+SET 'execution.checkpointing.interval' = '5s';
+SET 'execution.checkpointing.dir' = 'hdfs:///flink-checkpoints/hudi_flink_cdc_orders';
+SET 'state.backend.type' = 'rocksdb';
+SET 'parallelism.default' = '1';
+
+DROP TABLE IF EXISTS kafka_orders_cdc;
+DROP TABLE IF EXISTS hudi_orders_cdc;
+
+CREATE TABLE kafka_orders_cdc (
+  order_id BIGINT,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING,
+  PRIMARY KEY (order_id) NOT ENFORCED
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'hudi_flink_cdc_orders',
+  'properties.bootstrap.servers' = 'localhost:9092',
+  'properties.group.id' = 'hudi-flink-cdc-orders-g20250929',
+  'scan.startup.mode' = 'earliest-offset',
+  'format' = 'debezium-json'
+);
+
+CREATE TABLE hudi_orders_cdc (
+  order_id BIGINT PRIMARY KEY NOT ENFORCED,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING
+) PARTITIONED BY (dt)
+WITH (
+  'connector' = 'hudi',
+  'path' = 'hdfs:///hudi/demo_flink_cdc_orders',
+  'table.type' = 'COPY_ON_WRITE',
+  'write.operation' = 'upsert',
+  'precombine.field' = 'ts',
+  'hoodie.metadata.enable' = 'false',
+  'write.tasks' = '1',
+  'write.bucket_assign.tasks' = '1',
+  'read.tasks' = '1',
+  'write.rate.limit' = '1000'
+);
+
+INSERT INTO hudi_orders_cdc
+SELECT order_id, user_id, amount, status, ts, dt
+FROM kafka_orders_cdc;
+SQL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里有几个关键点：</p>
+<ol>
+<li>Kafka 表使用 <code>format=&#39;debezium-json&#39;</code>。</li>
+<li>Hudi 表使用 <code>write.operation=&#39;upsert&#39;</code>。</li>
+<li><code>precombine.field=&#39;ts&#39;</code> 用于同一 record key 多版本合并。</li>
+<li><code>write.rate.limit=&#39;1000&#39;</code> 用于限制写入速率。</li>
+<li>单机环境只有 1 个 slot，所以并行度都设为 1。</li>
+</ol>
+<p><code>kafka_orders_cdc</code> 的 primary key 主要用于表达 changelog key 语义；不同 Flink&#x2F;Kafka connector 配置下，可能还需要 <code>key.format</code>、<code>key.fields</code> 或 upsert-kafka 方案。如果复用旧 <code>group.id</code>，可能不会重新消费已有 Kafka 消息；测试时建议使用新的 Topic 或新的 <code>group.id</code>。本文 Flink 1.20.1 环境中 <code>state.backend.type=rocksdb</code> 实测可用，如果当前发行包要求 <code>embedded-rocksdb</code> 或其他配置项，应按 Flink 1.20 文档调整。</p>
+<p><code>write.rate.limit</code> 在 Hudi 1.0.2 Flink connector 中用于限制每秒写入记录数，本文用 <code>1000</code> 只是单机测试值。当前 CDC 实测是从空 Hudi 表开始写入，所以没有开启 <code>index.bootstrap.enabled</code>；如果目标表已经有历史全量数据，应参考第 11 节开启 index bootstrap 或使用已有 checkpoint &#x2F; savepoint state。</p>
+<p>执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">unset</span> HADOOP_CLASSPATH
+<span class="token builtin class-name">export</span> <span class="token assign-left variable">HADOOP_CONF_DIR</span><span class="token operator">=</span>/opt/module/hadoop-3.4.1/etc/hadoop
+
+hdfs dfs <span class="token parameter variable">-rm</span> <span class="token parameter variable">-r</span> <span class="token parameter variable">-f</span> <span class="token punctuation">\</span>
+  /hudi/demo_flink_cdc_orders <span class="token punctuation">\</span>
+  /flink-checkpoints/hudi_flink_cdc_orders
+
+/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_cdc_kafka_to_hudi.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里 <code>unset HADOOP_CLASSPATH</code> 是为了避免把本机 Hadoop 依赖再次通过环境变量注入 Flink，造成和 Flink <code>lib</code> 中已有依赖重复。本文依赖主要放在 Flink <code>lib</code> 中，再通过 <code>HADOOP_CONF_DIR</code> 提供 Hadoop 配置。</p>
+<p>手工删除 HDFS 表路径和 checkpoint 目录只是为了保证单机测试可重复执行；生产环境不要直接 <code>hdfs dfs -rm</code> Hudi 表目录或 checkpoint 目录。仅删除 Hudi 表和 checkpoint 不会删除 Kafka 中已有消息，如果重复执行第 5 节 producer，Topic 中会累积重复消息；为了保证结果可复现，测试时建议使用全新的 Kafka Topic，或删除并重建 Topic。</p>
+<p>输出中可以看到作业提交成功：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Flink SQL> [INFO] Submitting SQL update statement to the cluster...
+[INFO] SQL update statement has been successfully submitted to the cluster:
+Job ID: 83faa7059126b57f0a3c6ab48781a5ef<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>查看 Flink job：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink list<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">------------------ Running/Restarting Jobs -------------------
+29.09.2025 20:39:40 : 83faa7059126b57f0a3c6ab48781a5ef : insert-into_default_catalog.default_database.hudi_orders_cdc (RUNNING)
+--------------------------------------------------------------
+No scheduled jobs.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>因为这是持续流任务，验证完 Hudi commit 后可以取消。取消任务前应先确认 Flink checkpoint 成功，并且 Hudi Timeline 中已经出现 completed commit；否则可能还没有稳定提交到 Hudi 表：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/flink cancel 83faa7059126b57f0a3c6ab48781a5ef<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h3 id="2-3-验证-Hudi-commit-和文件"><a href="#2-3-验证-Hudi-commit-和文件" class="headerlink" title="2.3 验证 Hudi commit 和文件"></a>2.3 验证 Hudi commit 和文件</h3><p>查看 Timeline：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_flink_cdc_orders/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>完整目录里有 18 个条目，下面只截取两次 commit 相关文件：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Found 18 items
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203945218.commit.requested
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203945218.inflight
+-rw-r--r--   1 root supergroup       4344 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203945218_20250929203949839.commit
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203949912.commit.requested
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203949912.inflight
+-rw-r--r--   1 root supergroup       3933 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/.hoodie/timeline/20250929203949912_20250929203952260.commit<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Hudi 1.0.x 中，完成态 Instant 文件名里可以看到 begin instant 和 completion instant，例如 <code>begin_completion.commit</code>；这里前半段更接近请求 &#x2F; 开始时间，后半段是完成时间。<code>requested</code> &#x2F; <code>inflight</code> 用于表达 Instant 状态流转；判断已经成功提交的动作时，主要看完成态 commit 文件。</p>
+<p>查看 checkpoint 元信息和数据文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> <span class="token parameter variable">-R</span> /hudi/demo_flink_cdc_orders <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> <span class="token parameter variable">-E</span> <span class="token string">'ckp_meta|2025-09-2[90]|parquet'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>部分输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">drwxr-xr-x   - root supergroup          0 2025-09-29 20:40 /hudi/demo_flink_cdc_orders/.hoodie/.aux/ckp_meta
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:40 /hudi/demo_flink_cdc_orders/.hoodie/.aux/ckp_meta/20250929204001894.COMPLETED
+-rw-r--r--   1 root supergroup          0 2025-09-29 20:40 /hudi/demo_flink_cdc_orders/.hoodie/.aux/ckp_meta/20250929204001894.INFLIGHT
+drwxr-xr-x   - root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/2025-09-28
+-rw-r--r--   1 root supergroup     435862 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/2025-09-28/e7d73c08-2a7f-4be9-aa3f-ac4352592d4d_0-1-0_20250929203945218.parquet
+drwxr-xr-x   - root supergroup          0 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/2025-09-29
+-rw-r--r--   1 root supergroup     435725 2025-09-29 20:39 /hudi/demo_flink_cdc_orders/2025-09-29/9afc043a-6dc2-4197-8fdd-5170ad042120_0-1-0_20250929203945218.parquet<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果要确认第二次 commit 对应的数据文件，可以单独过滤第二个 instant：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> <span class="token parameter variable">-R</span> /hudi/demo_flink_cdc_orders <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> <span class="token number">20250929203949912</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>上面是 <code>grep</code> 截取的部分输出，只展示了第一批 base files；完整排查时应结合第二个 commit 对应的新文件、Timeline 和查询结果一起看。</p>
+<p>这里能看到：</p>
+<ol>
+<li>流式任务按 checkpoint 产生多个 commit。</li>
+<li><code>.hoodie/.aux/ckp_meta</code> 中是 Flink Hudi sink 写入过程中使用的 checkpoint &#x2F; instant 辅助元信息。</li>
+<li>数据按 <code>dt</code> 分区写入。</li>
+<li>Hudi 表已经形成可查询的 COW 快照。</li>
+</ol>
+<p><code>.hoodie/.aux/ckp_meta</code> 和 Flink 的 checkpoint 存储目录、Kafka consumer group offset、HoodieStreamer checkpoint 不是同一个概念，不要混淆。数据文件名前半段是 fileId，中间的 <code>0-1-0</code> 类似写入任务相关 token，最后的 <code>20250929203945218</code> 是写入 instant，不要把整个文件名都理解成 fileId。</p>
+<h3 id="2-4-查询-CDC-入湖结果"><a href="#2-4-查询-CDC-入湖结果" class="headerlink" title="2.4 查询 CDC 入湖结果"></a>2.4 查询 CDC 入湖结果</h3><p>准备查询 SQL。查询脚本使用 batch runtime，只读取已经完成的 Hudi commit，不需要配置 checkpoint。这里不是重新写表，而是在 Flink SQL 中用同样 schema 注册已有 Hudi 路径用于查询；字段、<code>PRIMARY KEY NOT ENFORCED</code>、<code>PARTITIONED BY</code>、<code>table.type</code> 应和已有表配置保持一致。</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_flink_cdc_query.sql <span class="token operator">&lt;&lt;</span><span class="token string">'SQL'
+SET 'execution.runtime-mode' = 'batch';
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
+
+CREATE TABLE hudi_orders_cdc_query (
+  order_id BIGINT PRIMARY KEY NOT ENFORCED,
+  user_id STRING,
+  amount DECIMAL(10,2),
+  status STRING,
+  ts BIGINT,
+  dt STRING
+) PARTITIONED BY (dt)
+WITH (
+  'connector' = 'hudi',
+  'path' = 'hdfs:///hudi/demo_flink_cdc_orders',
+  'table.type' = 'COPY_ON_WRITE',
+  'hoodie.metadata.enable' = 'false',
+  'read.tasks' = '1'
+);
+
+SELECT dt, COUNT(*) AS cnt, MIN(order_id) AS min_order_id, MAX(order_id) AS max_order_id
+FROM hudi_orders_cdc_query
+GROUP BY dt
+ORDER BY dt;
+
+SELECT order_id, user_id, amount, status, dt
+FROM hudi_orders_cdc_query
+ORDER BY order_id;
+SQL</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">/opt/module/flink-1.20.1/bin/sql-client.sh <span class="token punctuation">\</span>
+  <span class="token parameter variable">-f</span> /tmp/hudi_flink_cdc_query.sql<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>分区统计：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+------------+-----+--------------+--------------+
+|         dt | cnt | min_order_id | max_order_id |
++------------+-----+--------------+--------------+
+| 2025-09-28 |   2 |        12001 |        12002 |
+| 2025-09-29 |   1 |        12003 |        12003 |
++------------+-----+--------------+--------------+
+2 rows in set (6.85 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>明细结果：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">+----------+---------+--------+---------+------------+
+| order_id | user_id | amount |  status |         dt |
++----------+---------+--------+---------+------------+
+|    12001 |    u201 |  39.90 | CREATED | 2025-09-28 |
+|    12002 |    u202 |  88.00 |    PAID | 2025-09-28 |
+|    12003 |    u203 | 168.00 | CREATED | 2025-09-29 |
++----------+---------+--------+---------+------------+
+3 rows in set (1.17 seconds)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>order_id=12002</code> 从 <code>CREATED</code> 更新成了 <code>PAID</code>，说明 Kafka Debezium JSON 的 update 事件被 Flink SQL 解析成 changelog 后，最终通过 Hudi record key 和 <code>precombine.field=ts</code> 合并成了最新状态。</p>
+<h2 id="3-生产链路能力"><a href="#3-生产链路能力" class="headerlink" title="3. 生产链路能力"></a>3. 生产链路能力</h2><h3 id="3-1-限流：write-rate-limit"><a href="#3-1-限流：write-rate-limit" class="headerlink" title="3.1 限流：write.rate.limit"></a>3.1 限流：write.rate.limit</h3><p>CDC 入湖最怕全量快照和实时增量混在一起时出现写入尖峰。比如 Debezium 先扫历史数据，再接 binlog；或者某个任务恢复后大量回放 Kafka offset。这个时候写入端可能瞬间把 HDFS、checkpoint 和 Hudi writer 都打满。</p>
+<p><img src="https://images.hnbian.cn/new/n-3c086b9c654e657bab967a8f48fe8ebc.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Flink Hudi 写入限流"></p>
+<p>这张图主要说明 <code>write.rate.limit</code> 用来削平 Kafka 堆积追赶和全量快照阶段的写入尖峰，避免 checkpoint、writer buffer 和 HDFS 文件写入同时被打满。</p>
+<p>Hudi Flink 提供了 <code>write.rate.limit</code>。本文按 Hudi 1.0.2 Flink connector 语义理解为每秒写入记录数限制；具体单位、默认值和是否对所有 source &#x2F; sink 场景生效，应以当前版本文档和实测为准：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'write.rate.limit'</span> <span class="token operator">=</span> <span class="token string">'1000'</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>我对这个参数的理解是：它不是为了提升峰值吞吐，而是为了让写入更平滑。尤其在全量导入、补偿回放、Kafka 堆积追赶这几类场景里，限流可以让 checkpoint 更稳定。</p>
+<p>如果没有限流，且 checkpoint 间隔较短、分区较多、<code>write.tasks</code> 较高或 small file 策略不合理，可能出现：</p>
+<ol>
+<li>checkpoint 一直超时。</li>
+<li>writer buffer 快速膨胀。</li>
+<li>HDFS 小文件突然增加。</li>
+<li>Kafka 消费吞吐忽高忽低。</li>
+<li>TaskManager GC 变多。</li>
+</ol>
+<h3 id="3-2-离线批量导入"><a href="#3-2-离线批量导入" class="headerlink" title="3.2 离线批量导入"></a>3.2 离线批量导入</h3><p>CDC 入湖之前通常需要先做全量导入。全量导入不要直接用和实时任务一样的 upsert 链路硬灌，初始化阶段更适合 <code>bulk_insert</code>。</p>
+<p>示例：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> <span class="token string">'execution.runtime-mode'</span> <span class="token operator">=</span> <span class="token string">'batch'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'execution.checkpointing.interval'</span> <span class="token operator">=</span> <span class="token string">'0'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> hudi_orders_full <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span> PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/orders_full'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.operation'</span> <span class="token operator">=</span> <span class="token string">'bulk_insert'</span><span class="token punctuation">,</span>
+  <span class="token string">'precombine.field'</span> <span class="token operator">=</span> <span class="token string">'ts'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.tasks'</span> <span class="token operator">=</span> <span class="token string">'4'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.bulk_insert.shuffle_input'</span> <span class="token operator">=</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.bulk_insert.sort_input'</span> <span class="token operator">=</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.bulk_insert.sort_input.by_record_key'</span> <span class="token operator">=</span> <span class="token string">'false'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文 Flink 1.20.1 环境中 <code>execution.checkpointing.interval=0</code> 用于关闭 checkpoint；如果你的版本不接受 <code>0</code>，可以直接删除 checkpoint interval 设置，或者按 Flink 文档关闭 checkpoint。这个示例只展示 <code>bulk_insert</code> 操作形态，文件大小调优沿用上一篇参数调优篇，后续应结合 <code>hoodie.parquet.max.file.size</code>、<code>hoodie.parquet.small.file.limit</code>、<code>write.tasks</code>、<code>write.bulk_insert.sort_input</code>、<code>write.bulk_insert.shuffle_input</code> 控制初始化文件布局。</p>
+<p>全量导入的核心目标是：</p>
+<ol>
+<li>快速写入历史数据。</li>
+<li>尽量生成合理大小的 Parquet 文件。</li>
+<li>避免一开始就制造大量小文件。</li>
+<li>为后续实时 upsert 留下清晰的 FileGroup 布局。</li>
+</ol>
+<p>这里有两个细节值得单独记：</p>
+<ol>
+<li><code>bulk_insert</code> 更适合在 batch runtime mode 下执行，checkpoint 可以关闭，避免初始化任务被流式 checkpoint 开销拖慢。</li>
+<li><code>write.tasks</code> 会直接影响初始化阶段的输出文件和 FileGroup 数量。当单个文件达到目标大小后还会 roll over，所以最终文件数通常大于等于 <code>write.tasks</code>，但不要把这里的文件 &#x2F; FileGroup 数量和 Bucket Index 的 bucket 概念混在一起。</li>
+</ol>
+<p>如果一上来就用小批量 upsert 导历史数据，后面很容易出现写入慢和小文件问题。</p>
+<h3 id="3-3-全量接增量与-index-bootstrap"><a href="#3-3-全量接增量与-index-bootstrap" class="headerlink" title="3.3 全量接增量与 index bootstrap"></a>3.3 全量接增量与 index bootstrap</h3><p>全量接增量的核心问题是：实时任务启动时，Hudi 表里已经有历史数据，Flink state 里还没有这些 key 到 FileGroup 的映射。此时如果直接写入增量，可能无法正确识别历史记录位置。</p>
+<p>在 Flink Hudi upsert 场景中，<code>index.bootstrap.enabled</code> 用于把已有 Hudi 表中的 record key 位置信息加载进 Flink state。它是 Flink state index 场景下用于已有 Hudi 表接续增量写入的机制，不要和 Spark 侧索引初始化能力混为一谈：</p>
+<p><img src="https://images.hnbian.cn/new/n-ff1b10159afafab9369958e844b47068.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="全量接增量流程"></p>
+<p>这张图主要说明全量 <code>bulk_insert</code> 完成后，实时 <code>upsert</code> 任务需要通过 index bootstrap 或已有 state 识别历史 record key 的文件位置。</p>
+<p>示例配置：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> hudi_orders_incremental <span class="token punctuation">(</span>
+  order_id <span class="token keyword">BIGINT</span> <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token operator">NOT</span> ENFORCED<span class="token punctuation">,</span>
+  user_id STRING<span class="token punctuation">,</span>
+  amount <span class="token keyword">DECIMAL</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+  <span class="token keyword">status</span> STRING<span class="token punctuation">,</span>
+  ts <span class="token keyword">BIGINT</span><span class="token punctuation">,</span>
+  dt STRING
+<span class="token punctuation">)</span> PARTITIONED <span class="token keyword">BY</span> <span class="token punctuation">(</span>dt<span class="token punctuation">)</span>
+<span class="token keyword">WITH</span> <span class="token punctuation">(</span>
+  <span class="token string">'connector'</span> <span class="token operator">=</span> <span class="token string">'hudi'</span><span class="token punctuation">,</span>
+  <span class="token string">'path'</span> <span class="token operator">=</span> <span class="token string">'hdfs:///hudi/orders_full'</span><span class="token punctuation">,</span>
+  <span class="token string">'table.type'</span> <span class="token operator">=</span> <span class="token string">'COPY_ON_WRITE'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.operation'</span> <span class="token operator">=</span> <span class="token string">'upsert'</span><span class="token punctuation">,</span>
+  <span class="token string">'precombine.field'</span> <span class="token operator">=</span> <span class="token string">'ts'</span><span class="token punctuation">,</span>
+  <span class="token string">'index.bootstrap.enabled'</span> <span class="token operator">=</span> <span class="token string">'true'</span><span class="token punctuation">,</span>
+  <span class="token string">'index.partition.regex'</span> <span class="token operator">=</span> <span class="token string">'2025-09-.*'</span><span class="token punctuation">,</span>
+  <span class="token string">'write.index_bootstrap.tasks'</span> <span class="token operator">=</span> <span class="token string">'4'</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 <code>2025-09-.*</code> 是示例分区范围，实际生产要按全量表历史分区范围设置，避免漏加载需要接续的历史分区。</p>
+<p>使用 index bootstrap 时要注意：</p>
+<ol>
+<li>它会把已有表的 key 映射加载到 Flink state。</li>
+<li>索引加载是阻塞过程，加载期间 checkpoint 可能无法立即成功，需要给失败容忍留余量。</li>
+<li>可以用 <code>index.partition.regex</code> 限定加载分区，避免一次扫全表。</li>
+<li>首次 bootstrap 完成并确认 checkpoint &#x2F; savepoint 已经成功保存后，后续从该状态恢复时通常可以关闭它；如果丢失 state 或重新从空状态启动，就需要重新评估是否再次 bootstrap。</li>
+</ol>
+<p>官方文档也特别强调：index bootstrap 是阻塞过程，通常要等第一个 checkpoint 成功后，才能认为历史索引加载完成。</p>
+<p>实际操作时我会把流程拆得更明确一些：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token keyword">SET</span> <span class="token string">'execution.checkpointing.interval'</span> <span class="token operator">=</span> <span class="token string">'10s'</span><span class="token punctuation">;</span>
+<span class="token keyword">SET</span> <span class="token string">'execution.checkpointing.tolerable-failed-checkpoints'</span> <span class="token operator">=</span> <span class="token string">'20'</span><span class="token punctuation">;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>然后按下面的顺序做：</p>
+<ol>
+<li>第一次启动任务时开启 <code>index.bootstrap.enabled=true</code>。</li>
+<li>等待日志里出现类似 <code>finish loading the index under partition</code>、<code>Load records from file</code> 的加载进度。</li>
+<li>等第一次 checkpoint 成功，说明历史索引已经进入 Flink state。</li>
+<li>停止任务并保留 savepoint，或者依赖 externalized checkpoint。</li>
+<li>第二次启动时关闭 <code>index.bootstrap.enabled</code>，把 <code>write.tasks</code>、<code>write.bucket_assign.tasks</code>、<code>write.index_bootstrap.tasks</code> 调回生产值。</li>
+</ol>
+<p>还有一个容易忽略的点：某些场景下，索引加载进度可能和数据流、分区访问范围、<code>index.partition.regex</code> 以及 checkpoint 推进有关。全量接增量时最好设计一个明确的启动窗口，通过日志和 checkpoint 确认需要接续的分区都已经被覆盖。</p>
+<h2 id="4-常见问题与链路判断"><a href="#4-常见问题与链路判断" class="headerlink" title="4. 常见问题与链路判断"></a>4. 常见问题与链路判断</h2><h3 id="4-1-常见问题"><a href="#4-1-常见问题" class="headerlink" title="4.1 常见问题"></a>4.1 常见问题</h3><h4 id="4-1-1-Kafka-CDC-表为什么要用-debezium-json"><a href="#4-1-1-Kafka-CDC-表为什么要用-debezium-json" class="headerlink" title="4.1.1 Kafka CDC 表为什么要用 debezium-json"></a>4.1.1 Kafka CDC 表为什么要用 debezium-json</h4><p>Debezium JSON 中有 <code>before</code>、<code>after</code>、<code>op</code> 等字段，Flink 可以把它解析成 changelog。如果使用普通 kafka connector + <code>json</code>，确实会丢失 Debezium 的 changelog 语义，Hudi 只能看到普通 append 数据；如果使用 <code>upsert-kafka</code>，则是另一种按 key 表达更新的方式，但它和 Debezium <code>before</code> &#x2F; <code>after</code> &#x2F; <code>op</code> 原始 JSON 不是同一套格式。</p>
+<h4 id="4-1-2-为什么-Hudi-表产生了很多-commit"><a href="#4-1-2-为什么-Hudi-表产生了很多-commit" class="headerlink" title="4.1.2 为什么 Hudi 表产生了很多 commit"></a>4.1.2 为什么 Hudi 表产生了很多 commit</h4><p>Flink Hudi sink 按 checkpoint 推进 commit。本文 checkpoint 间隔是 5 秒，且 checkpoint 能持续成功，所以任务运行几十秒后会出现多个 Hudi commit。这是正常现象。生产中要结合延迟、小文件数量和 checkpoint 成功率设置 checkpoint 间隔。</p>
+<h4 id="4-1-3-流读任务落后会有什么风险"><a href="#4-1-3-流读任务落后会有什么风险" class="headerlink" title="4.1.3 流读任务落后会有什么风险"></a>4.1.3 流读任务落后会有什么风险</h4><p>如果流读任务从很早的 commit 开始消费，但 Hudi clean 已经清掉旧 FileSlice，就可能读不到历史增量。解决方向是：</p>
+<pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token string">'read.start-commit'</span> <span class="token operator">=</span> <span class="token string">'20250929203945218'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>并在写入表配置中合理保留 commit：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">clean.retain_commits</span><span class="token punctuation">=</span><span class="token value attr-value">30</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><code>clean.retain_commits</code> 是 Hudi Flink connector 的短名配置，表示保留多少个 commit。清理策略还需要结合 archive、savepoint、下游最大延迟和增量消费 checkpoint 设计。</p>
+<h4 id="4-1-4-CDC-入湖能不能直接从-MySQL-读"><a href="#4-1-4-CDC-入湖能不能直接从-MySQL-读" class="headerlink" title="4.1.4 CDC 入湖能不能直接从 MySQL 读"></a>4.1.4 CDC 入湖能不能直接从 MySQL 读</h4><p>可以。Flink CDC connector 能直接读取 MySQL binlog。但生产里我更倾向于 MySQL -&gt; Kafka -&gt; Flink -&gt; Hudi，因为 Kafka 提供了回放、削峰、解耦和排查能力。</p>
+<h4 id="4-1-5-全量接增量为什么会重复"><a href="#4-1-5-全量接增量为什么会重复" class="headerlink" title="4.1.5 全量接增量为什么会重复"></a>4.1.5 全量接增量为什么会重复</h4><p>常见原因是实时写入任务不知道历史 key 已经存在，或者 partition path 发生变化但没有使用合适的索引策略。全量接增量时一定要考虑 index bootstrap、Hudi record key &#x2F; 业务主键字段、分区字段和 checkpoint 起点。</p>
+<h3 id="4-2-CDC-入湖链路判断"><a href="#4-2-CDC-入湖链路判断" class="headerlink" title="4.2 CDC 入湖链路判断"></a>4.2 CDC 入湖链路判断</h3><p>CDC 入湖最重要的不是“写进去”，而是保证顺序、去重、回放和恢复。</p>
+<p>Kafka 里的 CDC 消息只是原始变化日志；Flink 负责把它变成有状态的 changelog；Hudi 负责把 changelog 落成可查询、可增量消费的湖表。任何一层处理不好，最后都会表现成重复数据、旧值覆盖新值、checkpoint 卡住、下游读不到增量。</p>
+<p>我更推荐的入湖顺序是：</p>
+<ol>
+<li>离线 <code>bulk_insert</code> 完成历史数据初始化。</li>
+<li>实时任务开启 <code>index.bootstrap.enabled</code> 识别已有数据。</li>
+<li>任务第一个 checkpoint 成功后，最好通过 savepoint 或 externalized checkpoint 保留可恢复状态；生产切换配置时优先使用 savepoint 做受控恢复。</li>
+<li>后续实时 upsert 从 Flink checkpoint &#x2F; savepoint 中保存的 Kafka offset 和 Hudi writer &#x2F; index state 继续推进。</li>
+<li>下游用 Hudi Streaming Read 或 Incremental Query 消费新 commit。</li>
+</ol>
+<p>不要把 Kafka consumer group offset、Flink checkpoint 和 Hudi Timeline commit 混为一谈。</p>
+<p>这条链路比直接把 binlog 写 Parquet 复杂，但它换来的是可更新、可回放、可增量消费的数据湖表。</p>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>本文主要完成了 Flink Hudi 流读、CDC 入湖和全量接增量的梳理：</p>
+<ol>
+<li>Flink Hudi Streaming Read 通过 <code>read.streaming.enabled=true</code> 持续读取新 commit。</li>
+<li><code>read.start-commit=&#39;earliest&#39;</code> 可以从最早可用 commit 开始消费；如果 cleaner 已经清理了旧 FileSlice，落后太久的流读任务仍可能无法完整补读。</li>
+<li>Kafka Debezium JSON 可以通过 Flink SQL 写入 Hudi，并保留 update 语义。</li>
+<li><code>write.rate.limit</code> 适合全量快照、补偿回放和 Kafka 堆积追赶场景。</li>
+<li>全量导入优先考虑 <code>bulk_insert</code>，实时增量使用 <code>upsert</code>。</li>
+<li>全量接增量的关键是 <code>index.bootstrap.enabled</code>、Hudi record key &#x2F; partition path 设计，以及 Flink checkpoint &#x2F; savepoint 状态衔接。</li>
+</ol>
+<p>本文以 Hudi 1.0.2 与 Flink 1.20.1 实测环境为准，latest 文档可能已经包含后续版本变化。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/d2c7e8f9.html">https://www.hnbian.cn/posts/d2c7e8f9.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/flink/">
+                                    <span class="chip bg-color">flink</span>
+                                </a>
+                            
+                                <a href="/tags/kafka/">
+                                    <span class="chip bg-color">kafka</span>
+                                </a>
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/data-lake/">
+                                    <span class="chip bg-color">data-lake</span>
+                                </a>
+                            
+                                <a href="/tags/cdc/">
+                                    <span class="chip bg-color">cdc</span>
+                                </a>
+                            
+                                <a href="/tags/streaming/">
+                                    <span class="chip bg-color">streaming</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/b6c9e4a8.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-04bc57413d92811c38974460283c04b5.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 13：Flink Hudi 高级能力详解">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 13：Flink Hudi 高级能力详解</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-10-08
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/bucket/">
+                        <span class="chip bg-color">bucket</span>
+                    </a>
+                    
+                    <a href="/tags/changelog/">
+                        <span class="chip bg-color">changelog</span>
+                    </a>
+                    
+                    <a href="/tags/clustering/">
+                        <span class="chip bg-color">clustering</span>
+                    </a>
+                    
+                    <a href="/tags/catalog/">
+                        <span class="chip bg-color">catalog</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/a9e7c4d1.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f10d259d1c507cbab549e6914844911f.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-09-18
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/flink/">
+                        <span class="chip bg-color">flink</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/compaction/">
+                        <span class="chip bg-color">compaction</span>
+                    </a>
+                    
+                    <a href="/tags/tuning/">
+                        <span class="chip bg-color">tuning</span>
+                    </a>
+                    
+                    <a href="/tags/performance/">
+                        <span class="chip bg-color">performance</span>
+                    </a>
+                    
+                    <a href="/tags/checkpoint/">
+                        <span class="chip bg-color">checkpoint</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

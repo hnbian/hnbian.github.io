@@ -1,0 +1,2087 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解, hnbian">
+    <meta name="description" content="前面讲完 COW、MOR 和查询类型以后，再看写入操作就清楚多了。Hudi 写入不是简单把 DataFrame 保存成 Parquet，而是要根据 record key、partition path、precombine 字段、索引定位和表">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-4553ef91eaffd01205b8a2a6649611be.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/spark/">
+                                <span class="chip bg-color">spark</span>
+                            </a>
+                        
+                            <a href="/tags/hudi/">
+                                <span class="chip bg-color">hudi</span>
+                            </a>
+                        
+                            <a href="/tags/write/">
+                                <span class="chip bg-color">write</span>
+                            </a>
+                        
+                            <a href="/tags/upsert/">
+                                <span class="chip bg-color">upsert</span>
+                            </a>
+                        
+                            <a href="/tags/insert/">
+                                <span class="chip bg-color">insert</span>
+                            </a>
+                        
+                            <a href="/tags/delete/">
+                                <span class="chip bg-color">delete</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/hudi/" class="post-category">
+                                hudi
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-07-29
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    24 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>前面讲完 COW、MOR 和查询类型以后，再看写入操作就清楚多了。Hudi 写入不是简单把 DataFrame 保存成 Parquet，而是要根据 record key、partition path、precombine 字段、索引定位和表类型，决定这批数据最终是插入、更新、删除，还是覆盖某个分区。</p>
+<p>Hudi 的写操作很多，但学习阶段最核心的是这几类：<code>upsert</code>、<code>insert</code>、<code>bulk_insert</code>、<code>insert_overwrite</code>、<code>insert_overwrite_table</code> 和 <code>delete</code>。这些操作的差异，决定了是否查索引、是否允许更新、是否重写文件组、是否产生 replace commit。</p>
+<h2 id="1-写入语义和操作类型"><a href="#1-写入语义和操作类型" class="headerlink" title="1. 写入语义和操作类型"></a>1. 写入语义和操作类型</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>假设我们要把订单数据写入 Hudi：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">order_id=3001, dt=2025-07-28, status=CREATED
+order_id=3002, dt=2025-07-28, status=CREATED
+order_id=3003, dt=2025-07-29, status=CREATED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这里的 <code>dt</code> 是模拟业务分区日期，用于演示跨分区写入和分区覆盖，不代表文章实际写作日期。</p>
+<p>后续会发生几种变化：</p>
+<ol>
+<li>初始化导入一批历史数据。</li>
+<li>追加一个新订单 <code>3004</code>。</li>
+<li>把 <code>3001</code> 从 <code>CREATED</code> 更新成 <code>PAID</code>。</li>
+<li>删除错误订单 <code>3002</code>。</li>
+<li>重算 <code>dt=2025-07-29</code> 分区，只保留修正后的 <code>3999</code>。</li>
+</ol>
+<p>这些场景都叫“写入”，但语义完全不同。如果全部都用 <code>upsert</code>，能跑，但不一定最高效；如果该用 <code>upsert</code> 的地方用了 <code>insert</code>，又可能引入重复数据或错误结果。</p>
+<p>所以这一篇先把写操作语义讲清楚。</p>
+<h3 id="1-2-写入前的几个关键概念"><a href="#1-2-写入前的几个关键概念" class="headerlink" title="1.2 写入前的几个关键概念"></a>1.2 写入前的几个关键概念</h3><p>Hudi 写入至少要理解四个字段或参数。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>hoodie.datasource.write.recordkey.field</code></td>
+<td>Hudi record key &#x2F; 业务主键字段，用来决定同一条业务记录如何识别；它不是传统数据库里的强制唯一约束</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.partitionpath.field</code></td>
+<td>分区路径，决定数据落在哪个分区目录</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.precombine.field</code></td>
+<td>同一批数据中同 key 冲突时保留哪条</td>
+</tr>
+<tr>
+<td><code>hoodie.datasource.write.operation</code></td>
+<td>写操作类型，比如 <code>upsert</code>、<code>insert</code>、<code>delete</code></td>
+</tr>
+</tbody></table>
+<p>这几个参数共同决定 HoodieKey 和写入路径。</p>
+<p>对分区表可以先理解为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">HoodieKey = record key + partition path<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>对非分区表，<code>partition path</code> 通常为空或由非分区 KeyGenerator 处理。</p>
+<p>对于分区表，<code>record key</code> 和 <code>partition path</code> 都很重要。非全局索引通常把 <code>partition path</code> 作为定位范围的一部分；如果同一个 <code>record key</code> 的分区字段会变化，就可能在新旧分区之间产生重复或旧记录残留，需要考虑 Global Index、Record Index、update partition path 相关配置，或由业务侧保证分区字段稳定。</p>
+<p>写操作选择可以先按业务语义判断，而不是先背参数：</p>
+<p><img src="https://images.hnbian.cn/new/n-bbee0b538e4396895e5ac55c46c7c902.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Hudi 写操作选型"></p>
+<p>这张图主要说明写操作应先按业务语义选择：初始化导入用 <code>bulk_insert</code>，纯追加用 <code>insert</code>，有变更用 <code>upsert</code>，删除用 <code>delete</code>，分区修复用 <code>insert_overwrite</code>。</p>
+<p>这张图里最重要的是几条分支：</p>
+<ol>
+<li>历史全量初始化，优先考虑 <code>bulk_insert</code>，它更关注吞吐和文件组织，不适合拿来处理日常更新。</li>
+<li>纯追加事件表，如果上游已经保证不重复，可以使用 <code>insert</code>，减少索引定位成本。</li>
+<li>CDC 或状态表，只要同一个业务 key 可能再次出现，就应该使用 <code>upsert</code>。</li>
+<li>删除事件用 <code>delete</code> 表达，不要用手工过滤旧数据的方式绕过 Timeline。</li>
+<li>分区重算、数据修复更适合 <code>insert_overwrite</code>，它表达的是替换某个范围的有效文件视图。</li>
+</ol>
+<h3 id="1-3-UPSERT"><a href="#1-3-UPSERT" class="headerlink" title="1.3 UPSERT"></a>1.3 UPSERT</h3><p><code>upsert</code> 是 Hudi 最典型的写操作，也是 CDC 入湖最常用的写操作。</p>
+<p>它的语义是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">key 已存在 -> update
+key 不存在 -> insert<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-8eae6400e7b193fc7a8ba78d0e565f2f.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="UPSERT 写入流程"></p>
+<p>这张图主要说明 <code>upsert</code> 会先通过 <code>record key</code>、<code>partition path</code> 和索引判断记录是否已存在，再分别进入 update path 或 insert path。</p>
+<p><code>upsert</code> 的大致流程：</p>
+<ol>
+<li>根据 record key 和 partition path 生成 HoodieKey。</li>
+<li>按 <code>precombine.field</code> 处理同一批数据中相同 key 的多条记录。</li>
+<li>使用索引查找 key 是否已经存在。</li>
+<li>给记录打 location。</li>
+<li>已存在的记录进入 update path。</li>
+<li>不存在的记录进入 insert path。</li>
+<li>提交 Timeline Instant。</li>
+</ol>
+<p>在 COW 表里，update path 通常会重写 Base File；在 MOR 表里，update path 可以追加 Log File。</p>
+<p>把 COW 和 MOR 拆开看，<code>upsert</code> 的文件动作大致是这样：</p>
+<table>
+<thead>
+<tr>
+<th>表类型</th>
+<th>update path</th>
+<th>insert path</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>COW</td>
+<td>找到 key 所在最新 FileSlice，读取旧 Base File，合并后写新的 Base File</td>
+<td>优先写入当前分区可用的 Small File；没有合适小文件时创建新的 FileGroup</td>
+</tr>
+<tr>
+<td>MOR</td>
+<td>找到 key 所在 FileGroup 后，典型情况下会把更新写入 Log File，后续由 Snapshot Query 或 compaction 合并</td>
+<td>新增记录可能写入 Base File，也可能在特定写入路径下进入 Log File；实际形态受写入引擎、small file 策略、索引和 compaction 状态影响</td>
+</tr>
+</tbody></table>
+<p>这里和上一篇讲 MOR 时的结论一致：MOR 不等于所有数据都一定先进 Log File。写入引擎、索引类型、small file 策略都会影响真实文件形态。</p>
+<p><code>upsert</code> 适合：</p>
+<ol>
+<li>MySQL CDC 入湖。</li>
+<li>维表更新。</li>
+<li>状态表同步。</li>
+<li>需要同时处理新增和变更的场景。</li>
+</ol>
+<p>代价是它需要做索引定位，所以比纯追加写入更重。</p>
+<h3 id="1-4-INSERT"><a href="#1-4-INSERT" class="headerlink" title="1.4 INSERT"></a>1.4 INSERT</h3><p><code>insert</code> 更偏纯追加。</p>
+<p>它的语义是：把输入记录作为新记录写入表，不按 <code>upsert</code> 那样完整执行更新定位。</p>
+<p>常见配置：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.operation</span><span class="token punctuation">=</span><span class="token value attr-value">insert</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p><code>insert</code> 适合：</p>
+<ol>
+<li>日志明细表。</li>
+<li>事件流。</li>
+<li>明确不会更新的事实明细。</li>
+<li>已经在上游保证无重复的新数据。</li>
+</ol>
+<p>它的优势是更快，少了更新定位的成本。缺点是如果输入里包含已有 key，就可能带来重复或语义错误。因为 <code>insert</code> 不会像 <code>upsert</code> 那样完整执行已有 key 的更新定位，所以已有 key 可能被当成新记录写入，最终在快照中造成重复或非预期结果，具体表现还会受索引和去重参数影响。对于设置了 record key 的 Hudi 表，Spark SQL 的 insert strict &#x2F; non-strict 还有更细的语义差异，后面 Spark SQL 篇会单独展开。</p>
+<p><code>insert</code> 不是完全什么都不做。它通常跳过索引定位，但仍可能根据配置做批内合并或 small file 处理：</p>
+<table>
+<thead>
+<tr>
+<th>表类型</th>
+<th>INSERT 写入特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>COW</td>
+<td>不执行 <code>upsert</code> 那种已有记录更新定位，主要按追加写入和 small file 策略组织文件</td>
+</tr>
+<tr>
+<td>MOR</td>
+<td>不执行 <code>upsert</code> 那种已有记录更新定位；实际写入 Base File 还是 Log File，要看写入路径、small file 策略和表服务状态</td>
+</tr>
+</tbody></table>
+<p>我的习惯是：如果业务语义是“这个 key 可能已经存在”，就不要为了速度随便用 <code>insert</code>。</p>
+<h3 id="1-5-BULK-INSERT"><a href="#1-5-BULK-INSERT" class="headerlink" title="1.5 BULK_INSERT"></a>1.5 BULK_INSERT</h3><p><code>bulk_insert</code> 主要用于初始化大批量导入。</p>
+<p>常见配置：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.operation</span><span class="token punctuation">=</span><span class="token value attr-value">bulk_insert</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>官方文档对它的定位很明确：先用 <code>bulk_insert</code> 加载新表的大量初始数据，后续再用 <code>upsert</code> 或 <code>insert</code> 持续写入。它的写入路径更适合大输入，通常通过更偏排序 &#x2F; 批量写入的方式提升初始导入吞吐，避免普通 <code>insert</code> &#x2F; <code>upsert</code> 在大规模初始导入时的高内存压力。</p>
+<p><code>bulk_insert</code> 适合：</p>
+<ol>
+<li>首次把历史 Hive 表导入 Hudi。</li>
+<li>初始化 ODS 大表。</li>
+<li>一次性大批量导入，不需要逐条更新旧数据。</li>
+</ol>
+<p>不适合：</p>
+<ol>
+<li>CDC 增量更新。</li>
+<li>有大量重复 key 需要合并的场景。</li>
+<li>需要严格更新语义的写入。</li>
+</ol>
+<p><code>bulk_insert</code> 还要注意两个工程细节。</p>
+<p>第一个是排序。初始化大表时，如果输入数据完全乱序，写入端会频繁切换分区和文件句柄，容易制造很多小文件。批量导入时通常会尽量按 partition path 排序，减少 file handle 来回切换。</p>
+<p>第二个是并发。写入并发越高，吞吐可能越好，但初始文件数也可能变多。可以粗略理解成：写入并发越高，初始输出文件和 FileGroup 数量越容易增加；每个文件写到目标大小后再 roll over 出新的文件。后面调优篇会再讲 <code>write.tasks</code>、文件大小和 small file 的关系。</p>
+<p>简单说：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">bulk_insert = 初始化导入优先
+upsert = 持续变更优先
+insert = 纯追加优先<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="1-6-DELETE"><a href="#1-6-DELETE" class="headerlink" title="1.6 DELETE"></a>1.6 DELETE</h3><p>Hudi 的删除不是直接在 Parquet 文件中删除一行，而是通过新提交让这条记录在新的表快照中不可见。</p>
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-890131387726912484aa5f983365427d.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="DELETE 写入流程"></p>
+<p>这张图主要说明 Hudi delete 不是直接修改旧 Parquet 文件，而是通过新的提交改变最新快照中的记录可见性。</p>
+<p>Spark DataSource 可以直接使用 <code>delete</code> 操作：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.operation</span><span class="token punctuation">=</span><span class="token value attr-value">delete</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输入数据至少要能构造出被删除记录的 record key 和 partition path。为了让合并逻辑稳定，CDC delete event 也应带有能正确排序的 precombine 字段，确保删除事件不会因为 <code>ts</code> 小于旧记录而被合并逻辑忽略。比如：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">order_id=3002, dt=2025-07-28<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>删除流程大致是：</p>
+<ol>
+<li>根据 key 定位已有记录。</li>
+<li>在 COW 表中重写新的 Base File，让该 key 不再出现。</li>
+<li>在 MOR 表中可以写入删除标记，读取或 compaction 时合并。</li>
+<li>提交新的 Instant。</li>
+</ol>
+<p>还有一种常见写法是 <code>_hoodie_is_deleted</code> 字段。也就是在普通 <code>upsert</code> 数据里带一个删除标记：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">order_id=3002, dt=2025-07-28, _hoodie_is_deleted=true<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>这种方式在 CDC 流里很常见，因为 Debezium &#x2F; Canal 这类源端通常会带操作类型，下游可以把 delete event 转成 Hudi 的删除语义。使用 <code>_hoodie_is_deleted</code> 时，写入操作通常仍是 <code>upsert</code>，但输入记录中带删除标记，Hudi 在合并时把它解释为删除语义。具体字段是否生效与 Hudi 版本、payload 和 DataSource 写入路径有关，实测文章中要以当前 Hudi 1.0.2 行为为准。</p>
+<p>删除还要区分两层含义。</p>
+<table>
+<thead>
+<tr>
+<th>删除方式</th>
+<th>含义</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>业务软删</td>
+<td>保留记录，只把 <code>is_deleted</code>、<code>status</code> 等业务字段改成删除状态</td>
+<td>下游需要看到删除状态或保留审计信息</td>
+</tr>
+<tr>
+<td>Hudi delete</td>
+<td>通过 <code>delete</code> 操作或 <code>_hoodie_is_deleted=true</code> 让记录在最新快照中不可见</td>
+<td>撤单、脏数据清理、CDC delete event 入湖</td>
+</tr>
+<tr>
+<td>旧版 Payload 删除</td>
+<td>使用类似 <code>EmptyHoodieRecordPayload</code> 的 payload 表达删除</td>
+<td>旧 DataSource 代码或自定义 payload 场景</td>
+</tr>
+</tbody></table>
+<p>本文主线使用 <code>delete</code> 和 <code>_hoodie_is_deleted</code>。Payload 删除更多用于旧代码兼容或自定义写入逻辑，学习阶段不作为优先路线。不要把“把业务字段置空”误认为 Hudi 的 delete。前者仍然是一条可见记录，后者改变的是 Hudi 表快照中的可见性。</p>
+<h3 id="1-7-INSERT-OVERWRITE"><a href="#1-7-INSERT-OVERWRITE" class="headerlink" title="1.7 INSERT_OVERWRITE"></a>1.7 INSERT_OVERWRITE</h3><p><code>insert_overwrite</code> 用于覆盖目标分区。</p>
+<p>它不是手工删除 HDFS 目录再重写，而是通过 Hudi 的 replace commit 语义，让旧 FileGroup 失效，用新的 FileGroup 替换目标分区。</p>
+<p>图示如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-13c59187405e568ee214640978c0c184.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="INSERT_OVERWRITE 分区覆盖流程"></p>
+<p>这张图主要说明 <code>insert_overwrite</code> 会通过 <code>replacecommit</code> 替换目标分区的有效 FileGroup，而不是手工删除 HDFS 目录。</p>
+<p>常见配置：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.operation</span><span class="token punctuation">=</span><span class="token value attr-value">insert_overwrite</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>在 Hudi 1.0.2 Spark DataSource 中，<code>insert_overwrite</code> 会重写输入 DataFrame 中出现的分区。<code>hoodie.datasource.write.partitions.to.delete</code> 是 <code>delete_partition</code> 场景的配置，不是本文 <code>insert_overwrite</code> 示例的主线配置。不同版本和 Spark SQL 写法中，分区覆盖范围也可能由输入数据分区或 SQL <code>PARTITION</code> 子句决定。</p>
+<p>适合场景：</p>
+<ol>
+<li>某天分区口径修复。</li>
+<li>维表某个分区重算。</li>
+<li>批处理回补数据。</li>
+<li>希望保留 Hudi Timeline 记录，而不是手动删目录。</li>
+</ol>
+<p>还有一个相关操作是 <code>insert_overwrite_table</code>，用于覆盖整张表。<code>insert_overwrite_table</code> 表达的是 Hudi 表级逻辑覆盖语义，不要把它简单等同于手工删除表目录再重写。Spark 的 <code>mode(&quot;overwrite&quot;)</code> 与 Hudi operation 组合使用时，具体行为要以当前 Hudi 版本和写入配置为准。</p>
+<p><code>insert_overwrite</code> 的关键点是：它会创建新的 FileGroup 集合，并把目标范围内旧 FileGroup 标记为失效。这样做有几个好处：</p>
+<ol>
+<li>不需要手工删除 HDFS 目录，Timeline 能记录替换过程。</li>
+<li>对 COW 和 MOR 的处理路径比较统一，不需要强行干扰 MOR compaction。</li>
+<li>后续写入和文件视图构造可以根据 Timeline 识别旧 FileGroup 已被替换，从而避免把当前有效视图继续建立在旧文件组之上。具体索引状态如何更新，要结合索引类型和当前版本实现理解。</li>
+<li>Cleaner 可以在安全窗口之后再清理旧文件，避免正在运行的旧查询被直接打断。</li>
+</ol>
+<p>但它也有一个容易误解的地方：旧 Parquet 文件在磁盘上可能还存在，只是当前文件视图已经不再选择它们。排查问题时不能只看 HDFS 目录里有没有旧文件，还要结合 <code>replacecommit</code> 和 Snapshot Query 的结果判断。</p>
+<h2 id="2-写入策略和实测验证"><a href="#2-写入策略和实测验证" class="headerlink" title="2. 写入策略和实测验证"></a>2. 写入策略和实测验证</h2><h3 id="2-1-Key-生成策略"><a href="#2-1-Key-生成策略" class="headerlink" title="2.1 Key 生成策略"></a>2.1 Key 生成策略</h3><p>Hudi 写入绕不开 Key Generator。</p>
+<p>最常见的是简单 key：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.recordkey.field</span><span class="token punctuation">=</span><span class="token value attr-value">order_id</span>
+<span class="token key attr-name">hoodie.datasource.write.partitionpath.field</span><span class="token punctuation">=</span><span class="token value attr-value">dt</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>如果业务主键是多字段，可以配置组合 key：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.recordkey.field</span><span class="token punctuation">=</span><span class="token value attr-value">tenant_id,order_id</span>
+<span class="token key attr-name">hoodie.datasource.write.partitionpath.field</span><span class="token punctuation">=</span><span class="token value attr-value">dt</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>多字段 record key 或多字段 partition path 时，建议显式配置合适的 KeyGenerator，例如 <code>ComplexKeyGenerator</code> 或对应版本推荐的 <code>keygenerator.class</code>。具体类名和参数以 Hudi 1.0.2 文档为准。</p>
+<p>分区字段也可以是多字段组合。例如按日期和地区分区：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.datasource.write.partitionpath.field</span><span class="token punctuation">=</span><span class="token value attr-value">dt,region</span>
+<span class="token key attr-name">hoodie.datasource.write.hive_style_partitioning</span><span class="token punctuation">=</span><span class="token value attr-value">true</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>开启 Hive style partitioning 后，目录会更接近 Hive 常见形态：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">dt=2025-07-28/region=cn/<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>如果是不分区表，通常要使用 <code>NonpartitionedKeyGenerator</code> 或 Hudi 当前版本推荐的非分区配置，并确保 <code>partitionpath.field</code> 为空或不参与路径生成。不要只把 <code>partitionpath.field</code> 留空而不确认 KeyGenerator 行为。实际项目里是否分区，要看查询过滤条件、写入规模、分区字段是否稳定。</p>
+<p>本文实测表为了简化只使用 <code>dt</code> 单字段分区，并显式开启 Hive style partitioning，方便在 HDFS 上看到 <code>dt=2025-07-29</code> 这类目录。多字段分区和 Hive Sync 后续 Spark SQL 篇再结合实际目录展示。</p>
+<p>我一般会先确认三件事：</p>
+<ol>
+<li>record key 是否真的唯一。</li>
+<li>partition path 是否会变化。</li>
+<li>下游查询是否经常按 partition path 过滤。</li>
+</ol>
+<p>Key 设计错了，后面索引、更新、删除、Hive Sync 都会跟着难受。</p>
+<h3 id="2-2-Small-File-策略"><a href="#2-2-Small-File-策略" class="headerlink" title="2.2 Small File 策略"></a>2.2 Small File 策略</h3><p>Hudi 写入时还会处理 small file。</p>
+<p>如果每次增量都创建新文件，很快会形成大量小文件。Hudi 在 insert path 中会尽量把新记录写入已有小文件对应的 FileGroup，减少小文件数量。</p>
+<p>相关参数后面调优篇会详细讲，这里先记住两个：</p>
+<pre class="line-numbers language-properties" data-language="properties"><code class="language-properties"><span class="token key attr-name">hoodie.parquet.max.file.size</span><span class="token punctuation">=</span><span class="token value attr-value">134217728</span>
+<span class="token key attr-name">hoodie.parquet.small.file.limit</span><span class="token punctuation">=</span><span class="token value attr-value">104857600</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这两个只是理解 small file 的入门参数，真实调优还要结合写入并发、记录大小估计、shuffle 并发、文件大小、表类型和写入操作一起看，后续调优篇再展开。</p>
+<p>理解 small file 策略后，就能解释为什么 insert 不一定总是创建新文件，Hudi 可能会把新记录合并进小文件范围内的 FileGroup。</p>
+<h3 id="2-3-Spark-示例：连续执行多种写操作"><a href="#2-3-Spark-示例：连续执行多种写操作" class="headerlink" title="2.3 Spark 示例：连续执行多种写操作"></a>2.3 Spark 示例：连续执行多种写操作</h3><p>本次创建一张 COW 表：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">hdfs://localhost:9000/hudi/demo_write_ops_orders<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>完整脚本如下：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">cat</span> <span class="token operator">></span> /tmp/hudi_write_ops_demo.py <span class="token operator">&lt;&lt;</span><span class="token string">'PY'
+from pyspark.sql import SparkSession
+
+spark = (SparkSession.builder
+    .appName("hudi-write-ops-demo")
+    .master("local[2]")
+    .config("spark.sql.catalogImplementation", "in-memory")
+    .getOrCreate())
+
+base_path = "hdfs://localhost:9000/hudi/demo_write_ops_orders"
+schema = ["order_id", "dt", "status", "amount", "ts"]
+
+common = &#123;
+    "hoodie.table.name": "demo_write_ops_orders",
+    "hoodie.datasource.write.table.name": "demo_write_ops_orders",
+    "hoodie.datasource.write.table.type": "COPY_ON_WRITE",
+    "hoodie.datasource.write.recordkey.field": "order_id",
+    "hoodie.datasource.write.partitionpath.field": "dt",
+    "hoodie.datasource.write.precombine.field": "ts",
+    "hoodie.datasource.write.hive_style_partitioning": "true",
+    "hoodie.metadata.enable": "true",
+&#125;
+
+def write_rows(rows, operation, mode="append", extra=None):
+    df = spark.createDataFrame(rows, schema)
+    writer = df.write.format("hudi")
+    opts = dict(common)
+    opts["hoodie.datasource.write.operation"] = operation
+    if extra:
+        opts.update(extra)
+    for k, v in opts.items():
+        writer = writer.option(k, v)
+    writer.mode(mode).save(base_path)
+
+def show_table(title):
+    print(title)
+    (spark.read.format("hudi")
+        .load(base_path)
+        .select("_hoodie_commit_time", "order_id", "dt", "status", "amount", "ts")
+        .orderBy("order_id")
+        .show(truncate=False))
+
+bulk_rows = [
+    ("3001", "2025-07-28", "CREATED", 100.0, "20250728083000"),
+    ("3002", "2025-07-28", "CREATED", 30.0, "20250728083010"),
+    ("3003", "2025-07-29", "CREATED", 60.0, "20250728083020"),
+]
+
+insert_rows = [
+    ("3004", "2025-07-29", "CREATED", 18.5, "20250728083500"),
+]
+
+upsert_rows = [
+    ("3001", "2025-07-28", "PAID", 100.0, "20250728083800"),
+    ("3005", "2025-07-29", "CREATED", 45.0, "20250728083810"),
+]
+
+delete_rows = [
+    ("3002", "2025-07-28", "DELETE", 0.0, "20250728083900"),
+]
+
+overwrite_rows = [
+    ("3999", "2025-07-29", "RECALCULATED", 999.0, "20250728084000"),
+]
+
+write_rows(bulk_rows, "bulk_insert", mode="overwrite")
+show_table("=== after bulk_insert ===")
+
+write_rows(insert_rows, "insert")
+show_table("=== after insert ===")
+
+write_rows(upsert_rows, "upsert")
+show_table("=== after upsert ===")
+
+write_rows(delete_rows, "delete")
+show_table("=== after delete order_id=3002 ===")
+
+write_rows(overwrite_rows, "insert_overwrite")
+show_table("=== after insert_overwrite dt=2025-07-29 ===")
+
+print("=== distinct commits ===")
+(spark.read.format("hudi")
+    .load(base_path)
+    .select("_hoodie_commit_time")
+    .distinct()
+    .orderBy("_hoodie_commit_time")
+    .show(truncate=False))
+
+spark.stop()
+PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>执行命令：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> /etc/profile.d/bigdata_env.sh
+
+hdfs dfs <span class="token parameter variable">-rm</span> <span class="token parameter variable">-r</span> <span class="token parameter variable">-f</span> /hudi/demo_write_ops_orders
+
+spark-submit <span class="token punctuation">\</span>
+  <span class="token parameter variable">--master</span> local<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--conf</span> <span class="token assign-left variable">spark.sql.catalogImplementation</span><span class="token operator">=</span>in-memory <span class="token punctuation">\</span>
+  <span class="token parameter variable">--jars</span> /opt/module/hudi/lib/hudi-spark3.5-bundle_2.12-1.0.2.jar <span class="token punctuation">\</span>
+  /tmp/hudi_write_ops_demo.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>后续 <code>hdfs dfs</code> 命令中的 <code>/hudi/demo_write_ops_orders</code> 与 Spark 代码中的 <code>hdfs://localhost:9000/hudi/demo_write_ops_orders</code> 指向同一张 Hudi 表，只是省略了默认文件系统前缀。本文示例使用 <code>--jars</code> 显式指定 Hudi Spark bundle；如果已经在 Spark <code>jars</code> 目录中放入同版本 bundle，可以省略 <code>--jars</code>，但不要同时混入多个 Hudi 版本的 bundle。</p>
+<p>这里的 <code>mode=&quot;overwrite&quot;</code> 只用于第一次初始化创建测试表；后续持续写入统一使用 <code>append</code>，并通过 <code>hoodie.datasource.write.operation</code> 表达 Hudi 写入语义。Spark 的 save mode 控制 DataFrameWriter 对目标路径的写入模式，Hudi 的 operation 控制表语义，二者不要混为一谈。</p>
+<h3 id="2-4-写入结果验证"><a href="#2-4-写入结果验证" class="headerlink" title="2.4 写入结果验证"></a>2.4 写入结果验证</h3><p><code>bulk_insert</code> 后：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== after bulk_insert ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250729084215109  |3001    |2025-07-28|CREATED|100.0 |20250728083000|
+|20250729084215109  |3002    |2025-07-28|CREATED|30.0  |20250728083010|
+|20250729084215109  |3003    |2025-07-29|CREATED|60.0  |20250728083020|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>insert</code> 后：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== after insert ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250729084215109  |3001    |2025-07-28|CREATED|100.0 |20250728083000|
+|20250729084215109  |3002    |2025-07-28|CREATED|30.0  |20250728083010|
+|20250729084215109  |3003    |2025-07-29|CREATED|60.0  |20250728083020|
+|20250729084231194  |3004    |2025-07-29|CREATED|18.5  |20250728083500|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>upsert</code> 后：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== after upsert ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250729084235344  |3001    |2025-07-28|PAID   |100.0 |20250728083800|
+|20250729084215109  |3002    |2025-07-28|CREATED|30.0  |20250728083010|
+|20250729084215109  |3003    |2025-07-29|CREATED|60.0  |20250728083020|
+|20250729084231194  |3004    |2025-07-29|CREATED|18.5  |20250728083500|
+|20250729084235344  |3005    |2025-07-29|CREATED|45.0  |20250728083810|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里能看到 <code>3001</code> 被更新成 <code>PAID</code>，<code>3005</code> 被新增。</p>
+<p><code>delete</code> 后：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== after delete order_id=3002 ===
++-------------------+--------+----------+-------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status |amount|ts            |
++-------------------+--------+----------+-------+------+--------------+
+|20250729084235344  |3001    |2025-07-28|PAID   |100.0 |20250728083800|
+|20250729084215109  |3003    |2025-07-29|CREATED|60.0  |20250728083020|
+|20250729084231194  |3004    |2025-07-29|CREATED|18.5  |20250728083500|
+|20250729084235344  |3005    |2025-07-29|CREATED|45.0  |20250728083810|
++-------------------+--------+----------+-------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><code>3002</code> 已经不在最新快照中。</p>
+<p><code>insert_overwrite</code> 覆盖 <code>dt=2025-07-29</code> 后：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== after insert_overwrite dt=2025-07-29 ===
++-------------------+--------+----------+------------+------+--------------+
+|_hoodie_commit_time|order_id|dt        |status      |amount|ts            |
++-------------------+--------+----------+------------+------+--------------+
+|20250729084235344  |3001    |2025-07-28|PAID        |100.0 |20250728083800|
+|20250729084242313  |3999    |2025-07-29|RECALCULATED|999.0 |20250728084000|
++-------------------+--------+----------+------------+------+--------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这个结果最关键：<code>dt=2025-07-29</code> 下面原来的 <code>3003</code>、<code>3004</code>、<code>3005</code> 都被新的分区视图替换，只剩 <code>3999</code>。但 <code>dt=2025-07-28</code> 的 <code>3001</code> 还保留。</p>
+<h3 id="2-5-Timeline-验证"><a href="#2-5-Timeline-验证" class="headerlink" title="2.5 Timeline 验证"></a>2.5 Timeline 验证</h3><p>查看 Timeline：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_write_ops_orders/.hoodie/timeline<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>输出节选如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">-rw-r--r--   1 root supergroup       4611 2025-07-29 08:42 /hudi/demo_write_ops_orders/.hoodie/timeline/20250729084215109_20250729084227905.commit
+-rw-r--r--   1 root supergroup       4060 2025-07-29 08:42 /hudi/demo_write_ops_orders/.hoodie/timeline/20250729084231194_20250729084234398.commit
+-rw-r--r--   1 root supergroup       4360 2025-07-29 08:42 /hudi/demo_write_ops_orders/.hoodie/timeline/20250729084235344_20250729084238804.commit
+-rw-r--r--   1 root supergroup       4062 2025-07-29 08:42 /hudi/demo_write_ops_orders/.hoodie/timeline/20250729084239354_20250729084241420.commit
+-rw-r--r--   1 root supergroup       4223 2025-07-29 08:42 /hudi/demo_write_ops_orders/.hoodie/timeline/20250729084242313_20250729084244978.replacecommit<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>在 Hudi 1.0.x 中，完成态 Instant 文件名里可以看到 begin instant 和 completion instant，例如 <code>begin_completion.commit</code>；这里前半段更接近写入请求时间，后半段是完成时间。</p>
+<p>前几次写入都是 <code>commit</code>，其中 <code>delete</code> 也表现为一次 <code>commit</code>，因为它通过新的提交改变快照可见性。最后一次 <code>insert_overwrite</code> 变成了 <code>replacecommit</code>，因为它替换的是分区范围内的一组 FileGroup。这说明分区覆盖是 Hudi 的表级替换语义，而不是简单手动删除 HDFS 目录。</p>
+<p>最终最新快照中的记录只带有两个 <code>_hoodie_commit_time</code>：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">=== distinct commits ===
++-------------------+
+|_hoodie_commit_time|
++-------------------+
+|20250729084235344  |
+|20250729084242313  |
++-------------------+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里 <code>3001</code> 来自 upsert 提交，<code>3999</code> 来自 insert_overwrite 提交。历史提交仍然存在于 Timeline 中，只是它们产生的部分文件视图已经被后续 commit 或 replacecommit 替换，不再出现在当前 Snapshot Query 结果里。</p>
+<h2 id="3-常见问题与选型"><a href="#3-常见问题与选型" class="headerlink" title="3. 常见问题与选型"></a>3. 常见问题与选型</h2><h3 id="3-1-常见问题"><a href="#3-1-常见问题" class="headerlink" title="3.1 常见问题"></a>3.1 常见问题</h3><h4 id="3-1-1-insert-和-upsert-怎么选"><a href="#3-1-1-insert-和-upsert-怎么选" class="headerlink" title="3.1.1 insert 和 upsert 怎么选"></a>3.1.1 <code>insert</code> 和 <code>upsert</code> 怎么选</h4><p>如果输入数据一定是新增，且上游已经保证不会重复发送同一个 record key，可以选 <code>insert</code>。只要存在重放、补偿、重复事件或状态更新，就应优先考虑 <code>upsert</code> 或额外去重策略。</p>
+<p>不要为了快把 CDC 数据写成 <code>insert</code>。这会把更新事件变成追加事件，下游查询最新状态时很容易出错。</p>
+<h4 id="3-1-2-bulk-insert-能不能长期用于增量"><a href="#3-1-2-bulk-insert-能不能长期用于增量" class="headerlink" title="3.1.2 bulk_insert 能不能长期用于增量"></a>3.1.2 <code>bulk_insert</code> 能不能长期用于增量</h4><p>不建议把 <code>bulk_insert</code> 当成日常 CDC 更新写入方式。它更适合初始化导入或特殊的大批量追加场景；持续增量要先看业务语义：纯追加用 <code>insert</code>，有更新用 <code>upsert</code>。</p>
+<h4 id="3-1-3-删除是物理删除吗"><a href="#3-1-3-删除是物理删除吗" class="headerlink" title="3.1.3 删除是物理删除吗"></a>3.1.3 删除是物理删除吗</h4><p>不是立刻物理删除。Delete 先通过新的提交改变表快照中的可见性。旧文件什么时候被物理清理，取决于 clean 策略。</p>
+<h4 id="3-1-4-insert-overwrite-会不会影响其他分区"><a href="#3-1-4-insert-overwrite-会不会影响其他分区" class="headerlink" title="3.1.4 insert_overwrite 会不会影响其他分区"></a>3.1.4 <code>insert_overwrite</code> 会不会影响其他分区</h4><p>在配置正确、输入数据只包含目标分区、并且使用的是分区级 <code>insert_overwrite</code> 语义时，只应该影响目标分区。执行前最好先确认输入 DataFrame 的分区值，避免误覆盖更多分区。本文示例覆盖 <code>dt=2025-07-29</code> 后，<code>dt=2025-07-28</code> 的 <code>3001</code> 仍然存在。</p>
+<h4 id="3-1-5-为什么-Timeline-里有-replacecommit"><a href="#3-1-5-为什么-Timeline-里有-replacecommit" class="headerlink" title="3.1.5 为什么 Timeline 里有 replacecommit"></a>3.1.5 为什么 Timeline 里有 <code>replacecommit</code></h4><p>因为 <code>insert_overwrite</code> 属于替换旧文件组的写入语义。Hudi 需要在 Timeline 中记录哪些旧 FileGroup 被替换，哪些新 FileGroup 成为当前视图。<code>replacecommit</code> 不只可能出现在 <code>insert_overwrite</code> 场景，后续 clustering 等替换 FileGroup 的表服务也可能产生类似替换语义；本文只关注 <code>insert_overwrite</code>。</p>
+<h4 id="3-1-6-为什么最终只看到两个-commit-time"><a href="#3-1-6-为什么最终只看到两个-commit-time" class="headerlink" title="3.1.6 为什么最终只看到两个 commit time"></a>3.1.6 为什么最终只看到两个 commit time</h4><p>Snapshot Query 只看当前有效文件视图。历史 commit 对应的文件可能还在 HDFS 上，但如果已经被后续 commit 或 replacecommit 替换，就不会出现在最新查询结果里。</p>
+<h4 id="3-1-7-为什么-HDFS-上还有旧文件，查询却看不到"><a href="#3-1-7-为什么-HDFS-上还有旧文件，查询却看不到" class="headerlink" title="3.1.7 为什么 HDFS 上还有旧文件，查询却看不到"></a>3.1.7 为什么 HDFS 上还有旧文件，查询却看不到</h4><p>这在 <code>insert_overwrite</code>、COW 更新和 clean 策略里都可能出现。</p>
+<p>Hudi 不会把文件系统目录当成唯一事实来源。查询端会根据 Timeline 和 FileSlice 构造当前文件视图。旧文件可能还在 HDFS 上，但它们可能已经被新的 commit 或 replacecommit 替换，只是还没到 cleaner 物理删除的时间。</p>
+<p>所以排查时要同时看三件事：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_write_ops_orders/.hoodie/timeline
+hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_write_ops_orders/dt<span class="token operator">=</span><span class="token number">2025</span>-07-29
+spark.read.format<span class="token punctuation">(</span><span class="token string">"hudi"</span><span class="token punctuation">)</span>.load<span class="token punctuation">(</span><span class="token string">"hdfs://localhost:9000/hudi/demo_write_ops_orders"</span><span class="token punctuation">)</span>.show<span class="token punctuation">(</span>false<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>目录里“看得到文件”不等于 Snapshot Query 会选择它。</p>
+<h3 id="3-2-写入操作选型"><a href="#3-2-写入操作选型" class="headerlink" title="3.2 写入操作选型"></a>3.2 写入操作选型</h3><p>Hudi 写入操作最容易误解的地方，是把它们都看成“保存一批 DataFrame”。</p>
+<p>实际上，<code>bulk_insert</code>、<code>insert</code>、<code>upsert</code>、<code>delete</code>、<code>insert_overwrite</code> 背后的表语义完全不同。<code>bulk_insert</code> 偏初始化，<code>insert</code> 偏追加，<code>upsert</code> 偏变更，<code>delete</code> 改变可见性，<code>insert_overwrite</code> 替换分区或整表视图。</p>
+<p>我更愿意把写操作和业务场景绑定起来：</p>
+<ol>
+<li>初始化历史数据：<code>bulk_insert</code>。</li>
+<li>日志事件追加：<code>insert</code>。</li>
+<li>CDC 状态同步：<code>upsert</code>。</li>
+<li>删除事件：<code>delete</code> 或 <code>_hoodie_is_deleted</code>。</li>
+<li>分区重算：<code>insert_overwrite</code>。</li>
+</ol>
+<p>这样选比单纯记参数更可靠。因为 Hudi 的复杂度不只在 API，而在表语义、索引成本、文件版本和 Timeline 可见性。</p>
+<h2 id="4-总结"><a href="#4-总结" class="headerlink" title="4. 总结"></a>4. 总结</h2><p>这篇主要讲了 Hudi 的几类写操作。</p>
+<ol>
+<li><code>upsert</code> 会判断 insert &#x2F; update，适合 CDC。</li>
+<li><code>insert</code> 适合纯追加，通常比 <code>upsert</code> 少了更新定位成本，但不适合更新语义。</li>
+<li><code>bulk_insert</code> 适合初始化大批量导入。</li>
+<li><code>delete</code> 通过新的提交让记录在快照中不可见，不是立刻物理删除旧文件。</li>
+<li><code>insert_overwrite</code> 用 replacecommit 覆盖分区或表视图，适合分区修复和重算。</li>
+<li>record key、partition path、precombine field 是写入语义的基础。</li>
+<li>Key Generator 要同时考虑多字段 record key、多字段分区、Hive style path 和分区字段稳定性。</li>
+<li>Hudi 写入结果一定要结合查询结果、HDFS 文件和 Timeline 一起看。</li>
+</ol>
+<p>下一篇会进入 Spark 集成 Hudi：DataSource、Spark SQL 和代码实战。到那时会把本篇的写操作放到 Spark Shell、Spark SQL 和 spark-submit 中进一步展开。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/c8f4d6a2.html">https://www.hnbian.cn/posts/c8f4d6a2.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/spark/">
+                                    <span class="chip bg-color">spark</span>
+                                </a>
+                            
+                                <a href="/tags/hudi/">
+                                    <span class="chip bg-color">hudi</span>
+                                </a>
+                            
+                                <a href="/tags/write/">
+                                    <span class="chip bg-color">write</span>
+                                </a>
+                            
+                                <a href="/tags/upsert/">
+                                    <span class="chip bg-color">upsert</span>
+                                </a>
+                            
+                                <a href="/tags/insert/">
+                                    <span class="chip bg-color">insert</span>
+                                </a>
+                            
+                                <a href="/tags/delete/">
+                                    <span class="chip bg-color">delete</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/7f3a9c21.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-f031936d2792441e20e79558b429286c.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 07：Spark 集成 Hudi 实战">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 07：Spark 集成 Hudi 实战</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-08-05
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/spark/">
+                        <span class="chip bg-color">spark</span>
+                    </a>
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/data-lake/">
+                        <span class="chip bg-color">data-lake</span>
+                    </a>
+                    
+                    <a href="/tags/lakehouse/">
+                        <span class="chip bg-color">lakehouse</span>
+                    </a>
+                    
+                    <a href="/tags/spark-sql/">
+                        <span class="chip bg-color">spark-sql</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/e62f9a31.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-9810ef18e76a29d003d833c02a55a5da.jpg" class="responsive-img" alt="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式">
+                        
+                        <span class="card-title">Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-07-17
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/hudi/" class="post-category">
+                                    hudi
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/hudi/">
+                        <span class="chip bg-color">hudi</span>
+                    </a>
+                    
+                    <a href="/tags/data-lake/">
+                        <span class="chip bg-color">data-lake</span>
+                    </a>
+                    
+                    <a href="/tags/cow/">
+                        <span class="chip bg-color">cow</span>
+                    </a>
+                    
+                    <a href="/tags/mor/">
+                        <span class="chip bg-color">mor</span>
+                    </a>
+                    
+                    <a href="/tags/query/">
+                        <span class="chip bg-color">query</span>
+                    </a>
+                    
+                    <a href="/tags/compaction/">
+                        <span class="chip bg-color">compaction</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,1867 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="【YARN 权威指南】7. 理解 Capacity Scheduler, hnbian">
+    <meta name="description" content="YARN 的架构把资源管理和应用框架拆开以后，ResourceManager 的核心职责之一就变成了：资源到底应该分给谁。一个共享集群里可能同时有离线 ETL、临时查询、报表任务、算法任务和测试任务。如果所有应用都直接抢同一池资源，先提交的">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>【YARN 权威指南】7. 理解 Capacity Scheduler | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-be0465b7ac3b9699a28ac896d04fea7e.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">【YARN 权威指南】7. 理解 Capacity Scheduler</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/yarn/">
+                                <span class="chip bg-color">yarn</span>
+                            </a>
+                        
+                            <a href="/tags/hadoop/">
+                                <span class="chip bg-color">hadoop</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/yarn/" class="post-category">
+                                yarn
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2025-02-05
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    6.4k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    23 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>YARN 的架构把资源管理和应用框架拆开以后，ResourceManager 的核心职责之一就变成了：资源到底应该分给谁。一个共享集群里可能同时有离线 ETL、临时查询、报表任务、算法任务和测试任务。如果所有应用都直接抢同一池资源，先提交的任务可能长期占用资源，后续任务只能排队等待。</p>
+<p>Capacity Scheduler 解决的就是这个问题。它把集群资源拆成队列，用容量给不同团队或业务线提供基本保障，同时又允许空闲资源被其它队列借用。它不是均等分配资源，也不是固定切割机器，而是在队列层级、用户限制、应用限制、容量和最大容量之间建立一套资源治理规则。</p>
+<p>这篇文章使用单机伪分布式环境做验证。为了让 Capacity Scheduler 的队列关系更清楚，我把默认的单队列临时改成了三个叶子队列：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">root
+  ├── default  capacity=20, maximum-capacity=100
+  ├── etl      capacity=50, maximum-capacity=100
+  └── adhoc    capacity=30, maximum-capacity=100<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>随后提交了两个 MapReduce Pi 示例任务：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">application_1738726452502_0001 -> root.default -> FINISHED / SUCCEEDED
+application_1738726452502_0002 -> root.adhoc   -> FINISHED / SUCCEEDED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这两个任务的意义不在 Pi 结果，而在于验证队列配置、调度器页面和应用详情是否能串起来。</p>
+<h2 id="1-Capacity-Scheduler-的基本模型"><a href="#1-Capacity-Scheduler-的基本模型" class="headerlink" title="1. Capacity Scheduler 的基本模型"></a>1. Capacity Scheduler 的基本模型</h2><h3 id="1-1-Capacity-Scheduler-解决什么问题"><a href="#1-1-Capacity-Scheduler-解决什么问题" class="headerlink" title="1.1 Capacity Scheduler 解决什么问题"></a>1.1 Capacity Scheduler 解决什么问题</h3><p>Capacity Scheduler 的核心目标是共享集群资源。共享不是简单地把所有资源放进一个池子，而是要同时满足三件事：</p>
+<table>
+<thead>
+<tr>
+<th>目标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>资源保障</td>
+<td>每个队列有最低容量预期，关键业务不会被完全挤出集群</td>
+</tr>
+<tr>
+<td>资源借用</td>
+<td>某个队列空闲时，其它队列可以使用超过自身保障容量的资源</td>
+</tr>
+<tr>
+<td>多租户控制</td>
+<td>通过队列、ACL、用户限制和应用限制控制资源使用边界</td>
+</tr>
+</tbody></table>
+<p>如果只有 FIFO 调度，先提交的大任务可能长时间占住资源，后续的小任务只能等待。如果完全追求公平，每个业务线又很难获得明确的容量承诺。Capacity Scheduler 的思路类似企业资源配额模型：先给每个队列配置保障容量，再允许队列在集群空闲时向上借用。</p>
+<p>这个设计很适合 Hadoop 集群。离线任务通常有明显的业务归属，部门之间需要资源边界；同时离线任务又有波峰波谷，如果把资源切死，会造成大量浪费。Capacity Scheduler 把“保障”和“共享”放在一起处理，是它比单纯 FIFO 更适合生产集群的地方。</p>
+<h3 id="1-2-队列是-Capacity-Scheduler-的基本管理对象"><a href="#1-2-队列是-Capacity-Scheduler-的基本管理对象" class="headerlink" title="1.2 队列是 Capacity Scheduler 的基本管理对象"></a>1.2 队列是 Capacity Scheduler 的基本管理对象</h3><p>Capacity Scheduler 里最重要的对象不是应用，而是队列。队列不是单纯的资源池，而是资源调度与治理单元。应用提交到某个队列后，才进入这个队列对应的资源、权限、用户和应用数量规则。</p>
+<p>队列可以分为两类：</p>
+<table>
+<thead>
+<tr>
+<th>队列类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>父队列</td>
+<td>用来组织层级结构，通常不直接运行应用</td>
+</tr>
+<tr>
+<td>叶子队列</td>
+<td>应用最终提交到这里，资源限制和用户限制主要在这里生效</td>
+</tr>
+</tbody></table>
+<p>最上层永远是 root。在这次环境里，root 下面有三个叶子队列：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.scheduler.capacity.root.queues<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>default,etl,adhoc<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>每个队列都要有容量配置：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.scheduler.capacity.root.default.capacity<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>20<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.scheduler.capacity.root.etl.capacity<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>50<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.scheduler.capacity.root.adhoc.capacity<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>30<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>同一层级下的 capacity 之和应该是 100，或者说要完整覆盖父队列分配给这一层的 capacity。这里 20 + 50 + 30 &#x3D; 100，表示 root 下的资源保障被拆给了三个叶子队列。</p>
+<p>路径也很重要。配置文件里使用 root.adhoc 表示完整队列路径；提交任务时可以传入短队列名 adhoc，ResourceManager 页面会显示完整路径 root.adhoc。在多层级队列中，我更建议文章和运维记录都写完整路径，因为 adhoc 这种短名称在复杂队列树里容易混淆。</p>
+<h3 id="1-3-capacity-和-maximum-capacity-的区别"><a href="#1-3-capacity-和-maximum-capacity-的区别" class="headerlink" title="1.3 capacity 和 maximum-capacity 的区别"></a>1.3 capacity 和 maximum-capacity 的区别</h3><p>Capacity Scheduler 最容易误解的是 capacity 和 maximum-capacity。</p>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>capacity</td>
+<td>队列的最低保障比例（guaranteed share）</td>
+</tr>
+<tr>
+<td>maximum-capacity</td>
+<td>队列最多可以使用到的容量比例</td>
+</tr>
+<tr>
+<td>used-capacity</td>
+<td>队列相对于自身保障容量的使用比例</td>
+</tr>
+<tr>
+<td>absolute-capacity</td>
+<td>队列相对于整个集群的保障容量比例</td>
+</tr>
+<tr>
+<td>absolute-used-capacity</td>
+<td>队列相对于整个集群的实际使用比例</td>
+</tr>
+</tbody></table>
+<p>这次三个队列都配置了 maximum-capacity&#x3D;100：</p>
+<pre class="line-numbers language-markup" data-language="markup"><code class="language-markup"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.scheduler.capacity.root.adhoc.maximum-capacity<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>100<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这表示 adhoc 的保障容量是 30%，但在其它队列空闲、节点资源满足请求、用户限制允许，并且调度策略和抢占配置不阻止的情况下，它理论上可以借用到整个集群 100% 的资源。这个设计适合单机测试，也适合一些资源波动较大的离线集群；但生产环境不一定都应该配置到 100。临时查询队列如果允许借满集群，可能会挤压关键批处理队列。关键生产队列如果最大容量太低，突发高峰又无法利用空闲资源。</p>
+<p>所以 capacity 更像最低保障比例，maximum-capacity 更像上限。前者决定资源保障，后者决定资源借用边界。配置 Capacity Scheduler 时，如果只看 capacity，容易忽略队列在空闲时的扩张能力；如果只看 maximum-capacity，又会误以为队列平时就拥有这么多资源。</p>
+<p>如果不显式配置 maximum-capacity，队列通常会使用调度器默认值，常见行为是允许向上借用到 100%。实际集群里不要依赖“默认看起来能用”，而应该把关键队列的最大容量写清楚，并在变更记录里说明原因。</p>
+<h3 id="1-4-用-Scheduler-页面验证队列"><a href="#1-4-用-Scheduler-页面验证队列" class="headerlink" title="1.4 用 Scheduler 页面验证队列"></a>1.4 用 Scheduler 页面验证队列</h3><p>修改 capacity-scheduler.xml 后，执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">yarn</span> rmadmin <span class="token parameter variable">-refreshQueues</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>刷新成功以后，ResourceManager 的 Scheduler 页面可以看到三个队列。页面上同时展示 Capacity、Used、Used over capacity、Max Capacity 等信息，适合用来确认队列树和容量比例是否生效。</p>
+<p><img src="https://images.hnbian.cn/new/n-6667fd762d2ed08ecae47ab6c8c87e81.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Capacity Scheduler 页面，展示多队列结构"></p>
+<p>展开队列以后，可以看到每个队列的 Queue Status，包括 Queue State、Used Capacity、Configured Capacity、Configured Max Capacity、Absolute Configured Capacity、Effective Capacity 等字段。</p>
+<p><img src="https://images.hnbian.cn/new/n-af00a406474826ec8e2bc026203e609b.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Scheduler 队列详情，展示容量、最大容量和运行状态"></p>
+<p>这里有一个判断标准：refreshQueues 返回成功，只说明 ResourceManager 接受了新的调度器配置；Scheduler 页面显示出队列树，才说明运行时视角里的队列结构已经变化；再提交任务并进入指定队列，才算验证了提交链路。</p>
+<h2 id="2-队列调度和资源约束"><a href="#2-队列调度和资源约束" class="headerlink" title="2. 队列调度和资源约束"></a>2. 队列调度和资源约束</h2><h3 id="2-1-应用如何进入队列"><a href="#2-1-应用如何进入队列" class="headerlink" title="2.1 应用如何进入队列"></a>2.1 应用如何进入队列</h3><p>MapReduce 任务可以通过 mapreduce.job.queuename 指定队列：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">hadoop jar <span class="token punctuation">\</span>
+  /opt/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.4.1.jar <span class="token punctuation">\</span>
+  pi <span class="token parameter variable">-Dmapreduce.job.queuename</span><span class="token operator">=</span>adhoc <span class="token number">4</span> <span class="token number">2000</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>这个任务提交后，ResourceManager 应用详情里显示：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Application ID: application_1738726452502_0002
+Queue:          root.adhoc
+State:          FINISHED
+FinalStatus:    SUCCEEDED<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><img src="https://images.hnbian.cn/new/n-530bac8a2804e7fa74911dee166ca91e.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Application 详情页面，展示应用队列和最终状态"></p>
+<p>这里要注意，队列配置本身不负责“自动判断业务类型”。如果没有配置 queue mapping，也没有在提交时指定队列，应用通常会进入默认队列。生产环境里常见做法有三种：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>用户显式指定</td>
+<td>提交命令或作业配置里写队列名</td>
+</tr>
+<tr>
+<td>用户&#x2F;组映射</td>
+<td>按用户或用户组自动映射到队列</td>
+</tr>
+<tr>
+<td>平台封装</td>
+<td>调度平台、数据开发平台根据项目选择队列</td>
+</tr>
+</tbody></table>
+<p>显式指定最直接，但依赖用户自觉；用户映射更适合组织结构稳定的集群；平台封装适合企业内部统一提交入口。无论哪种方式，最终都要落到 YARN 的队列路径上。</p>
+<p>不同框架指定队列的入口不同。MapReduce 常用 mapreduce.job.queuename；Spark on YARN 通常使用 –queue 或 spark.yarn.queue；Hive 可以通过 Tez、MapReduce 或执行引擎相关配置把作业提交到指定队列。生产环境里更常见的是由 Oozie、Airflow、DolphinScheduler 或数据开发平台封装这些参数，让用户在项目或任务配置里选择队列，避免每个用户手写提交参数。</p>
+<h3 id="2-2-队列内还要控制用户和应用"><a href="#2-2-队列内还要控制用户和应用" class="headerlink" title="2.2 队列内还要控制用户和应用"></a>2.2 队列内还要控制用户和应用</h3><p>Capacity Scheduler 不只是按队列分资源，还要防止队列内部被单个用户或大量应用占满。</p>
+<p>常见控制项包括：</p>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>user-limit-factor</td>
+<td>控制单个用户可以超过队列用户份额的倍数，影响用户并发资源份额</td>
+</tr>
+<tr>
+<td>maximum-applications</td>
+<td>控制集群或队列最大应用数量</td>
+</tr>
+<tr>
+<td>maximum-am-resource-percent</td>
+<td>控制 ApplicationMaster 最多占用多少资源</td>
+</tr>
+<tr>
+<td>acl_submit_applications</td>
+<td>控制谁可以向队列提交应用</td>
+</tr>
+<tr>
+<td>acl_administer_queue</td>
+<td>控制谁可以管理队列应用</td>
+</tr>
+<tr>
+<td>state</td>
+<td>控制队列是否允许运行新应用</td>
+</tr>
+</tbody></table>
+<p>这次测试里各队列的 user-limit-factor&#x3D;1，ACL 都配置为 *，是为了降低验证成本。生产环境不应该这么简单。比如临时查询队列通常要限制单用户并发，避免一个用户提交大量小任务把 AM 资源打满；关键 ETL 队列要限制提交权限，避免临时任务混进生产队列；测试队列可以给较低容量和较严格的最大应用数。</p>
+<p>user-limit-factor 不只是一个静态比例，它会影响同一队列内某个用户能同时占用多少资源。值太小，单个用户的大任务可能长期拿不到足够 Container；值太大，则容易让一个用户在队列内部挤压其他用户。</p>
+<p>maximum-am-resource-percent 也很容易被忽略。ApplicationMaster 自身也要占用 Container。如果大量小任务同时提交，AM 可能先把队列资源吃掉，真正的任务 Container 反而拿不到资源。这个问题在小集群里更明显，因为总资源少，AM 资源比例稍微不合理就会造成应用排队。</p>
+<h3 id="2-3-调度行为不是简单按容量切机器"><a href="#2-3-调度行为不是简单按容量切机器" class="headerlink" title="2.3 调度行为不是简单按容量切机器"></a>2.3 调度行为不是简单按容量切机器</h3><p>Capacity Scheduler 的调度过程可以理解成递归选择队列：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">从 root 开始
+  -> 按队列使用率和容量关系选择子队列
+  -> 继续向下找到叶子队列
+  -> 在叶子队列里选择应用
+  -> 根据资源请求和节点资源分配 Container<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这说明 Capacity Scheduler 不会把机器静态分给某个队列。队列只是资源份额和策略边界，Container 仍然会根据节点资源、本地性和调度机会动态分配。</p>
+<p>递归选择队列时，调度器会比较队列当前使用量与保障容量之间的关系，让低于保障容量的队列更容易获得资源；在同一层级内，还会结合应用优先级、用户限制、队列状态和资源请求。真正分配 Container 时，不只看节点是否还有内存和 vCore，还要考虑数据本地性、机架本地性、节点标签和资源名称等约束。Container 是调度时动态产生的分配结果，不是预先固定切好的资源块。</p>
+<p>应用列表能直观看到这次两个任务进入了不同队列：</p>
+<p><img src="https://images.hnbian.cn/new/n-7256e1069cf0b7c9f2f9ddbc457dd132.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="ResourceManager 应用列表，展示不同队列中的 MapReduce 应用"></p>
+<p>在这个页面里，application_1738726452502_0001 位于 root.default，application_1738726452502_0002 位于 root.adhoc。两个任务都成功完成，说明队列配置、任务提交和调度执行链路是通的。</p>
+<p>单机环境里看不出复杂的资源竞争，因为只有一个 NodeManager，任务规模也很小。但队列仍然有意义：它证明 ResourceManager 能按队列规则接收应用，Scheduler 页面能展示队列容量，应用详情能记录队列归属。生产环境只是把这个逻辑放大到多节点、多用户、多队列。</p>
+<h2 id="3-配置治理和生产边界"><a href="#3-配置治理和生产边界" class="headerlink" title="3. 配置治理和生产边界"></a>3. 配置治理和生产边界</h2><h3 id="3-1-队列配置变更要谨慎"><a href="#3-1-队列配置变更要谨慎" class="headerlink" title="3.1 队列配置变更要谨慎"></a>3.1 队列配置变更要谨慎</h3><p>Capacity Scheduler 的队列配置可以在线刷新，但这不代表可以随意修改。</p>
+<p>比较稳妥的变更流程是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">备份 capacity-scheduler.xml
+  -> 修改队列和容量
+  -> 检查同层级容量之和
+  -> 执行 yarn rmadmin -refreshQueues
+  -> 打开 Scheduler 页面确认队列树
+  -> 提交任务验证队列归属
+  -> 观察应用是否正常完成<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>常见风险有几类：</p>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>容量之和不等于 100</td>
+<td>刷新失败或调度器配置异常</td>
+</tr>
+<tr>
+<td>删除仍有应用的队列</td>
+<td>历史应用和恢复逻辑可能受影响</td>
+</tr>
+<tr>
+<td>ACL 配错</td>
+<td>用户无法提交或越权提交</td>
+</tr>
+<tr>
+<td>最大容量过大</td>
+<td>低优先级队列可能借用过多资源</td>
+</tr>
+<tr>
+<td>AM 比例过低</td>
+<td>大量应用长期排队，拿不到 AM Container</td>
+</tr>
+</tbody></table>
+<p>队列变更应该当成运维动作，而不是普通配置整理。尤其是生产集群，队列往往对应业务团队和权限边界，改容量实际上就是改资源分配规则。</p>
+<h3 id="3-2-单机环境和生产集群的差异"><a href="#3-2-单机环境和生产集群的差异" class="headerlink" title="3.2 单机环境和生产集群的差异"></a>3.2 单机环境和生产集群的差异</h3><p>这套单机环境能验证配置和页面，但不能模拟真实资源竞争。生产集群里还要考虑：</p>
+<ol>
+<li>多个 NodeManager 的资源差异。</li>
+<li>多个用户和用户组的权限边界。</li>
+<li>队列之间的高峰期资源争抢。</li>
+<li>长时间运行任务和短任务混跑。</li>
+<li>Spark、Hive、Flink、MapReduce 等不同框架的 AM 行为。</li>
+<li>节点标签、大内存节点、GPU 节点等特殊资源隔离。</li>
+<li>ResourceManager HA 和 failover 对刷新配置、调度状态恢复的影响。</li>
+</ol>
+<p>因此，单机环境里的 default&#x3D;20、etl&#x3D;50、adhoc&#x3D;30 只是用来说明语义，不是生产推荐比例。真实集群应该根据业务重要性、任务规模、峰值窗口、失败成本和团队边界设计队列。</p>
+<p>我更倾向于先从少量队列开始，而不是一开始就建非常复杂的层级。队列越多，容量越难平衡，ACL 越容易出错，用户也越难理解自己应该提交到哪里，调优和排查成本也会快速上升。等业务边界稳定后，再把队列拆细。</p>
+<h3 id="3-3-队列设计要先看业务边界"><a href="#3-3-队列设计要先看业务边界" class="headerlink" title="3.3 队列设计要先看业务边界"></a>3.3 队列设计要先看业务边界</h3><p>Capacity Scheduler 的配置看起来是技术参数，实际背后是业务边界。队列不是越多越专业，也不是越少越简单。队列应该服务于资源治理，而不是为了把组织结构原样搬进 Hadoop。</p>
+<p>我会先问几个问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>对队列设计的影响</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>哪些任务不能被挤占</td>
+<td>这些任务应该进入有保障容量的队列</td>
+</tr>
+<tr>
+<td>哪些任务可以等待</td>
+<td>这些任务可以放到低保障容量或临时队列</td>
+</tr>
+<tr>
+<td>哪些用户会大量提交小任务</td>
+<td>需要关注用户限制和 AM 资源比例</td>
+</tr>
+<tr>
+<td>哪些任务有固定运行窗口</td>
+<td>可以结合高峰期调整容量</td>
+</tr>
+<tr>
+<td>哪些任务需要特殊资源</td>
+<td>可能需要节点标签或独立队列</td>
+</tr>
+</tbody></table>
+<p>比如一个常见的数据平台可以先拆成三类队列。etl 用来跑稳定的生产离线任务，容量保障要高一些；adhoc 用来跑临时查询和分析任务，允许借用资源，但要限制用户并发；default 用来承接没有明确归属的任务，容量可以小一些，并通过平台逐步减少直接使用。</p>
+<p>这种设计比按团队名称建十几个队列更容易管理。团队边界经常变化，任务重要性和资源行为反而更稳定。一个团队内部也可能同时有生产 ETL 和临时分析，如果只按团队建队列，生产任务和临时任务仍然会互相影响。</p>
+<p>队列设计还要给未来留空间。刚开始可以只有三到五个叶子队列，等业务稳定后再增加二级队列。例如 root.etl 下面再拆 root.etl.daily 和 root.etl.hourly，或者在 root.adhoc 下面按平台用户组拆分。层级队列适合表达管理边界，但每增加一层，就要维护更多容量、ACL、应用限制和用户解释成本。</p>
+<h3 id="3-4-资源借用不是无条件扩张"><a href="#3-4-资源借用不是无条件扩张" class="headerlink" title="3.4 资源借用不是无条件扩张"></a>3.4 资源借用不是无条件扩张</h3><p>maximum-capacity&#x3D;100 很容易让人误以为队列可以随时拿满集群。实际不是这样。队列能不能借用资源，要看其它队列是否空闲、当前节点是否有资源、应用是否还在申请 Container、用户限制是否允许、AM 资源比例是否还能容纳新的 ApplicationMaster。</p>
+<p>以这次配置为例，adhoc 的保障容量是 30%，最大容量是 100%。如果 default 和 etl 都没有任务，adhoc 提交一个较大的任务时，可以使用超过 30% 的资源；但如果 etl 也有任务在运行，调度器会尽量维护各队列的容量关系，不能让 adhoc 永久挤占 etl 的保障容量。</p>
+<p>这也是 Capacity Scheduler 和静态资源切分的区别。静态切分会让资源利用率下降，某个池子空闲时其它任务也用不上。Capacity Scheduler 允许借用空闲资源，但借用不是所有权。生产环境里要向用户解释清楚：队列的保障容量是稳定承诺，超过保障容量的部分是机会资源，不能把它当成 SLA。</p>
+<p>队列借用还会带来一个管理问题：低优先级队列在夜间借用了很多资源，到了高峰期关键队列开始提交任务，资源如何回收。如果没有开启或配置抢占，已经运行的 Container 不一定会马上被拿回来；如果抢占过于激进，又可能导致任务频繁失败或重算。是否启用抢占，要结合任务类型判断。批处理任务可以接受一定重试，交互式查询通常更敏感。</p>
+<p>抢占（preemption）的目的，是在资源长期偏离队列保障容量时，把资源逐步拉回到 capacity 约束附近。它解决的是 capacity fairness recovery 问题：低优先级或机会资源使用者可以借用空闲资源，但当保障队列需要资源时，调度器要有办法恢复公平。生产环境启用抢占前，要明确等待多久开始抢占、每次抢占多少、哪些队列或任务可以接受重试成本。</p>
+<p>因此，maximum-capacity 不是越大越好。对临时查询队列，可以给较高的最大容量，但配合应用数量和用户限制；对测试队列，可以限制最大容量，避免测试任务在集群空闲时跑得很大，随后影响生产队列恢复；对关键生产队列，可以给足保障容量，同时保留适度借用空间。</p>
+<h2 id="4-排查和观察"><a href="#4-排查和观察" class="headerlink" title="4. 排查和观察"></a>4. 排查和观察</h2><h3 id="4-1-队列问题的排查路径"><a href="#4-1-队列问题的排查路径" class="headerlink" title="4.1 队列问题的排查路径"></a>4.1 队列问题的排查路径</h3><p>Capacity Scheduler 出问题时，用户看到的现象通常不是“调度器坏了”，而是应用一直排队、任务提交失败、应用进错队列、资源看起来空闲但任务拿不到 Container。</p>
+<p>排查时可以按下面顺序看：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">应用是否提交成功
+  -> 应用进入哪个队列
+  -> 队列是否 RUNNING
+  -> 队列是否有可用容量
+  -> AM 资源比例是否足够
+  -> 用户限制是否卡住
+  -> 节点资源是否满足 Container 请求<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>如果应用没有提交成功，先看客户端错误和队列 ACL。比如用户没有提交权限，错误通常在提交阶段就会暴露。如果应用进入了错误队列，要检查提交参数、队列映射和平台封装逻辑。如果应用处于 ACCEPTED 很久，说明 ResourceManager 已经接收了应用，但 AM Container 可能还没有分配出来，这时要看 Scheduler 页面里的 AM 资源、队列容量和节点剩余资源。</p>
+<p>这里还要区分 AM pending 和 container pending。应用长期 ACCEPTED，通常是 AM Container 还没拿到；应用已经 RUNNING 但任务迟迟不推进，则可能是后续 Map&#x2F;Reduce、Executor 或 Task Container pending。前者重点看 AM 资源比例、队列容量和应用数限制，后者重点看叶子队列剩余资源、用户限制、节点标签、本地性和单个 Container 请求大小。</p>
+<p>还有一种常见误判：ResourceManager 总览页显示集群还有空闲内存，但应用仍然排队。原因可能是队列没有可用容量，也可能是 queue limit、AM limit、node label mismatch、单个 Container 申请超过节点最大分配，或用户限制已经达到上限。集群空闲资源和某个队列可用资源不是一回事，调度器看的不是一个简单的全局空闲数字。</p>
+<p>root.adhoc 这次能成功运行，说明至少有三件事成立：队列存在并处于 RUNNING，用户有提交权限，队列资源和 AM 资源足够启动 MapReduce 应用。真正排查线上问题时，也应该把成功条件拆成这些小判断，而不是只看最终状态。</p>
+<h3 id="4-2-配置文件应该留下可解释性"><a href="#4-2-配置文件应该留下可解释性" class="headerlink" title="4.2 配置文件应该留下可解释性"></a>4.2 配置文件应该留下可解释性</h3><p>capacity-scheduler.xml 很容易变成一份只有管理员能看懂的配置文件。队列一多，容量、最大容量、ACL、用户限制、应用限制混在一起，后续维护会非常困难。</p>
+<p>我建议每次修改队列配置时，都同步记录三类信息。</p>
+<p>第一，记录业务含义。比如 etl 是生产离线队列，adhoc 是临时分析队列，default 是兜底队列。不要只记录队列名，因为半年以后很可能没人知道某个缩写代表什么。</p>
+<p>第二，记录容量理由。为什么 etl 是 50%，不是 40% 或 60%。这个比例可能来自历史资源使用，也可能来自业务优先级。没有理由的容量配置，后面很难调整。</p>
+<p>第三，记录验证结果。至少保留一次 refreshQueues、Scheduler 页面和应用进入队列的证据。像这次 application_1738726452502_0002 进入 root.adhoc，就是一个很清楚的验证点。</p>
+<p>配置可解释性不是文档洁癖，而是运维成本。调度器配置会直接影响资源分配，任何人接手时都应该能看懂队列为什么存在、容量为什么这样分、用户应该提交到哪里。</p>
+<h3 id="4-3-页面里的资源视角"><a href="#4-3-页面里的资源视角" class="headerlink" title="4.3 页面里的资源视角"></a>4.3 页面里的资源视角</h3><p>Scheduler 页面和 REST 接口里，除了传统的 Capacity、Used Capacity、Max Capacity，还能看到 memory-mb、vcores 这样的资源维度。即使这次配置仍然使用百分比容量，页面内部也会把队列容量转换成实际资源，例如 adhoc 的 30% 会对应一部分内存和 vCore。</p>
+<p>这点对理解调度器很重要。早期讨论 Capacity Scheduler 时，很多说明会把容量理解成一个单纯百分比；但真正调度 Container 时，ResourceManager 要看的是具体资源请求。一个 Container 可能申请 1024 MiB 和 1 个 vCore，也可能申请更大的内存。队列容量最终要落到这些资源维度上，才能判断某个应用是否还能继续申请 Container。</p>
+<p>页面上的 absolute capacity 表示队列相对整个集群的保障比例，used capacity 通常表示队列相对自身保障容量的使用比例，absolute used capacity 则表示队列相对整个集群的实际使用比例。memory-mb 和 vcores 是不同资源维度，不能简单相加，只能结合资源计算器和队列视角一起看。</p>
+<p>默认资源计算器主要按内存比较资源，DominantResourceCalculator 则会综合多个资源维度。单机环境不需要展开多资源调度，但生产环境里如果 CPU、内存、GPU 或自定义资源都很重要，就不能只看内存容量。否则可能出现内存看起来还有空间，但 vCore 或特殊资源已经成为瓶颈的情况。</p>
+<p>所以看 Scheduler 页面时，不要只看一条彩色容量条。更应该同时看队列容量、有效容量、AM 限制、节点最大分配和应用实际申请资源。Capacity Scheduler 的容量语义最终服务于 Container 分配，而 Container 分配一定会落到具体资源上。</p>
+<h2 id="5-小结"><a href="#5-小结" class="headerlink" title="5. 小结"></a>5. 小结</h2><p>Capacity Scheduler 的核心不是“配置几个百分比”，而是给共享集群建立资源秩序。</p>
+<p>这篇文章可以归纳成几句话：</p>
+<ol>
+<li>capacity 是保障容量，maximum-capacity 是资源借用上限。</li>
+<li>队列树从 root 开始，应用最终进入叶子队列。</li>
+<li>同一层级下的队列容量要能合成完整资源视图。</li>
+<li>队列不只是资源比例，还包含 ACL、用户限制、应用限制和状态。</li>
+<li>refreshQueues 只是刷新配置，真正验证还要看 Scheduler 页面和应用归属。</li>
+<li>单机环境能说明队列语义，生产环境还要结合业务边界和多租户权限。</li>
+</ol>
+<p>通过 application_1738726452502_0001 和 application_1738726452502_0002 这两个任务，可以看到 Capacity Scheduler 的基本闭环：配置队列，刷新调度器，提交应用，应用进入指定队列，最终成功完成。这个闭环比单纯解释参数更重要，因为调度器的价值只有在真实应用进入队列后才能体现出来。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/ca0a4340.html">https://www.hnbian.cn/posts/ca0a4340.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/yarn/">
+                                    <span class="chip bg-color">yarn</span>
+                                </a>
+                            
+                                <a href="/tags/hadoop/">
+                                    <span class="chip bg-color">hadoop</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/d0da2e4.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-42754d76fa7afdbb804592f5e8313b9e.jpg" class="responsive-img" alt="【YARN 权威指南】8. 理解 MapReduce on YARN">
+                        
+                        <span class="card-title">【YARN 权威指南】8. 理解 MapReduce on YARN</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2025-02-12
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/yarn/" class="post-category">
+                                    yarn
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/yarn/">
+                        <span class="chip bg-color">yarn</span>
+                    </a>
+                    
+                    <a href="/tags/hadoop/">
+                        <span class="chip bg-color">hadoop</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/da111861.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-8d79adfc1727c2f1ed432aa4f255d64c.jpg" class="responsive-img" alt="【YARN 权威指南】6. 重新理解 YARN 架构">
+                        
+                        <span class="card-title">【YARN 权威指南】6. 重新理解 YARN 架构</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2025-01-29
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/yarn/" class="post-category">
+                                    yarn
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/yarn/">
+                        <span class="chip bg-color">yarn</span>
+                    </a>
+                    
+                    <a href="/tags/hadoop/">
+                        <span class="chip bg-color">hadoop</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>

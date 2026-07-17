@@ -1,0 +1,2245 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="keywords" content="LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由, hnbian">
+    <meta name="description" content="LangGraph 系列 1—9 已经完成 Agent、Tool、Runtime Context、AgentState、短期记忆和长期记忆。前九篇主要围绕模型驱动的 Agent 展开，但 Agent 只是 LangGraph 的一种应用方式">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-155985521-1"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+    gtag('config', 'UA-155985521-1');
+</script>
+
+
+    <title>LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由 | hnbian</title>
+    <link rel="icon" type="image/png" href="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB">
+    
+
+
+    <!-- bg-cover style     -->
+
+
+
+<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+<link rel="stylesheet" type="text/css" href="/css/matery.css">
+<link rel="stylesheet" type="text/css" href="/css/my.css">
+<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
+
+
+
+
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+    <link rel="stylesheet" href="/css/post.css">
+
+
+
+
+    
+
+
+
+    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
+
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="hnbian" type="application/atom+xml">
+</head>
+
+
+<body>
+    <header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    
+                    <span class="logo-span">hnbian</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
+<ul class="right nav-menu">
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/" class="waves-effect waves-light">
+      
+      <i class="fas fa-home" style="zoom: 0.6;"></i>
+      
+      <span>首页</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/tags" class="waves-effect waves-light">
+      
+      <i class="fas fa-tags" style="zoom: 0.6;"></i>
+      
+      <span>标签</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/categories" class="waves-effect waves-light">
+      
+      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
+      
+      <span>分类</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/archives" class="waves-effect waves-light">
+      
+      <i class="fas fa-archive" style="zoom: 0.6;"></i>
+      
+      <span>归档</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/about" class="waves-effect waves-light">
+      
+      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
+      
+      <span>关于</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/contact" class="waves-effect waves-light">
+      
+      <i class="fas fa-comments" style="zoom: 0.6;"></i>
+      
+      <span>留言板</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/friends" class="waves-effect waves-light">
+      
+      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
+      
+      <span>友情链接</span>
+    </a>
+    
+  </li>
+  
+  <li class="hide-on-med-and-down nav-item">
+    
+    <a href="/graph" class="waves-effect waves-light">
+      
+      <i class="fas fa-project-diagram" style="zoom: 0.6;"></i>
+      
+      <span>Graph</span>
+    </a>
+    
+  </li>
+  
+  
+  <li>
+    <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkHeader" title="繁简转换">
+      <i class="fas fa-language" style="zoom: 0.85;"></i>
+      <span class="hide-on-small-only" style="margin-left: 5px;" id="translateTextHeader">繁</span>
+    </a>
+  </li>
+  
+  <li>
+    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+      <i id="searchIcon" class="fas fa-search" title="搜索" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+  <li>
+    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
+      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
+    </a>
+  </li>
+</ul>
+
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">hnbian</div>
+        <div class="logo-desc">
+            
+            Never really desperate, only the lost of the soul.
+            
+        </div>
+    </div>
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li class="m-nav-item">
+	  
+		<a href="/" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-home"></i>
+			
+			首页
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/tags" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-tags"></i>
+			
+			标签
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/categories" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-bookmark"></i>
+			
+			分类
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/archives" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-archive"></i>
+			
+			归档
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/about" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-user-circle"></i>
+			
+			关于
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/contact" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-comments"></i>
+			
+			留言板
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/friends" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-address-book"></i>
+			
+			友情链接
+		</a>
+          
+        </li>
+        
+        <li class="m-nav-item">
+	  
+		<a href="/graph" class="waves-effect waves-light">
+			
+			    <i class="fa-fw fas fa-project-diagram"></i>
+			
+			Graph
+		</a>
+          
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="javascript:translatePage();" class="waves-effect waves-light" id="translateLinkMobile">
+                <i class="fas fa-language fa-fw"></i>繁简转换 <span id="translateTextMobile">(繁)</span>
+            </a>
+        </li>
+        
+        
+        <li><div class="divider"></div></li>
+        <li>
+            <a href="https://github.com/hnbian" class="waves-effect waves-light" target="_blank" rel="noopener noreferrer">
+                <i class="fab fa-github-square fa-fw"></i>Fork Me
+            </a>
+        </li>
+        
+    </ul>
+</div>
+
+
+        </div>
+
+        
+            <style>
+    .nav-transparent .github-corner {
+        display: none !important;
+    }
+
+    .github-corner {
+        position: absolute;
+        z-index: 10;
+        top: 0;
+        right: 0;
+        border: 0;
+        transform: scale(1.1);
+    }
+
+    .github-corner svg {
+        color: #0f9d58;
+        fill: #fff;
+        height: 64px;
+        width: 64px;
+    }
+
+    .github-corner:hover .octo-arm {
+        animation: a 0.56s ease-in-out;
+    }
+
+    .github-corner .octo-arm {
+        animation: none;
+    }
+
+    @keyframes a {
+        0%,
+        to {
+            transform: rotate(0);
+        }
+        20%,
+        60% {
+            transform: rotate(-25deg);
+        }
+        40%,
+        80% {
+            transform: rotate(10deg);
+        }
+    }
+</style>
+
+<a href="https://github.com/hnbian" class="github-corner tooltipped hide-on-med-and-down" target="_blank" rel="noopener noreferrer"
+   data-tooltip="Fork Me" data-position="left" data-delay="50">
+    <svg viewBox="0 0 250 250" aria-hidden="true">
+        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
+        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+              fill="currentColor" class="octo-body"></path>
+    </svg>
+</a>
+
+        
+    </nav>
+
+</header>
+
+    
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://images.hnbian.cn/new/n-b680f51b35223edf2296e2ff716f9759.jpg')">
+    <div class="container" style="right: 0px;left: 0px;">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <h1 class="description center-align post-title">LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<main class="post-container content">
+
+    
+    <div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/langchain/">
+                                <span class="chip bg-color">langchain</span>
+                            </a>
+                        
+                            <a href="/tags/langgraph/">
+                                <span class="chip bg-color">langgraph</span>
+                            </a>
+                        
+                            <a href="/tags/workflow/">
+                                <span class="chip bg-color">workflow</span>
+                            </a>
+                        
+                            <a href="/tags/state/">
+                                <span class="chip bg-color">state</span>
+                            </a>
+                        
+                            <a href="/tags/reducer/">
+                                <span class="chip bg-color">reducer</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fas fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/langgraph/" class="post-category">
+                                langgraph
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                
+                <div class="post-date info-break-policy">
+                    <i class="far fa-calendar-minus fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2026-05-24
+                </div>
+                
+
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
+                    4.9k
+                </div>
+                
+
+                
+                <div class="info-break-policy">
+                    <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                    19 分
+                </div>
+                
+
+                
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="far fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+
+        
+        <!-- 是否加载使用自带的 prismjs. -->
+        <link rel="stylesheet" href="/libs/prism/prism.min.css">
+        
+
+        
+
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>LangGraph 系列 1—9 已经完成 Agent、Tool、Runtime Context、AgentState、短期记忆和长期记忆。前九篇主要围绕模型驱动的 Agent 展开，但 Agent 只是 LangGraph 的一种应用方式。</p>
+<p>从本文开始进入 LangGraph 系列的 Workflow 阶段。面对执行步骤明确、分支规则固定的业务，通常不需要让大模型决定每一步，而是由程序员把执行路径直接编排成 Workflow。</p>
+<p>本篇先不调用大模型，使用普通 Python 函数把 Workflow 中最重要的 State、Reducer、Node 和 Edge 逐一验证清楚。这样可以排除模型输出的不确定性，直接观察状态究竟怎样在图中流转。</p>
+<h2 id="1-Workflow-与-Agent-的区别"><a href="#1-Workflow-与-Agent-的区别" class="headerlink" title="1. Workflow 与 Agent 的区别"></a><strong>1. Workflow 与 Agent 的区别</strong></h2><p>Workflow 和 Agent 都可以组织复杂任务，但两者决定执行路径的方式不同。</p>
+<p>Workflow 的路径由代码提前定义。例如一个出行建议流程可以固定为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">清理输入
+-> 判断温度
+-> 根据温度选择建议
+-> 整理最终结果<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Agent 则会让模型根据消息和工具结果决定下一步动作。模型可能调用工具，也可能直接回答，还可能连续调用多个工具。</p>
+<p>因此，两者的核心区别是：</p>
+<ul>
+<li>Workflow 由程序员编排流程。</li>
+<li>Agent 由模型参与决定流程。</li>
+</ul>
+<p>它们并不互斥。一个 Agent 可以成为 Workflow 中的某个节点，多个 Agent 也可以由一张更大的 Workflow 统一编排。</p>
+<h2 id="2-一张工作流由什么组成"><a href="#2-一张工作流由什么组成" class="headerlink" title="2. 一张工作流由什么组成"></a><strong>2. 一张工作流由什么组成</strong></h2><p>LangGraph 使用图来描述 Workflow，最基础的组成部分有三个：</p>
+<ol>
+<li><strong>State</strong>：保存当前执行过程中的共享数据。</li>
+<li><strong>Node</strong>：读取 State，执行一段逻辑，再返回状态更新。</li>
+<li><strong>Edge</strong>：决定当前节点完成后进入哪个节点。</li>
+</ol>
+<p><img src="https://images.hnbian.cn/new/n-5f5885597a3ede7eafc99e15fc0249a8.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="LangGraph Workflow 中 State、Node、Edge 与 Reducer 的关系"></p>
+<p>可以把 State 理解为一张不断变化的数据表。节点负责产生更新，Reducer 负责决定更新如何写回，边负责决定接下来执行谁。</p>
+<h2 id="3-使用-TypedDict-定义-State"><a href="#3-使用-TypedDict-定义-State" class="headerlink" title="3. 使用 TypedDict 定义 State"></a><strong>3. 使用 TypedDict 定义 State</strong></h2><p>工作流不会自动提供一个满足业务需要的 State。创建 StateGraph 时，需要明确传入 State Schema：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
+
+
+<span class="token keyword">class</span> <span class="token class-name">TravelState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    temperature<span class="token punctuation">:</span> <span class="token builtin">int</span>
+    category<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    advice<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    result<span class="token punctuation">:</span> <span class="token builtin">str</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>本文使用 TypedDict，因为它的代码最直接，也不会在运行时创建额外对象。LangGraph 1.1.3 也支持 dataclass 和 Pydantic：</p>
+<ul>
+<li>dataclass 适合需要默认值的状态。</li>
+<li>Pydantic 适合需要运行时输入校验的状态。</li>
+<li>TypedDict 适合结构明确、追求简单和低开销的状态。</li>
+</ul>
+<p>State 中应该保存流程真正需要共享的数据，不要因为某个局部函数临时使用一个变量，就把所有局部变量都放进 State。</p>
+<h2 id="4-理解-State-的三条规则"><a href="#4-理解-State-的三条规则" class="headerlink" title="4. 理解 State 的三条规则"></a><strong>4. 理解 State 的三条规则</strong></h2><p>学习 Workflow State 时，可以先记住三条规则。</p>
+<h3 id="4-1-节点和路由函数可以读取当前-State"><a href="#4-1-节点和路由函数可以读取当前-State" class="headerlink" title="4.1 节点和路由函数可以读取当前 State"></a><strong>4.1 节点和路由函数可以读取当前 State</strong></h3><p>节点函数的第一个参数通常是 State：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">normalize_input</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> state<span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>路由函数同样可以读取 State，并根据其中的数据选择下一条路径。</p>
+<h3 id="4-2-节点只返回需要更新的字段"><a href="#4-2-节点只返回需要更新的字段" class="headerlink" title="4.2 节点只返回需要更新的字段"></a><strong>4.2 节点只返回需要更新的字段</strong></h3><p>节点不需要返回完整 State。如果一个节点只修改城市名称，就只返回 city：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> state<span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>没有出现在返回值中的字段会保持不变。</p>
+<h3 id="4-3-Reducer-决定更新如何写回"><a href="#4-3-Reducer-决定更新如何写回" class="headerlink" title="4.3 Reducer 决定更新如何写回"></a><strong>4.3 Reducer 决定更新如何写回</strong></h3><p>State 中的每个字段都有独立的更新规则。没有显式指定 Reducer 时，LangGraph 使用默认覆盖行为。</p>
+<p>Reducer 可以理解为一个二元合并函数：左侧参数是 State 中已经存在的字段值，右侧参数是节点本次返回的字段更新，函数返回合并后的新值。</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">new_value <span class="token operator">=</span> reducer<span class="token punctuation">(</span>current_value<span class="token punctuation">,</span> update_value<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>不同字段可以使用不同的 Reducer。例如，score 使用默认覆盖，steps 使用 operator.add 追加列表。节点只负责返回局部更新，不需要自己把旧值和新值拼接起来。</p>
+<p>如果一个节点返回：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">&#123;</span><span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>下一个节点又返回：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">&#123;</span><span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>最终 score 是 3，不是 5，因为这个字段没有配置累加 Reducer。</p>
+<h2 id="5-Reducer-的三种常见行为"><a href="#5-Reducer-的三种常见行为" class="headerlink" title="5. Reducer 的三种常见行为"></a><strong>5. Reducer 的三种常见行为</strong></h2><h3 id="5-1-默认覆盖"><a href="#5-1-默认覆盖" class="headerlink" title="5.1 默认覆盖"></a><strong>5.1 默认覆盖</strong></h3><p>普通字段不写 Reducer时，新值覆盖旧值：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">WorkflowState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    score<span class="token punctuation">:</span> <span class="token builtin">int</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>默认覆盖适合流程阶段、最终结果、分类结果等只需要保留最新值的数据。</p>
+<h3 id="5-2-使用-operator-add-追加普通列表"><a href="#5-2-使用-operator-add-追加普通列表" class="headerlink" title="5.2 使用 operator.add 追加普通列表"></a><strong>5.2 使用 operator.add 追加普通列表</strong></h3><p>如果多个节点都要向列表追加内容，可以使用 Annotated 绑定 Reducer：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">import</span> operator
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+
+
+<span class="token keyword">class</span> <span class="token class-name">WorkflowState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    steps<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>当节点分别返回 [‘first_step’] 和 [‘second_step’] 时，最终列表会保留两项，而不是让后一项覆盖前一项。</p>
+<h3 id="5-3-使用-add-messages-处理消息列表"><a href="#5-3-使用-add-messages-处理消息列表" class="headerlink" title="5.3 使用 add_messages 处理消息列表"></a><strong>5.3 使用 add_messages 处理消息列表</strong></h3><p>消息不能只按普通列表处理。LangGraph 提供了 add_messages：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AnyMessage
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph<span class="token punctuation">.</span>message <span class="token keyword">import</span> add_messages
+
+
+<span class="token keyword">class</span> <span class="token class-name">WorkflowState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    messages<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span>AnyMessage<span class="token punctuation">]</span><span class="token punctuation">,</span> add_messages<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>它除了追加新消息，还会跟踪消息 ID：</p>
+<ul>
+<li>新 ID 会追加到列表。</li>
+<li>相同 ID 会替换原消息。</li>
+<li>配合 RemoveMessage 可以删除指定消息。</li>
+<li>字典消息可以转换成 LangChain 消息对象。</li>
+</ul>
+<p>如果只需要消息列表，也可以直接使用预置的 MessagesState：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> MessagesState
+
+
+<span class="token keyword">class</span> <span class="token class-name">CustomState</span><span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    user_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>MessagesState 已经定义了使用 add_messages 的 messages 字段。</p>
+<h2 id="6-验证-State-与-Reducer"><a href="#6-验证-State-与-Reducer" class="headerlink" title="6. 验证 State 与 Reducer"></a><strong>6. 验证 State 与 Reducer</strong></h2><p>示例代码放在：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm_learning/langgraph/p10_workflow_basics/<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>继续使用现有 Python 3.12 环境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
+python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-r</span> langgraph/p10_workflow_basics/requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>本文固定使用：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">langgraph==1.1.3
+langchain-core==1.2.22
+typing-extensions==4.15.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="6-1-完整代码"><a href="#6-1-完整代码" class="headerlink" title="6.1 完整代码"></a><strong>6.1 完整代码</strong></h3><p>01_state_and_reducers.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""演示 Workflow State 中默认覆盖、列表追加和消息合并三种 Reducer 行为。"""</span>
+
+<span class="token keyword">import</span> operator
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage<span class="token punctuation">,</span> AnyMessage<span class="token punctuation">,</span> HumanMessage
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> StateGraph
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph<span class="token punctuation">.</span>message <span class="token keyword">import</span> add_messages
+<span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
+
+
+<span class="token keyword">class</span> <span class="token class-name">WorkflowState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""定义所有节点共享的工作流状态。"""</span>
+
+    <span class="token comment"># 没有声明 Reducer，节点返回新值时会覆盖旧值。</span>
+    score<span class="token punctuation">:</span> <span class="token builtin">int</span>
+    <span class="token comment"># 普通列表使用 operator.add，把每次返回的列表追加到已有列表。</span>
+    steps<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+    <span class="token comment"># 消息列表使用 add_messages，可以按消息 ID 追加或替换消息。</span>
+    messages<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span>AnyMessage<span class="token punctuation">]</span><span class="token punctuation">,</span> add_messages<span class="token punctuation">]</span>
+
+
+<span class="token keyword">def</span> <span class="token function">first_step</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""第一次更新分数、执行记录和回答消息。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"first_step"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"初始建议"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"answer-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">second_step</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> WorkflowState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""再次覆盖分数，并用相同 ID 修正上一条 AI 消息。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"second_step"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"修正后的建议"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"answer-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token comment"># StateGraph 是图的构建器，需要先添加节点和边。</span>
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>WorkflowState<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>first_step<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>second_step<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"first_step"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"first_step"</span><span class="token punctuation">,</span> <span class="token string">"second_step"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"second_step"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+
+<span class="token comment"># compile() 返回可以 invoke() 和 stream() 的 CompiledStateGraph。</span>
+graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token string">"score"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"input"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"请给我一条建议。"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"user-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"score:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"score"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"steps:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"steps"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"message_count:"</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">for</span> message <span class="token keyword">in</span> result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">,</span> message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">,</span> message<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p10_workflow_basics/01_state_and_reducers.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>真实输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">score: 3
+steps: ['input', 'first_step', 'second_step']
+message_count: 2
+HumanMessage user-1 请给我一条建议。
+AIMessage answer-1 修正后的建议<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>从结果可以确认：</p>
+<ol>
+<li>score 从 1 依次被覆盖为 2 和 3。</li>
+<li>steps 使用 operator.add，三个阶段都被保留。</li>
+<li>两个节点返回的 AI 消息 ID 都是 answer-1，因此最终只保留修正后的消息。</li>
+</ol>
+<h2 id="7-Node-是真正执行工作的步骤"><a href="#7-Node-是真正执行工作的步骤" class="headerlink" title="7. Node 是真正执行工作的步骤"></a><strong>7. Node 是真正执行工作的步骤</strong></h2><p>Node 通常是同步或异步 Python 函数，也可以是实现了 Runnable 接口的对象。</p>
+<p>最简单的节点只接收 State：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">classify_temperature</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"category"</span><span class="token punctuation">:</span> <span class="token string">"hot"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>根据需要，节点还可以接收：</p>
+<ul>
+<li>config：读取 thread_id、tags、metadata 等运行配置。</li>
+<li>runtime：读取 Runtime Context、Store 和流式写入器等运行时能力。</li>
+</ul>
+<p>这些内容前面已经介绍过，本篇只保留 state 参数，集中观察工作流本身。</p>
+<p>节点返回的字典表示“状态更新”，不是新的完整 State。尤其是配置了列表 Reducer 后，如果节点把整个旧列表和新内容一起返回，旧内容会被重复追加。</p>
+<h2 id="8-普通边、START-与-END"><a href="#8-普通边、START-与-END" class="headerlink" title="8. 普通边、START 与 END"></a><strong>8. 普通边、START 与 END</strong></h2><p>普通边表示固定执行路径：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"normalize_input"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"normalize_input"</span><span class="token punctuation">,</span> <span class="token string">"classify_temperature"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"format_result"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<ul>
+<li>START 是虚拟开始节点，负责把图输入发送给第一个节点。</li>
+<li>END 是虚拟结束节点，表示后面不再执行其他操作。</li>
+<li>add_edge(‘a’, ‘b’) 表示节点 a 完成后固定进入节点 b。</li>
+</ul>
+<p>START 和 END 不会执行普通 Python 业务逻辑，它们只是图结构中的特殊标记。</p>
+<h2 id="9-条件边与路由函数"><a href="#9-条件边与路由函数" class="headerlink" title="9. 条件边与路由函数"></a><strong>9. 条件边与路由函数</strong></h2><p>如果下一步取决于 State，就需要条件边：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
+    <span class="token string">"classify_temperature"</span><span class="token punctuation">,</span>
+    route_temperature<span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>路由函数读取当前 State，然后返回下一个节点名称：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">route_temperature</span><span class="token punctuation">(</span>
+    state<span class="token punctuation">:</span> TravelState<span class="token punctuation">,</span>
+<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Literal<span class="token punctuation">[</span><span class="token string">"hot_advice"</span><span class="token punctuation">,</span> <span class="token string">"cold_advice"</span><span class="token punctuation">,</span> <span class="token string">"comfortable_advice"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    routes <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"hot"</span><span class="token punctuation">:</span> <span class="token string">"hot_advice"</span><span class="token punctuation">,</span>
+        <span class="token string">"cold"</span><span class="token punctuation">:</span> <span class="token string">"cold_advice"</span><span class="token punctuation">,</span>
+        <span class="token string">"comfortable"</span><span class="token punctuation">:</span> <span class="token string">"comfortable_advice"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> routes<span class="token punctuation">[</span>state<span class="token punctuation">[</span><span class="token string">"category"</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>Literal 不只是类型提示。它也让 LangGraph 知道路由函数可能到达哪些节点，生成的图结构会更准确。</p>
+<p>如果路由返回值不是实际节点名称，可以提供 path_map：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
+    <span class="token string">"check_result"</span><span class="token punctuation">,</span>
+    route_result<span class="token punctuation">,</span>
+    <span class="token punctuation">&#123;</span><span class="token boolean">True</span><span class="token punctuation">:</span> <span class="token string">"success"</span><span class="token punctuation">,</span> <span class="token boolean">False</span><span class="token punctuation">:</span> <span class="token string">"retry"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>此时路由函数可以返回 True 或 False，再由映射表转换成节点名称。</p>
+<h2 id="10-完整的固定边与条件边案例"><a href="#10-完整的固定边与条件边案例" class="headerlink" title="10. 完整的固定边与条件边案例"></a><strong>10. 完整的固定边与条件边案例</strong></h2><p>这个案例根据温度选择出行建议：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">START
+-> normalize_input
+-> classify_temperature
+-> hot_advice / cold_advice / comfortable_advice
+-> format_result
+-> END<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p><img src="https://images.hnbian.cn/new/n-f6947688a5d8431a8b757ad815cd578c.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="温度建议 Workflow 的条件路由"></p>
+<h3 id="10-1-完整代码"><a href="#10-1-完整代码" class="headerlink" title="10.1 完整代码"></a><strong>10.1 完整代码</strong></h3><p>02_fixed_and_conditional_workflow.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用温度出行建议案例演示固定边、条件边、invoke 和 stream。"""</span>
+
+<span class="token keyword">import</span> operator
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated<span class="token punctuation">,</span> Literal
+
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> StateGraph
+<span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
+
+
+<span class="token keyword">class</span> <span class="token class-name">TravelState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""保存输入、判断结果、最终建议和节点执行记录。"""</span>
+
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    temperature<span class="token punctuation">:</span> <span class="token builtin">int</span>
+    category<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    advice<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    result<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    steps<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+
+
+<span class="token keyword">def</span> <span class="token function">normalize_input</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""清理城市名称两侧的空格。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"city"</span><span class="token punctuation">:</span> state<span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"normalize_input"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">classify_temperature</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""根据温度写入分类结果。"""</span>
+
+    <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"temperature"</span><span class="token punctuation">]</span> <span class="token operator">>=</span> <span class="token number">30</span><span class="token punctuation">:</span>
+        category <span class="token operator">=</span> <span class="token string">"hot"</span>
+    <span class="token keyword">elif</span> state<span class="token punctuation">[</span><span class="token string">"temperature"</span><span class="token punctuation">]</span> <span class="token operator">&lt;=</span> <span class="token number">10</span><span class="token punctuation">:</span>
+        category <span class="token operator">=</span> <span class="token string">"cold"</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        category <span class="token operator">=</span> <span class="token string">"comfortable"</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"category"</span><span class="token punctuation">:</span> category<span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"classify_temperature"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">route_temperature</span><span class="token punctuation">(</span>
+    state<span class="token punctuation">:</span> TravelState<span class="token punctuation">,</span>
+<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Literal<span class="token punctuation">[</span><span class="token string">"hot_advice"</span><span class="token punctuation">,</span> <span class="token string">"cold_advice"</span><span class="token punctuation">,</span> <span class="token string">"comfortable_advice"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""读取分类结果，返回下一步需要执行的节点名称。"""</span>
+
+    routes <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"hot"</span><span class="token punctuation">:</span> <span class="token string">"hot_advice"</span><span class="token punctuation">,</span>
+        <span class="token string">"cold"</span><span class="token punctuation">:</span> <span class="token string">"cold_advice"</span><span class="token punctuation">,</span>
+        <span class="token string">"comfortable"</span><span class="token punctuation">:</span> <span class="token string">"comfortable_advice"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+    <span class="token keyword">return</span> routes<span class="token punctuation">[</span>state<span class="token punctuation">[</span><span class="token string">"category"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+
+
+<span class="token keyword">def</span> <span class="token function">hot_advice</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""生成高温天气建议。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"advice"</span><span class="token punctuation">:</span> <span class="token string">"注意防晒并及时补水。"</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"hot_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">cold_advice</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""生成低温天气建议。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"advice"</span><span class="token punctuation">:</span> <span class="token string">"注意保暖，外出时带好外套。"</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"cold_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">comfortable_advice</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""生成舒适天气建议。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"advice"</span><span class="token punctuation">:</span> <span class="token string">"天气舒适，适合户外散步。"</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"comfortable_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">format_result</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> TravelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""把城市与建议整理成最终结果。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f'</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">"advice"</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">'</span></span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"format_result"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>TravelState<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>normalize_input<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>classify_temperature<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>hot_advice<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>cold_advice<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>comfortable_advice<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>format_result<span class="token punctuation">)</span>
+
+<span class="token comment"># START 到分类节点之间是执行路径固定的普通边。</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"normalize_input"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"normalize_input"</span><span class="token punctuation">,</span> <span class="token string">"classify_temperature"</span><span class="token punctuation">)</span>
+
+<span class="token comment"># 分类完成后调用路由函数，只选择三个建议节点中的一个。</span>
+builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"classify_temperature"</span><span class="token punctuation">,</span> route_temperature<span class="token punctuation">)</span>
+
+<span class="token comment"># 三个分支最终都会进入同一个格式化节点。</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"hot_advice"</span><span class="token punctuation">,</span> <span class="token string">"format_result"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"cold_advice"</span><span class="token punctuation">,</span> <span class="token string">"format_result"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"comfortable_advice"</span><span class="token punctuation">,</span> <span class="token string">"format_result"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"format_result"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+
+graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">make_input</span><span class="token punctuation">(</span>city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> temperature<span class="token punctuation">:</span> <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> TravelState<span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""创建字段完整的测试输入。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"city"</span><span class="token punctuation">:</span> city<span class="token punctuation">,</span>
+        <span class="token string">"temperature"</span><span class="token punctuation">:</span> temperature<span class="token punctuation">,</span>
+        <span class="token string">"category"</span><span class="token punctuation">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+        <span class="token string">"advice"</span><span class="token punctuation">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+        <span class="token string">"result"</span><span class="token punctuation">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token comment"># 三组输入分别验证高温、低温和舒适三个分支。</span>
+<span class="token keyword">for</span> city<span class="token punctuation">,</span> temperature <span class="token keyword">in</span> <span class="token punctuation">[</span><span class="token punctuation">(</span><span class="token string">" 杭州 "</span><span class="token punctuation">,</span> <span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token string">"哈尔滨"</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token string">"昆明"</span><span class="token punctuation">,</span> <span class="token number">22</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>make_input<span class="token punctuation">(</span>city<span class="token punctuation">,</span> temperature<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>result<span class="token punctuation">[</span><span class="token string">"result"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"steps:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"steps"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"stream updates:"</span><span class="token punctuation">)</span>
+
+<span class="token comment"># updates 模式只返回每个节点本次提交的局部状态更新。</span>
+<span class="token keyword">for</span> update <span class="token keyword">in</span> graph<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>make_input<span class="token punctuation">(</span><span class="token string">" 杭州 "</span><span class="token punctuation">,</span> <span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>update<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="10-2-真实输出"><a href="#10-2-真实输出" class="headerlink" title="10.2 真实输出"></a><strong>10.2 真实输出</strong></h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">杭州：注意防晒并及时补水。
+steps: ['normalize_input', 'classify_temperature', 'hot_advice', 'format_result']
+哈尔滨：注意保暖，外出时带好外套。
+steps: ['normalize_input', 'classify_temperature', 'cold_advice', 'format_result']
+昆明：天气舒适，适合户外散步。
+steps: ['normalize_input', 'classify_temperature', 'comfortable_advice', 'format_result']
+stream updates:
+&#123;'normalize_input': &#123;'city': '杭州', 'steps': ['normalize_input']&#125;&#125;
+&#123;'classify_temperature': &#123;'category': 'hot', 'steps': ['classify_temperature']&#125;&#125;
+&#123;'hot_advice': &#123;'advice': '注意防晒并及时补水。', 'steps': ['hot_advice']&#125;&#125;
+&#123;'format_result': &#123;'result': '杭州：注意防晒并及时补水。', 'steps': ['format_result']&#125;&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>三组输入分别走了三个不同分支。stream_mode&#x3D;’updates’ 返回的不是每一步完整 State，而是节点本次提交的局部更新，因此特别适合观察哪个节点修改了哪些字段。</p>
+<h2 id="11-StateGraph-为什么需要-compile"><a href="#11-StateGraph-为什么需要-compile" class="headerlink" title="11. StateGraph 为什么需要 compile"></a><strong>11. StateGraph 为什么需要 compile</strong></h2><p>StateGraph 是图结构的 Builder。它只负责注册状态、节点和边，不能直接执行：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>TravelState<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>完成图结构后，需要编译：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>compile() 会检查图结构，并返回 CompiledStateGraph。真正提供 invoke()、stream()、ainvoke() 和 astream() 的是编译后的图。</p>
+<p>常见调用方式包括：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 返回执行完成后的最终 State。</span>
+result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>input_state<span class="token punctuation">)</span>
+
+<span class="token comment"># 逐步返回每个节点提交的局部状态更新。</span>
+<span class="token keyword">for</span> update <span class="token keyword">in</span> graph<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>input_state<span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>update<span class="token punctuation">)</span>
+
+<span class="token comment"># 逐步返回每个阶段执行后的完整 State 快照。</span>
+<span class="token keyword">for</span> state <span class="token keyword">in</span> graph<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>input_state<span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"values"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>state<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这些执行方式和 StateGraph 的完整接口可以继续参考 <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/graph-api">LangGraph Graph API</a>。</p>
+<h2 id="12-并行分支与-Fan-in"><a href="#12-并行分支与-Fan-in" class="headerlink" title="12. 并行分支与 Fan-in"></a><strong>12. 并行分支与 Fan-in</strong></h2><p>路由函数不只能返回一个节点名称，也可以返回多个节点：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">choose_tasks</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">,</span> <span class="token string">"water_advice"</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>这两个节点会在下一个 Super-step 中执行。它们都更新 suggestions，所以这个字段必须配置 Reducer：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">suggestions<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>等待多个节点都完成后再进入汇总节点，可以使用列表形式的起点：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>
+    <span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">,</span> <span class="token string">"water_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token string">"summarize"</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这就是 Fan-out 和 Fan-in：先从一个位置分发到多个并行节点，再等待它们完成后汇聚到一个节点。</p>
+<p><img src="https://images.hnbian.cn/new/n-e5bc2124b6e05cd1c56ea0bcccc8af44.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="并行分支在同一 Super-step 执行并通过 Fan-in 汇聚"></p>
+<h3 id="12-1-完整代码"><a href="#12-1-完整代码" class="headerlink" title="12.1 完整代码"></a><strong>12.1 完整代码</strong></h3><p>03_parallel_branches.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""演示路由到多个并行节点，并在两个分支完成后执行 Fan-in 汇总。"""</span>
+
+<span class="token keyword">import</span> operator
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Annotated
+
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> StateGraph
+<span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
+
+
+<span class="token keyword">class</span> <span class="token class-name">ParallelState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""并行分支共享的状态。"""</span>
+
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    <span class="token comment"># 两个并行节点都会更新 suggestions，因此必须声明 Reducer。</span>
+    suggestions<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+    steps<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span>
+    summary<span class="token punctuation">:</span> <span class="token builtin">str</span>
+
+
+<span class="token keyword">def</span> <span class="token function">prepare</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""记录并行任务开始。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"prepare"</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">choose_tasks</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""一次返回两个节点名称，让它们在下一个 Super-step 执行。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">,</span> <span class="token string">"water_advice"</span><span class="token punctuation">]</span>
+
+
+<span class="token keyword">def</span> <span class="token function">walking_advice</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""生成散步建议。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"suggestions"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string-interpolation"><span class="token string">f'在</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">"city"</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">散步 30 分钟'</span></span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">water_advice</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""生成饮水建议。"""</span>
+
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"suggestions"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"随身携带饮用水"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"water_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+<span class="token keyword">def</span> <span class="token function">summarize</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> ParallelState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""等待两个分支完成后汇总建议。"""</span>
+
+    <span class="token comment"># 排序后再连接，使教学输出保持稳定。</span>
+    suggestions <span class="token operator">=</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span>state<span class="token punctuation">[</span><span class="token string">"suggestions"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"summary"</span><span class="token punctuation">:</span> <span class="token string">"；"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>suggestions<span class="token punctuation">)</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"summarize"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>ParallelState<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>prepare<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>walking_advice<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>water_advice<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span>summarize<span class="token punctuation">)</span>
+
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"prepare"</span><span class="token punctuation">)</span>
+
+<span class="token comment"># path_map 列出路由函数可能返回的目标节点，便于校验和绘图。</span>
+builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
+    <span class="token string">"prepare"</span><span class="token punctuation">,</span>
+    choose_tasks<span class="token punctuation">,</span>
+    <span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">,</span> <span class="token string">"water_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+<span class="token comment"># 列表形式的起点表示：两个并行节点都完成后，才执行 summarize。</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">"walking_advice"</span><span class="token punctuation">,</span> <span class="token string">"water_advice"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token string">"summarize"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"summarize"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+
+graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"杭州"</span><span class="token punctuation">,</span>
+        <span class="token string">"suggestions"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"steps"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token string">"summary"</span><span class="token punctuation">:</span> <span class="token string">""</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+<span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"suggestions:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"suggestions"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"steps:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"steps"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"summary:"</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"summary"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="12-2-真实输出"><a href="#12-2-真实输出" class="headerlink" title="12.2 真实输出"></a><strong>12.2 真实输出</strong></h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">suggestions: ['在杭州散步 30 分钟', '随身携带饮用水']
+steps: ['prepare', 'walking_advice', 'water_advice', 'summarize']
+summary: 在杭州散步 30 分钟；随身携带饮用水<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>summarize 只出现一次，并且执行前已经拿到两个分支的结果，说明 Fan-in 生效。</p>
+<p>两个分支位于同一个 Super-step，不应把合并后的列表顺序理解为业务执行顺序保证。示例在 summarize 中先对建议排序，再生成稳定输出；真实业务如果依赖顺序，应在数据中保存明确的序号或优先级，然后在汇总节点排序。</p>
+<h2 id="13-为什么并行更新必须配置-Reducer"><a href="#13-为什么并行更新必须配置-Reducer" class="headerlink" title="13. 为什么并行更新必须配置 Reducer"></a><strong>13. 为什么并行更新必须配置 Reducer</strong></h2><p>如果两个并行节点同时更新同一个字段，而该字段没有 Reducer，LangGraph 无法判断应该保留哪个值。</p>
+<p>例如下面的字段只有默认覆盖行为：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">State</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    values<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>两个并行节点分别返回 [‘left’] 和 [‘right’] 时，实际会产生：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">InvalidUpdateError
+At key 'values': Can receive only one value per step. Use an Annotated key to handle multiple values.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>上面保留了本次测试中最关键的异常信息，省略了调用栈。</p>
+<p>这不是随机选择一个结果，也不是后执行的节点覆盖前一个节点。LangGraph 会直接拒绝存在歧义的并行更新。</p>
+<p>如果业务目标是合并两个列表，应显式写成：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">values<span class="token punctuation">:</span> Annotated<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">,</span> operator<span class="token punctuation">.</span>add<span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<h2 id="14-常见问题"><a href="#14-常见问题" class="headerlink" title="14. 常见问题"></a><strong>14. 常见问题</strong></h2><h3 id="14-1-节点返回完整-State"><a href="#14-1-节点返回完整-State" class="headerlink" title="14.1 节点返回完整 State"></a><strong>14.1 节点返回完整 State</strong></h3><p>节点只应返回需要修改的字段。对于使用 operator.add 的列表，如果把旧列表和新值一起返回，Reducer 会再次追加旧内容，造成重复数据。</p>
+<h3 id="14-2-列表没有配置-Reducer"><a href="#14-2-列表没有配置-Reducer" class="headerlink" title="14.2 列表没有配置 Reducer"></a><strong>14.2 列表没有配置 Reducer</strong></h3><p>没有 Reducer 的列表仍然使用覆盖行为。前一个节点返回的列表会被后一个节点替换。</p>
+<h3 id="14-3-并行节点更新同一个普通字段"><a href="#14-3-并行节点更新同一个普通字段" class="headerlink" title="14.3 并行节点更新同一个普通字段"></a><strong>14.3 并行节点更新同一个普通字段</strong></h3><p>同一 Super-step 中存在多个值时，默认字段会触发 InvalidUpdateError。需要合并就配置 Reducer；不需要合并就让不同节点更新不同字段。</p>
+<h3 id="14-4-路由函数返回不存在的节点"><a href="#14-4-路由函数返回不存在的节点" class="headerlink" title="14.4 路由函数返回不存在的节点"></a><strong>14.4 路由函数返回不存在的节点</strong></h3><p>路由返回值必须是已经注册的节点名称，或者能够通过 path_map 映射到真实节点。</p>
+<p>建议为路由函数增加 Literal 返回类型，减少拼写错误，也让图结构可视化更准确。</p>
+<h3 id="14-5-同一节点同时配置普通边和条件边"><a href="#14-5-同一节点同时配置普通边和条件边" class="headerlink" title="14.5 同一节点同时配置普通边和条件边"></a><strong>14.5 同一节点同时配置普通边和条件边</strong></h3><p>普通边不会因为条件边选择了其他路径而自动停止。如果从同一个节点同时配置普通边和条件边，两边都可能执行。</p>
+<p>一个节点通常只选择一种路由方式：路径固定时使用普通边，需要判断时使用条件边。</p>
+<h3 id="14-6-循环没有结束条件"><a href="#14-6-循环没有结束条件" class="headerlink" title="14.6 循环没有结束条件"></a><strong>14.6 循环没有结束条件</strong></h3><p>Workflow 可以形成循环，但必须存在能够进入 END 的条件。如果始终返回循环节点，最终会触发 GraphRecursionError。</p>
+<p>不要通过盲目提高 recursion_limit 掩盖错误，应先检查路由条件是否真的能够结束。</p>
+<h2 id="15-总结"><a href="#15-总结" class="headerlink" title="15. 总结"></a><strong>15. 总结</strong></h2><table>
+<thead>
+<tr>
+<th align="left">知识点</th>
+<th align="left">作用</th>
+<th align="left">本文验证结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Workflow</td>
+<td align="left">由程序员提前编排执行路径</td>
+<td align="left">温度建议流程按固定规则运行</td>
+</tr>
+<tr>
+<td align="left">StateGraph</td>
+<td align="left">注册 State、Node 和 Edge 的构建器</td>
+<td align="left">编译后才能执行</td>
+</tr>
+<tr>
+<td align="left">State</td>
+<td align="left">保存工作流当前数据快照</td>
+<td align="left">所有节点读取同一份状态结构</td>
+</tr>
+<tr>
+<td align="left">默认 Reducer</td>
+<td align="left">使用新值覆盖旧值</td>
+<td align="left">score 最终为 3</td>
+</tr>
+<tr>
+<td align="left">operator.add</td>
+<td align="left">合并普通列表</td>
+<td align="left">节点执行记录和并行建议被保留</td>
+</tr>
+<tr>
+<td align="left">add_messages</td>
+<td align="left">按消息 ID 合并消息</td>
+<td align="left">相同 ID 的 AI 消息被替换</td>
+</tr>
+<tr>
+<td align="left">Node</td>
+<td align="left">读取 State 并返回局部更新</td>
+<td align="left">每个节点只修改需要的字段</td>
+</tr>
+<tr>
+<td align="left">普通边</td>
+<td align="left">连接固定的执行步骤</td>
+<td align="left">输入清理后固定进入温度分类</td>
+</tr>
+<tr>
+<td align="left">条件边</td>
+<td align="left">根据路由函数选择下一步</td>
+<td align="left">三种温度进入不同建议节点</td>
+</tr>
+<tr>
+<td align="left">START</td>
+<td align="left">表示图的输入入口</td>
+<td align="left">输入首先进入清理节点</td>
+</tr>
+<tr>
+<td align="left">END</td>
+<td align="left">表示工作流结束</td>
+<td align="left">格式化后终止执行</td>
+</tr>
+<tr>
+<td align="left">compile()</td>
+<td align="left">生成可执行图</td>
+<td align="left">返回 CompiledStateGraph</td>
+</tr>
+<tr>
+<td align="left">invoke()</td>
+<td align="left">返回最终 State</td>
+<td align="left">得到完整出行建议</td>
+</tr>
+<tr>
+<td align="left">stream()</td>
+<td align="left">逐步返回执行结果</td>
+<td align="left">updates 展示节点局部更新</td>
+</tr>
+<tr>
+<td align="left">Fan-out</td>
+<td align="left">从一个位置进入多个节点</td>
+<td align="left">同时生成散步与饮水建议</td>
+</tr>
+<tr>
+<td align="left">Fan-in</td>
+<td align="left">等待多个分支后汇总</td>
+<td align="left">汇总节点只执行一次</td>
+</tr>
+</tbody></table>
+<p>本文已经把 Workflow 的基本结构跑通。下一篇将在这些概念之上加入本地 Qwen3，使用评估器优化器构建“生成内容、评估结果、不合格时携带反馈重新生成”的循环工作流。</p>
+
+                
+            </div>
+            <hr/>
+
+            
+
+    <div class="reprint" id="reprint-statement">
+        
+            <div class="reprint__author">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-user">
+                        文章作者:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="/about" rel="external nofollow noreferrer">hnbian</a>
+                </span>
+            </div>
+            <div class="reprint__type">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-link">
+                        文章链接:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    <a href="https://www.hnbian.cn/posts/59d38774.html">https://www.hnbian.cn/posts/59d38774.html</a>
+                </span>
+            </div>
+            <div class="reprint__notice">
+                <span class="reprint-meta" style="font-weight: bold;">
+                    <i class="fas fa-copyright">
+                        版权声明:
+                    </i>
+                </span>
+                <span class="reprint-info">
+                    本博客所有文章除特別声明外，均采用
+                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noopener noreferrer" target="_blank">CC BY 4.0</a>
+                    许可协议。转载请注明来源
+                    <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+                    !
+                </span>
+            </div>
+        
+    </div>
+
+    <script async defer>
+      document.addEventListener("copy", function (e) {
+        let toastHTML = '<span>复制成功，请遵循本文的转载规则</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">查看</a>';
+        M.toast({html: toastHTML})
+      });
+
+      function navToReprintStatement() {
+        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      }
+    </script>
+
+
+
+            <div class="tag_share" style="display: block;">
+                <div class="post-meta__tag-list" style="display: inline-block;">
+                    
+                        <div class="article-tag">
+                            
+                                <a href="/tags/langchain/">
+                                    <span class="chip bg-color">langchain</span>
+                                </a>
+                            
+                                <a href="/tags/langgraph/">
+                                    <span class="chip bg-color">langgraph</span>
+                                </a>
+                            
+                                <a href="/tags/workflow/">
+                                    <span class="chip bg-color">workflow</span>
+                                </a>
+                            
+                                <a href="/tags/state/">
+                                    <span class="chip bg-color">state</span>
+                                </a>
+                            
+                                <a href="/tags/reducer/">
+                                    <span class="chip bg-color">reducer</span>
+                                </a>
+                            
+                        </div>
+                    
+                </div>
+                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
+                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+<div id="article-share">
+
+    
+    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
+    <script src="/libs/share/js/social-share.min.js"></script>
+    
+
+    
+
+</div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+        <style>
+    .valine-card {
+        margin: 1.5rem auto;
+    }
+
+    .valine-card .card-content {
+        padding: 20px 20px 5px 20px;
+    }
+
+    #vcomments textarea {
+        box-sizing: border-box;
+        background: url("/medias/comment_bg.png") 100% 100% no-repeat;
+    }
+
+    #vcomments p {
+        margin: 2px 2px 10px;
+        font-size: 1.05rem;
+        line-height: 1.78rem;
+    }
+
+    #vcomments blockquote p {
+        text-indent: 0.2rem;
+    }
+
+    #vcomments a {
+        padding: 0 2px;
+        color: #4cbf30;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    #vcomments img {
+        max-width: 100%;
+        height: auto;
+        cursor: pointer;
+    }
+
+    #vcomments ol li {
+        list-style-type: decimal;
+    }
+
+    #vcomments ol,
+    ul {
+        display: block;
+        padding-left: 2em;
+        word-spacing: 0.05rem;
+    }
+
+    #vcomments ul li,
+    ol li {
+        display: list-item;
+        line-height: 1.8rem;
+        font-size: 1rem;
+    }
+
+    #vcomments ul li {
+        list-style-type: disc;
+    }
+
+    #vcomments ul ul li {
+        list-style-type: circle;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    #vcomments table, th, td {
+        border: 0;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments h1 {
+        font-size: 1.85rem;
+        font-weight: bold;
+        line-height: 2.2rem;
+    }
+
+    #vcomments h2 {
+        font-size: 1.65rem;
+        font-weight: bold;
+        line-height: 1.9rem;
+    }
+
+    #vcomments h3 {
+        font-size: 1.45rem;
+        font-weight: bold;
+        line-height: 1.7rem;
+    }
+
+    #vcomments h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    #vcomments h5 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        line-height: 1.4rem;
+    }
+
+    #vcomments h6 {
+        font-size: 1rem;
+        line-height: 1.3rem;
+    }
+
+    #vcomments p {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    #vcomments hr {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
+
+    #vcomments blockquote {
+        margin: 15px 0;
+        border-left: 5px solid #42b983;
+        padding: 1rem 0.8rem 0.3rem 0.8rem;
+        color: #666;
+        background-color: rgba(66, 185, 131, .1);
+    }
+
+    #vcomments pre {
+        font-family: monospace, monospace;
+        padding: 1.2em;
+        margin: .5em 0;
+        background: #272822;
+        overflow: auto;
+        border-radius: 0.3em;
+        tab-size: 4;
+    }
+
+    #vcomments code {
+        font-family: monospace, monospace;
+        padding: 1px 3px;
+        font-size: 0.92rem;
+        color: #e96900;
+        background-color: #f8f8f8;
+        border-radius: 2px;
+    }
+
+    #vcomments pre code {
+        font-family: monospace, monospace;
+        padding: 0;
+        color: #e8eaf6;
+        background-color: #272822;
+    }
+
+    #vcomments pre[class*="language-"] {
+        padding: 1.2em;
+        margin: .5em 0;
+    }
+
+    #vcomments code[class*="language-"],
+    pre[class*="language-"] {
+        color: #e8eaf6;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+
+    #vcomments b,
+    strong {
+        font-weight: bold;
+    }
+
+    #vcomments dfn {
+        font-style: italic;
+    }
+
+    #vcomments small {
+        font-size: 85%;
+    }
+
+    #vcomments cite {
+        font-style: normal;
+    }
+
+    #vcomments mark {
+        background-color: #fcf8e3;
+        padding: .2em;
+    }
+
+    #vcomments table, th, td {
+        padding: 12px 13px;
+        border: 1px solid #dfe2e5;
+    }
+
+    table tr:nth-child(2n), thead {
+        background-color: #fafafa;
+    }
+
+    #vcomments table th {
+        background-color: #f2f2f2;
+        min-width: 80px;
+    }
+
+    #vcomments table td {
+        min-width: 80px;
+    }
+
+    #vcomments [type="checkbox"]:not(:checked), [type="checkbox"]:checked {
+        position: inherit;
+        margin-left: -1.3rem;
+        margin-right: 0.4rem;
+        margin-top: -1px;
+        vertical-align: middle;
+        left: unset;
+        visibility: visible;
+    }
+</style>
+
+<div class="card valine-card" data-aos="fade-up">
+    <div class="comment_headling" style="font-size: 20px; font-weight: 700; position: relative; padding-left: 20px; top: 15px; padding-bottom: 5px;">
+        <i class="fas fa-comments fa-fw" aria-hidden="true"></i>
+        <span>评论</span>
+    </div>
+    <div id="vcomments" class="card-content" style="display: grid">
+    </div>
+</div>
+
+<script src="/libs/valine/av-min.js"></script>
+<script src="/libs/valine/Valine.min.js"></script>
+<script>
+    new Valine({
+        el: '#vcomments',
+        appId: 'h1rND3bHC0OqFwzm1UfPQpaY-gzGzoHsz',
+        appKey: 'd7uboDt2WLV2HJCEMHkkLuU4',
+        serverURLs: '',
+        notify: 'false' === 'true',
+        verify: 'false' === 'true',
+        visitor: 'true' === 'true',
+        avatar: 'identicon',
+        pageSize: '12',
+        lang: 'zh-cn',
+        placeholder: 'just go go'
+    });
+</script>
+
+<!--酷Q推送-->
+
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fas fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/posts/b8e8f2d0.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-e9d31040dfc0c1ba782d366e86f27619.jpg" class="responsive-img" alt="LangGraph 系列 11：使用评估器优化器循环改进模型输出">
+                        
+                        <span class="card-title">LangGraph 系列 11：使用评估器优化器循环改进模型输出</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="far fa-clock fa-fw icon-date"></i>2026-05-28
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/langgraph/" class="post-category">
+                                    langgraph
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/langgraph/">
+                        <span class="chip bg-color">langgraph</span>
+                    </a>
+                    
+                    <a href="/tags/structured-output/">
+                        <span class="chip bg-color">structured-output</span>
+                    </a>
+                    
+                    <a href="/tags/workflow/">
+                        <span class="chip bg-color">workflow</span>
+                    </a>
+                    
+                    <a href="/tags/evaluator/">
+                        <span class="chip bg-color">evaluator</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/posts/d7c0c780.html">
+                    <div class="card-image">
+                        
+                        <img src="https://images.hnbian.cn/new/n-05617bb8cbbbc1d7bafb9b467a940a56.jpg" class="responsive-img" alt="MCP 系列 7：Keycloak 与 OAuthProxy 实现 MCP OAuth 2.1">
+                        
+                        <span class="card-title">MCP 系列 7：Keycloak 与 OAuthProxy 实现 MCP OAuth 2.1</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="far fa-clock fa-fw icon-date"></i>2026-05-20
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fas fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/mcp/" class="post-category">
+                                    mcp
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/langchain/">
+                        <span class="chip bg-color">langchain</span>
+                    </a>
+                    
+                    <a href="/tags/mcp/">
+                        <span class="chip bg-color">mcp</span>
+                    </a>
+                    
+                    <a href="/tags/security/">
+                        <span class="chip bg-color">security</span>
+                    </a>
+                    
+                    <a href="/tags/oauth/">
+                        <span class="chip bg-color">oauth</span>
+                    </a>
+                    
+                    <a href="/tags/keycloak/">
+                        <span class="chip bg-color">keycloak</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+
+</div>
+
+
+<script>
+    $('#articleContent').on('copy', function (e) {
+        // IE8 or earlier browser is 'undefined'
+        if (typeof window.getSelection === 'undefined') return;
+
+        var selection = window.getSelection();
+        // if the selection is short let's not annoy our users.
+        if (('' + selection).length < Number.parseInt('120')) {
+            return;
+        }
+
+        // create a div outside of the visible area and fill it with the selected text.
+        var bodyElement = document.getElementsByTagName('body')[0];
+        var newdiv = document.createElement('div');
+        newdiv.style.position = 'absolute';
+        newdiv.style.left = '-99999px';
+        bodyElement.appendChild(newdiv);
+        newdiv.appendChild(selection.getRangeAt(0).cloneContents());
+
+        // we need a <pre> tag workaround.
+        // otherwise the text inside "pre" loses all the line breaks!
+        if (selection.getRangeAt(0).commonAncestorContainer.nodeName === 'PRE' || selection.getRangeAt(0).commonAncestorContainer.nodeName === 'CODE') {
+            newdiv.innerHTML = "<pre>" + newdiv.innerHTML + "</pre>";
+        }
+
+        var url = document.location.href;
+        newdiv.innerHTML += '<br />'
+            + '来源: hnbian<br />'
+            + '文章作者: hnbian<br />'
+            + '文章链接: <a href="' + url + '">' + url + '</a><br />'
+            + '本文章著作权归作者所有，任何形式的转载都请注明出处。';
+
+        selection.selectAllChildren(newdiv);
+        window.setTimeout(function () {bodyElement.removeChild(newdiv);}, 200);
+    });
+</script>
+
+
+<!-- 代码块功能依赖 -->
+<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
+
+
+  <!-- 是否加载使用自带的 prismjs. -->
+  <script type="text/javascript" data-manual src="/libs/prism/prism.min.js"></script>
+
+
+<!-- 代码语言 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
+
+
+<!-- 代码块复制 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
+
+
+<!-- 代码块收缩 -->
+
+<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget card" style="background-color: white;">
+            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+<div id="floating-toc-btn" class="hide-on-med-and-down">
+    <a class="btn-floating btn-large bg-color">
+        <i class="fas fa-list-ul"></i>
+    </a>
+</div>
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            collapseDepth: Number('0'),
+            headingSelector: 'h2, h3, h4, h5'
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+        /* 修复文章卡片 div 的宽度. */
+        let fixPostCardWidth = function (srcId, targetId) {
+            let srcDiv = $('#' + srcId);
+            if (srcDiv.length === 0) {
+                return;
+            }
+
+            let w = srcDiv.width();
+            if (w >= 450) {
+                w = w + 21;
+            } else if (w >= 350 && w < 450) {
+                w = w + 18;
+            } else if (w >= 300 && w < 350) {
+                w = w + 16;
+            } else {
+                w = w + 14;
+            }
+            $('#' + targetId).width(w);
+        };
+
+        // 切换TOC目录展开收缩的相关操作.
+        const expandedClass = 'expanded';
+        let $tocAside = $('#toc-aside');
+        let $mainContent = $('#main-content');
+        $('#floating-toc-btn .btn-floating').click(function () {
+            if ($tocAside.hasClass(expandedClass)) {
+                $tocAside.removeClass(expandedClass).hide();
+                $mainContent.removeClass('l9');
+            } else {
+                $tocAside.addClass(expandedClass).show();
+                $mainContent.addClass('l9');
+            }
+            fixPostCardWidth('artDetail', 'prenext-posts');
+        });
+        
+    });
+</script>
+
+    
+
+</main>
+
+
+
+
+    <footer class="page-footer bg-color">
+    
+
+    <div class="container row center-align"
+         style="margin-bottom: 15px !important;">
+        <div class="col s12 m8 l8 copy-right">
+            Copyright&nbsp;&copy;
+            
+                <span id="year">2018-2026</span>
+            
+            <a href="/about" target="_blank" rel="noopener noreferrer">hnbian</a>
+            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank" rel="noopener noreferrer">Hexo</a>
+            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank" rel="noopener noreferrer">Matery</a>
+            
+                <span id="translate">|&nbsp;繁/简：</span><a id="translateLink" href="javascript:translatePage();">繁</a>
+            
+            <br>
+            
+                &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
+                        class="white-color">1502.1k</span>
+            
+            
+            
+                
+            
+            
+                <span id="busuanzi_container_site_pv">
+                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;总访问量:&nbsp;
+                    <span id="busuanzi_value_site_pv" class="white-color"></span>
+            </span>
+            
+            
+                <span id="busuanzi_container_site_uv">
+                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;总访问人数:&nbsp;
+                    <span id="busuanzi_value_site_uv" class="white-color"></span>
+            </span>
+            
+            <br>
+
+            <!-- 运行天数提醒. -->
+            
+                <span id="sitetime"> Loading ...</span>
+                <script>
+                    var calcSiteTime = function () {
+                        var seconds = 1000;
+                        var minutes = seconds * 60;
+                        var hours = minutes * 60;
+                        var days = hours * 24;
+                        var years = days * 365;
+                        var today = new Date();
+                        var startYear = "2018";
+                        var startMonth = Number("2") - 1;
+                        var startDate = "8";
+                        var startHour = "0";
+                        var startMinute = "0";
+                        var startSecond = "0";
+                        var todayYear = today.getFullYear();
+                        var todayMonth = today.getMonth();
+                        var todayDate = today.getDate();
+                        var todayHour = today.getHours();
+                        var todayMinute = today.getMinutes();
+                        var todaySecond = today.getSeconds();
+                        var t1 = Date.UTC(startYear, startMonth, startDate, startHour, startMinute, startSecond);
+                        var t2 = Date.UTC(todayYear, todayMonth, todayDate, todayHour, todayMinute, todaySecond);
+                        var diff = t2 - t1;
+                        var diffYears = Math.floor(diff / years);
+                        var diffDays = Math.floor((diff / days) - diffYears * 365);
+
+                        // 区分是否有年份.
+                        var language = 'zh-CN';
+                        if (startYear === String(todayYear)) {
+                            document.getElementById("year").innerHTML = todayYear;
+                            var daysTip = 'This site has been running for ' + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                daysTip = '本站已运行 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                daysTip = '本站已運行 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = daysTip;
+                        } else {
+                            document.getElementById("year").innerHTML = startYear + " - " + todayYear;
+                            var yearsAndDaysTip = 'This site has been running for ' + diffYears + ' years and '
+                                + diffDays + ' days';
+                            if (language === 'zh-CN') {
+                                yearsAndDaysTip = '本站已运行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            } else if (language === 'zh-HK') {
+                                yearsAndDaysTip = '本站已運行 ' + diffYears + ' 年 ' + diffDays + ' 天';
+                            }
+                            document.getElementById("sitetime").innerHTML = yearsAndDaysTip;
+                        }
+                    }
+
+                    calcSiteTime();
+                </script>
+            
+            <br>
+            
+                <span id="icp"><img src="/medias/icp.png"
+                                    style="vertical-align: text-bottom;"/>
+                <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
+            </span>
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+    <a href="https://github.com/hnbian" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
+        <i class="fab fa-github"></i>
+    </a>
+
+
+
+    <a href="mailto:hnbian@126.com" class="tooltipped" target="_blank" rel="noopener noreferrer" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fas fa-envelope-open"></i>
+    </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+    <!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(function () {
+    var searchFunc = function (path, search_id, content_id) {
+        'use strict';
+        $.ajax({
+            url: path,
+            dataType: "xml",
+            success: function (xmlResponse) {
+                // get the contents from search data
+                var datas = $("entry", xmlResponse).map(function () {
+                    return {
+                        title: $("title", this).text(),
+                        content: $("content", this).text(),
+                        url: $("url", this).text()
+                    };
+                }).get();
+                var $input = document.getElementById(search_id);
+                var $resultContent = document.getElementById(content_id);
+                $input.addEventListener('input', function () {
+                    var str = '<ul class=\"search-result-list\">';
+                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    $resultContent.innerHTML = "";
+                    if (this.value.trim().length <= 0) {
+                        return;
+                    }
+                    // perform local searching
+                    datas.forEach(function (data) {
+                        var isMatch = true;
+                        var data_title = data.title.trim().toLowerCase();
+                        var raw_content = data.content ? data.content.trim().replace(/<[^>]+>/g, "") : "";
+                        var data_content = raw_content.toLowerCase();
+                        var data_url = data.url;
+                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
+                        var index_title = -1;
+                        var index_content = -1;
+                        var first_occur = -1;
+                        // Search by title first; content is optional when search.content is false.
+                        if (data_title !== '') {
+                            keywords.forEach(function (keyword, i) {
+                                index_title = data_title.indexOf(keyword);
+                                index_content = data_content ? data_content.indexOf(keyword) : -1;
+                                if (index_title < 0 && index_content < 0) {
+                                    isMatch = false;
+                                } else {
+                                    if (index_content < 0) {
+                                        index_content = 0;
+                                    }
+                                    if (i === 0) {
+                                        first_occur = index_content;
+                                    }
+                                }
+                            });
+                        }
+                        // show search results
+                        if (isMatch) {
+                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
+                            var content = raw_content;
+                            if (first_occur >= 0 && content.length > 0) {
+                                // cut out 100 characters
+                                var start = first_occur - 20;
+                                var end = first_occur + 80;
+                                if (start < 0) {
+                                    start = 0;
+                                }
+                                if (start === 0) {
+                                    end = 100;
+                                }
+                                if (end > content.length) {
+                                    end = content.length;
+                                }
+                                var match_content = content.substr(start, end);
+                                // highlight all keywords
+                                keywords.forEach(function (keyword) {
+                                    var regS = new RegExp(keyword, "gi");
+                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
+                                });
+
+                                str += "<p class=\"search-result\">" + match_content + "...</p>"
+                            }
+                            str += "</li>";
+                        }
+                    });
+                    str += "</ul>";
+                    $resultContent.innerHTML = str;
+                });
+            }
+        });
+    };
+
+    searchFunc('/search.xml', 'searchInput', 'searchResult');
+});
+</script>
+
+    <!-- 白天和黑夜主题 -->
+<div class="stars-con">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>  
+</div>
+
+<script>
+    function switchNightMode() {
+        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
+        setTimeout(function () {
+            $('body').hasClass('DarkMode') 
+            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
+            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
+            
+            setTimeout(function () {
+            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
+                $(this).remove()
+            })
+            }, 2e3)
+        })
+    }
+</script>
+
+    <!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+</div>
+
+
+    <script src="/libs/materialize/materialize.min.js"></script>
+    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
+    <script src="/libs/aos/aos.js"></script>
+    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+    <script src="/js/matery.js"></script>
+
+    
+
+    
+        <script type="text/javascript" src="/js/tw_cn.js"></script>
+        <script type="text/javascript">
+          var defaultEncoding = 2; //网站编写字体是否繁体，1-繁体，2-简体
+          var translateDelay = 0; //延迟时间,若不在前, 要设定延迟翻译时间, 如100表示100ms,默认为0
+          var cookieDomain = "https://www.hnbian.cn"; //Cookie地址, 一定要设定, 通常为你的网址
+          var msgToTraditionalChinese = "繁"; //此处可以更改为你想要显示的文字
+          var msgToSimplifiedChinese = "简"; //同上，但两处均不建议更改
+          var translateButtonId = "translateLink"; //默认互换id
+          
+          // 扩展 translatePage 函数以支持多个按钮
+          var originalTranslatePage = translatePage;
+          translatePage = function() {
+            originalTranslatePage();
+            // 更新头部按钮文本
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (targetEncoding == 1) {
+              if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+              if (mobileText) mobileText.innerHTML = '(简)';
+            } else {
+              if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+              if (mobileText) mobileText.innerHTML = '(繁)';
+            }
+          };
+          
+          // 扩展初始化函数以支持多个按钮
+          var originalTranslateInitilization = translateInitilization;
+          translateInitilization = function() {
+            originalTranslateInitilization();
+            // 初始化头部按钮
+            var headerButton = document.getElementById('translateLinkHeader');
+            var headerText = document.getElementById('translateTextHeader');
+            var mobileButton = document.getElementById('translateLinkMobile');
+            var mobileText = document.getElementById('translateTextMobile');
+            
+            if (headerButton) {
+              headerButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (headerText) headerText.innerHTML = msgToSimplifiedChinese;
+                } else {
+                  if (headerText) headerText.innerHTML = msgToTraditionalChinese;
+                }
+              }
+            }
+            
+            if (mobileButton) {
+              mobileButton.href = "javascript:translatePage();";
+              if (currentEncoding != targetEncoding) {
+                if (targetEncoding == 1) {
+                  if (mobileText) mobileText.innerHTML = '(简)';
+                } else {
+                  if (mobileText) mobileText.innerHTML = '(繁)';
+                }
+              }
+            }
+          };
+          
+          translateInitilization();
+        </script>
+    
+    
+    
+
+    <!-- 雪花特效 -->
+     
+        <script type="text/javascript">
+            // 只在桌面版网页启用特效
+            var windowWidth = $(window).width();
+            if (windowWidth > 768) {
+                document.write('<script type="text/javascript" src="/libs/others/snow.js"><\/script>');
+            }
+        </script>
+    
+
+    <!-- 鼠标星星特效 -->
+    
+
+     
+        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
+        <script src="/libs/others/TencentCaptcha.js"></script>
+        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
+    
+
+    <!-- Baidu Analytics -->
+
+    <!-- Baidu Push -->
+
+<script>
+    (function () {
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        } else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+</script>
+
+    
+    <script src="/libs/others/clicklove.js" async="async"></script>
+    
+    
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+    
+
+    
+
+    
+
+    <!--腾讯兔小巢-->
+    
+    
+
+    
+
+    
+
+    
+    <script src="/libs/instantpage/instantpage.js" type="module"></script>
+    
+
+</body>
+
+</html>
