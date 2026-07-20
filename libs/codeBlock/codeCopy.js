@@ -9,7 +9,10 @@ $(function () {
     function copy(text, ctx) {
         if (document.queryCommandSupported && document.queryCommandSupported('copy')) {
             try {
-                document.execCommand('copy') // Security exception may be thrown by some browsers.
+                var copied = document.execCommand('copy') // Security exception may be thrown by some browsers.
+                if (!copied) {
+                    throw new Error('The browser rejected the copy command')
+                }
                 $(ctx).prev('.codecopy_notice')
                     .text("复制成功")
                     .animate({
@@ -23,6 +26,7 @@ $(function () {
                             }, 650)
                         }, 400)
                     })
+                return true
             } catch (ex) {
                 $(ctx).prev('.codecopy_notice')
                     .text("复制失败")
@@ -42,6 +46,7 @@ $(function () {
         } else {
             $(ctx).prev('.codecopy_notice').text("浏览器不支持复制")
         }
+        return false
     }
     // 复制
     $('.code-area .fa-copy').on('click', function () {
@@ -51,7 +56,11 @@ $(function () {
         selection.removeAllRanges()
         selection.addRange(range)
         var text = selection.toString()
-        copy(text, this)
+        var copied = copy(text, this)
+        if (copied && window.hnbianAnalytics && window.hnbianAnalytics.trackCodeCopy) {
+            var codeElement = $(this).siblings('pre').find('code')[0]
+            window.hnbianAnalytics.trackCodeCopy(codeElement, text.length)
+        }
         selection.removeAllRanges()
     })
 });

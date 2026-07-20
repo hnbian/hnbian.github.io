@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="keywords" content="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式, hnbian">
-    <meta name="description" content="前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就">
+    <meta name="description" content="前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？ Hudi 的两种表类型 Co…">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="renderer" content="webkit|ie-stand|ie-comp">
@@ -15,20 +15,101 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="referrer" content="no-referrer-when-downgrade">
     
+    
     <link rel="canonical" href="https://www.hnbian.cn/posts/e62f9a31.html">
     
-    <!-- Global site tag (gtag.js) - Google Analytics -->
+    
 
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-2CZSH8138N"></script>
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式 | hnbian">
+    <meta property="og:description" content="前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？ Hudi 的两种表类型 Co…">
+    <meta property="og:url" content="https://www.hnbian.cn/posts/e62f9a31.html">
+    <meta property="og:image" content="https://images.hnbian.cn/new/n-9810ef18e76a29d003d833c02a55a5da.jpg">
+    <meta property="og:site_name" content="hnbian">
+    <meta property="og:locale" content="zh_CN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式 | hnbian">
+    <meta name="twitter:description" content="前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？ Hudi 的两种表类型 Co…">
+    <meta name="twitter:image" content="https://images.hnbian.cn/new/n-9810ef18e76a29d003d833c02a55a5da.jpg">
+    
+    <meta property="article:published_time" content="2025-07-17T12:05:00.000Z">
+    <meta property="article:modified_time" content="2025-07-17T12:05:00.000Z">
+    <meta property="article:author" content="https://www.hnbian.cn/about/">
+        
+    <meta property="article:tag" content="hudi">
+        
+    <meta property="article:tag" content="data-lake">
+        
+    <meta property="article:tag" content="cow">
+        
+    <meta property="article:tag" content="mor">
+        
+    <meta property="article:tag" content="query">
+        
+    <meta property="article:tag" content="compaction">
+        
+    
+
+
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/e62f9a31.html#blogposting","url":"https://www.hnbian.cn/posts/e62f9a31.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/e62f9a31.html"},"headline":"Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式","description":"前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？ Hudi 的两种表类型 Co…","image":["https://images.hnbian.cn/new/n-9810ef18e76a29d003d833c02a55a5da.jpg"],"datePublished":"2025-07-17T12:05:00.000Z","dateModified":"2025-07-17T12:05:00.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"hudi","keywords":"hudi, data-lake, cow, mor, query, compaction"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/e62f9a31.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"hudi","item":"https://www.hnbian.cn/categories/hudi/"},{"@type":"ListItem","position":3,"name":"Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式","item":"https://www.hnbian.cn/posts/e62f9a31.html"}]}]}</script>
+
+
+    <!-- Google Analytics 4: production traffic and blog interaction events. -->
+
 <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-        dataLayer.push(arguments);
-    }
+    (function () {
+        'use strict';
 
-    gtag('js', new Date());
-    gtag('config', 'G-2CZSH8138N');
+        var analyticsConfig = {"measurementId":"G-2CZSH8138N","productionHosts":["www.hnbian.cn"],"scrollThresholds":[25,50,75,90],"readCompleteSeconds":30};
+        var internalStorageKey = 'hnbian_ga_internal';
+        var query = new URLSearchParams(window.location.search);
+        var internalFlag = query.get('ga_internal');
+
+        if (internalFlag === '1') {
+            window.localStorage.setItem(internalStorageKey, '1');
+        } else if (internalFlag === '0') {
+            window.localStorage.removeItem(internalStorageKey);
+        }
+
+        if (internalFlag === '1' || internalFlag === '0') {
+            query.delete('ga_internal');
+            var cleanQuery = query.toString();
+            var cleanUrl = window.location.pathname
+                + (cleanQuery ? '?' + cleanQuery : '')
+                + window.location.hash;
+            window.history.replaceState(window.history.state, document.title, cleanUrl);
+        }
+
+        var enabled = analyticsConfig.productionHosts.indexOf(window.location.hostname) !== -1;
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () {
+            window.dataLayer.push(arguments);
+        };
+        window.hnbianAnalytics = {
+            config: analyticsConfig,
+            enabled: enabled,
+            track: function (eventName, parameters) {
+                if (!enabled || !eventName) return;
+                window.gtag('event', eventName, parameters || {});
+            }
+        };
+
+        if (!enabled) return;
+
+        if (window.localStorage.getItem(internalStorageKey) === '1') {
+            window.gtag('set', { traffic_type: 'internal' });
+        }
+
+        var googleTag = document.createElement('script');
+        googleTag.async = true;
+        googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(analyticsConfig.measurementId);
+        document.head.appendChild(googleTag);
+
+        window.gtag('js', new Date());
+        window.gtag('config', analyticsConfig.measurementId);
+    }());
 </script>
+<script defer src="/js/analytics-events.js"></script>
 
 
     <title>Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式 | hnbian</title>
@@ -75,7 +156,7 @@
             <div class="brand-logo">
                 <a href="/" class="waves-effect waves-light">
                     
-                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="LOGO">
+                    <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img" alt="hnbian Logo">
                     
                     <span class="logo-span">hnbian</span>
                 </a>
@@ -198,12 +279,12 @@
 
     <div class="mobile-head bg-color">
         
-        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img">
+        <img src="https://images.hnbian.cn/FvNSAGx7xljxALFh8Fa2DPNFP-JB" class="logo-img circle responsive-img" alt="hnbian Logo">
         
         <div class="logo-name">hnbian</div>
         <div class="logo-desc">
             
-            Never really desperate, only the lost of the soul.
+            hnbian 的个人技术博客，专注大数据、数据工程与 AI 应用，分享 Hadoop、Spark、Flink、ClickHouse、LangChain、LangGraph 等技术实践与问题排查。
             
         </div>
     </div>
@@ -498,7 +579,11 @@
         
 
         <div class="card-content article-card-content">
-            <div id="articleContent">
+            
+            <div id="articleContent"
+                 data-article-title="Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式"
+                 data-article-category="hudi"
+                 data-article-path="/posts/e62f9a31.html">
                 <p>前面几篇已经把 Hudi 的定位、测试环境、Timeline、FileGroup、FileSlice 和索引机制串起来了。到这里再看 COW 和 MOR，就不是背两个名词，而是在回答一个很实际的问题：更新数据写进数据湖以后，到底是在写入时就整理好，还是先快速写进去，等读取或后台服务再合并？</p>
 <p>Hudi 的两种表类型 Copy On Write 和 Merge On Read，本质上就是围绕这个问题做的取舍。COW 更像“写时整理”，MOR 更像“读时合并”。它们都会通过 Timeline 保证事务提交，但文件形态、写入延迟、查询成本、compaction 依赖完全不同。</p>
 <h2 id="1-表类型与查询语义"><a href="#1-表类型与查询语义" class="headerlink" title="1. 表类型与查询语义"></a>1. 表类型与查询语义</h2><h3 id="1-1-背景问题"><a href="#1-1-背景问题" class="headerlink" title="1.1 背景问题"></a>1.1 背景问题</h3><p>还是用订单表举例。</p>
@@ -1446,7 +1531,7 @@ hdfs dfs <span class="token parameter variable">-ls</span> /path/to/table/.hoodi
                 <div class="card-action article-tags">
                     
                     <a href="/tags/spark/">
-                        <span class="chip bg-color">spark</span>
+                        <span class="chip bg-color">Spark</span>
                     </a>
                     
                     <a href="/tags/hudi/">
@@ -1514,7 +1599,7 @@ hdfs dfs <span class="token parameter variable">-ls</span> /path/to/table/.hoodi
                 <div class="card-action article-tags">
                     
                     <a href="/tags/flink/">
-                        <span class="chip bg-color">flink</span>
+                        <span class="chip bg-color">Flink</span>
                     </a>
                     
                     <a href="/tags/hudi/">
@@ -1796,7 +1881,7 @@ hdfs dfs <span class="token parameter variable">-ls</span> /path/to/table/.hoodi
             <br>
             
                 <span id="icp"><img src="/medias/icp.png"
-                                    style="vertical-align: text-bottom;"/>
+                                    style="vertical-align: text-bottom;" alt="公安备案图标"/>
                 <a href="https://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer">粤ICP备18156920号-2</a>
             </span>
             
@@ -1861,11 +1946,15 @@ $(function () {
                 }).get();
                 var $input = document.getElementById(search_id);
                 var $resultContent = document.getElementById(content_id);
+                var searchTimer = null;
                 $input.addEventListener('input', function () {
                     var str = '<ul class=\"search-result-list\">';
-                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+                    var searchTerm = this.value.trim();
+                    var keywords = searchTerm.toLowerCase().split(/[\s\-]+/);
+                    var resultCount = 0;
                     $resultContent.innerHTML = "";
-                    if (this.value.trim().length <= 0) {
+                    window.clearTimeout(searchTimer);
+                    if (searchTerm.length <= 0) {
                         return;
                     }
                     // perform local searching
@@ -1898,6 +1987,7 @@ $(function () {
                         }
                         // show search results
                         if (isMatch) {
+                            resultCount += 1;
                             str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
                             var content = raw_content;
                             if (first_occur >= 0 && content.length > 0) {
@@ -1927,6 +2017,13 @@ $(function () {
                     });
                     str += "</ul>";
                     $resultContent.innerHTML = str;
+                    if (searchTerm.length >= 2) {
+                        searchTimer = window.setTimeout(function () {
+                            if (window.hnbianAnalytics && window.hnbianAnalytics.trackSearch) {
+                                window.hnbianAnalytics.trackSearch(searchTerm, resultCount);
+                            }
+                        }, 800);
+                    }
                 });
             }
         });
