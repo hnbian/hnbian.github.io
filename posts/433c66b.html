@@ -575,7 +575,7 @@
                 <p>上一篇介绍了 LangChain 中的消息。我们已经知道，聊天模型接收的通常不是一段孤立文字，而是由 SystemMessage、HumanMessage、AIMessage 等对象组成的消息列表。</p>
 <p>接下来会遇到另一个问题：消息结构可以固定，但其中的角色、问题、语言、历史消息和示例会不断变化。如果每次调用都重新拼接字符串和消息列表，代码很快就会变得重复并且难以维护。</p>
 <p>提示词模板就是用来解决这个问题的。它把固定结构保留下来，把变化内容声明为变量，运行时再填入具体值。</p>
-<p>本文从最简单的 PromptTemplate 开始，逐步学习 ChatPromptTemplate、变量占位符、消息占位符、partial()、Few-shot 和 ICL，最后把模板真实交给本地 Qwen3 验证结果。</p>
+<p>本文从最简单的 PromptTemplate 开始，逐步介绍 ChatPromptTemplate、变量占位符、消息占位符、partial()、Few-shot 和 ICL，最后把模板真实交给本地 Qwen3 验证结果。</p>
 <p>先从整体上区分字符串模板和聊天模板的输入、输出：</p>
 <p><img src="https://images.hnbian.cn/new/n-1026b301e6f5f9d890e3a35ded9d4c70.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="PromptTemplate 与 ChatPromptTemplate 的输入输出"></p>
 <p>PromptTemplate 最终组织一段字符串；ChatPromptTemplate 会保留消息角色、顺序和历史结构。两者都可以继续连接聊天模型，但模板渲染完成并不等于模型已经生成回答。</p>
@@ -713,7 +713,7 @@ invoke 返回类型： StringPromptValue<span aria-hidden="true" class="line-num
 <p>组合后，topic 和 language 都会成为必填变量。</p>
 <h3 id="4-2-使用管道符连接模型"><a href="#4-2-使用管道符连接模型" class="headerlink" title="4.2 使用管道符连接模型"></a>4.2 使用管道符连接模型</h3><p>代码文件为 02_prompt_chain_and_composition.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件演示使用加号组合字符串模板，并通过管道符调用本地 Qwen3。</span>
-<span class="token comment"># 运行前需要先按照第二篇文章启动 mlx_lm.server。</span>
+<span class="token comment"># 运行前需要先启动本地 mlx_lm.server。</span>
 
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>prompts <span class="token keyword">import</span> PromptTemplate
@@ -1242,7 +1242,7 @@ messages=[SystemMessage(content='请根据示例找出符号规律，只回答�
 <p>这里仍然只是渲染模板，还没有证明模型真的按照示例得到了 17。</p>
 <h2 id="10-使用本地-Qwen3-验证聊天-ICL"><a href="#10-使用本地-Qwen3-验证聊天-ICL" class="headerlink" title="10. 使用本地 Qwen3 验证聊天 ICL"></a>10. 使用本地 Qwen3 验证聊天 ICL</h2><p>代码文件为 08_few_shot_chat_with_model.py。它和上一个脚本使用相同模板，只增加本地模型并执行链。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件把聊天 ICL 模板真正交给本地 Qwen3，验证模型能否学会示例规律。</span>
-<span class="token comment"># 运行前需要先按照第二篇文章启动 mlx_lm.server。</span>
+<span class="token comment"># 运行前需要先启动本地 mlx_lm.server。</span>
 
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> HumanMessage
@@ -1440,15 +1440,15 @@ response <span class="token operator">=</span> chain<span class="token punctuati
 <p>本文分别保留渲染脚本和真实模型脚本，就是为了区分这两个阶段。</p>
 <h3 id="12-5-示例越多不代表效果一定越好"><a href="#12-5-示例越多不代表效果一定越好" class="headerlink" title="12.5 示例越多不代表效果一定越好"></a>12.5 示例越多不代表效果一定越好</h3><p>Few-shot 示例也会占用上下文 Token。示例应尽量清楚、与目标任务相关，并保持输入输出格式一致。大量无关或互相矛盾的示例反而会干扰模型。</p>
 <h3 id="12-6-ICL-不是训练和长期记忆"><a href="#12-6-ICL-不是训练和长期记忆" class="headerlink" title="12.6 ICL 不是训练和长期记忆"></a>12.6 ICL 不是训练和长期记忆</h3><p>ICL 只在当前请求上下文中生效。它不会修改模型权重，也不会让模型永久记住符号规则。</p>
-<h3 id="12-7-不要过早建立复杂模板库"><a href="#12-7-不要过早建立复杂模板库" class="headerlink" title="12.7 不要过早建立复杂模板库"></a>12.7 不要过早建立复杂模板库</h3><p>当项目中的模板数量持续增加时，可以建立专门的模板模块集中管理。但本文只有八个教学脚本，直接写在对应文件中更容易理解，因此不创建公共模板类或 common.py。</p>
+<h3 id="12-7-不要过早建立复杂模板库"><a href="#12-7-不要过早建立复杂模板库" class="headerlink" title="12.7 不要过早建立复杂模板库"></a>12.7 不要过早建立复杂模板库</h3><p>当项目中的模板数量持续增加时，可以建立专门的模板模块集中管理。但本文只有八个示例脚本，直接写在对应文件中更容易理解，因此不创建公共模板类或 common.py。</p>
 <h2 id="13-小结"><a href="#13-小结" class="headerlink" title="13. 小结"></a>13. 小结</h2><p>提示词模板的核心不是少写几个字符串，而是把固定结构、动态变量、消息历史和 Few-shot 示例组织成可复用对象。</p>
 <p>PromptTemplate 适合普通字符串，ChatPromptTemplate 适合现代聊天模型；MessagesPlaceholder 插入完整消息列表，partial() 固定部分变量；两类 Few-shot 模板分别处理字符串示例和聊天消息示例。</p>
 <p>本文不仅打印了模板结构，还真实验证了模板组合和聊天 ICL：本地 Qwen3 成功生成相声报幕词，并根据鹦鹉符号示例返回 17。</p>
 <h2 id="14-最终知识整理"><a href="#14-最终知识整理" class="headerlink" title="14. 最终知识整理"></a>14. 最终知识整理</h2><table>
 <thead>
 <tr>
-<th>知识点</th>
-<th>需要掌握的结论</th>
+<th>要点</th>
+<th>结论</th>
 </tr>
 </thead>
 <tbody><tr>
@@ -2199,7 +2199,7 @@ response <span class="token operator">=</span> chain<span class="token punctuati
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502.1k</span>
+                        class="white-color">1502k</span>
             
             
             

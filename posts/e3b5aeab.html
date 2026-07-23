@@ -574,7 +574,7 @@
                  data-article-path="/posts/e3b5aeab.html">
                 <p>前面创建天气 Agent 时，模型能够判断什么时候查询天气，并把城市名称交给 get_weather()。这个过程看起来像是模型执行了 Python 函数，实际并不是这样。</p>
 <p>大模型只负责理解问题、选择工具并生成参数。真正查找工具、调用 Python 函数、处理返回值的仍然是应用程序。LangChain 的 Tool 负责在两者之间建立一份清晰的接口约定。</p>
-<p>本篇不使用 Agent 自动循环，而是从普通 Python 函数开始，逐步学习 Tool 的定义方式，最后使用本地 Qwen3 手动完成一次完整的工具调用。</p>
+<p>本篇不使用 Agent 自动循环，而是从普通 Python 函数开始，逐步介绍 Tool 的定义方式，最后使用本地 Qwen3 手动完成一次完整的工具调用。</p>
 <p>LangChain 可以从三类对象创建本地 Tool：Python 函数或协程、LangChain Runnable、继承 BaseTool 的自定义类。后面出现的 Pydantic、Annotated 和 Docstring 负责描述参数，StructuredTool.from_function() 负责包装函数，它们都不是额外的第四类来源。</p>
 <h2 id="1-为什么模型需要工具"><a href="#1-为什么模型需要工具" class="headerlink" title="1. 为什么模型需要工具"></a><strong>1. 为什么模型需要工具</strong></h2><p>大模型擅长理解和生成文本，但只依靠模型自身，仍然无法稳定完成下面这些工作：</p>
 <ul>
@@ -940,7 +940,7 @@ calculator_tool <span class="token operator">=</span> StructuredTool<span class=
 
 <span class="token comment"># RunnableLambda 是最简单的 Runnable，输入和输出逻辑保持直观。</span>
 greeting_runnable <span class="token operator">=</span> RunnableLambda<span class="token punctuation">(</span>
-    <span class="token keyword">lambda</span> values<span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>values<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">，欢迎学习 LangChain！"</span></span>
+    <span class="token keyword">lambda</span> values<span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>values<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">，欢迎使用 LangChain！"</span></span>
 <span class="token punctuation">)</span>
 
 <span class="token comment"># langchain-core==1.2.22 会提示 as_tool() 仍是 Beta API，文章保留这条真实警告。</span>
@@ -960,7 +960,7 @@ greeting_tool <span class="token operator">=</span> greeting_runnable<span class
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">LangChainBetaWarning: This API is in beta and may change in the future.
 工具类型： StructuredTool
 工具名称： generate_greeting
-调用结果： 小明，欢迎学习 LangChain！<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+调用结果： 小明，欢迎使用 LangChain！<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这是 langchain-core&#x3D;&#x3D;1.2.22 的真实行为。Beta 表示 API 仍处于测试状态，不表示不能使用。用于长期维护的项目时，应锁定依赖版本并在升级后重新测试。</p>
 <h2 id="8-第三类：继承-BaseTool-创建复杂工具"><a href="#8-第三类：继承-BaseTool-创建复杂工具" class="headerlink" title="8. 第三类：继承 BaseTool 创建复杂工具"></a><strong>8. 第三类：继承 BaseTool 创建复杂工具</strong></h2><p>BaseTool 是工具的基础抽象。继承它需要自己声明名称、描述、参数模型，并实现 _run()。</p>
@@ -1153,7 +1153,7 @@ tool_message <span class="token operator">=</span> selected_tool<span class="tok
 <h3 id="12-6-误以为-bind-tools-会自动执行工具"><a href="#12-6-误以为-bind-tools-会自动执行工具" class="headerlink" title="12.6 误以为 bind_tools() 会自动执行工具"></a><strong>12.6 误以为 bind_tools() 会自动执行工具</strong></h3><p>bind_tools() 只向模型提供工具 Schema。自动循环需要 Agent 或自己编写分发、执行和回传逻辑。</p>
 <h2 id="13-小结"><a href="#13-小结" class="headerlink" title="13. 小结"></a><strong>13. 小结</strong></h2><p>Tool 是模型和应用能力之间的结构化接口。模型依据 Schema 选择工具和生成参数，应用程序负责校验、执行和回传结果。</p>
 <p>LangChain 创建本地 Tool 的来源可以归纳为三类：Python 函数或协程、Runnable、BaseTool 子类。对于大多数简单函数，直接交给 Agent 或使用 @tool 已经足够；需要明确同步和异步实现时使用 StructuredTool.from_function()；已有 Runnable 可以通过 as_tool() 转换；需要封装状态或复杂生命周期时再继承 BaseTool。</p>
-<p>本篇最后的 Qwen3 示例没有依赖 Agent，手动展示了 AIMessage.tool_calls -&gt; Tool 执行 -&gt; ToolMessage -&gt; 最终 AIMessage 的完整过程。理解这个循环后，再学习 Agent 自动执行工具时，每一层的职责会更清楚。</p>
+<p>本篇最后的 Qwen3 示例没有依赖 Agent，手动展示了 AIMessage.tool_calls -&gt; Tool 执行 -&gt; ToolMessage -&gt; 最终 AIMessage 的完整过程。理解这个循环后，再使用 Agent 自动执行工具时，每一层的职责会更清楚。</p>
 <table>
 <thead>
 <tr>
@@ -1872,7 +1872,7 @@ tool_message <span class="token operator">=</span> selected_tool<span class="tok
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502.1k</span>
+                        class="white-color">1502k</span>
             
             
             
