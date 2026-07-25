@@ -40,18 +40,14 @@
         
     <meta property="article:tag" content="hudi">
         
-    <meta property="article:tag" content="compaction">
-        
-    <meta property="article:tag" content="tuning">
+    <meta property="article:tag" content="checkpoint">
         
     <meta property="article:tag" content="performance">
-        
-    <meta property="article:tag" content="checkpoint">
         
     
 
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html#blogposting","url":"https://www.hnbian.cn/posts/a9e7c4d1.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html"},"headline":"Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优","description":"上一篇已经用 Flink SQL 跑通了 Hudi COW 表写入和查询，也踩了一遍真实环境里的依赖冲突、checkpoint、slot 不够等问题。能跑通只是第一步，真正使用 Flink 写 Hudi 时，后面一定会遇到调优问题：写入跟不上 Kafka、checkpoint 变慢、状态越来越大、小文件越来越多、MOR…","image":["https://images.hnbian.cn/new/n-f10d259d1c507cbab549e6914844911f.jpg"],"datePublished":"2025-09-18T02:05:00.000Z","dateModified":"2025-09-18T02:05:00.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"hudi","keywords":"Flink, hudi, compaction, tuning, performance, checkpoint"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"hudi","item":"https://www.hnbian.cn/categories/hudi/"},{"@type":"ListItem","position":3,"name":"Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优","item":"https://www.hnbian.cn/posts/a9e7c4d1.html"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html#blogposting","url":"https://www.hnbian.cn/posts/a9e7c4d1.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html"},"headline":"Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优","description":"上一篇已经用 Flink SQL 跑通了 Hudi COW 表写入和查询，也踩了一遍真实环境里的依赖冲突、checkpoint、slot 不够等问题。能跑通只是第一步，真正使用 Flink 写 Hudi 时，后面一定会遇到调优问题：写入跟不上 Kafka、checkpoint 变慢、状态越来越大、小文件越来越多、MOR…","image":["https://images.hnbian.cn/new/n-f10d259d1c507cbab549e6914844911f.jpg"],"datePublished":"2025-09-18T02:05:00.000Z","dateModified":"2025-09-18T02:05:00.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"hudi","keywords":"Flink, hudi, checkpoint, performance"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/a9e7c4d1.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"hudi","item":"https://www.hnbian.cn/categories/hudi/"},{"@type":"ListItem","position":3,"name":"Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优","item":"https://www.hnbian.cn/posts/a9e7c4d1.html"}]}]}</script>
 
 
     <!-- Google Analytics 4: production traffic and blog interaction events. -->
@@ -482,6 +478,190 @@
 
 
 
+
+<link rel="stylesheet" href="/css/graph-series.css">
+
+<button type="button"
+        id="graph-series-trigger"
+        class="graph-series-trigger"
+        aria-label="打开 Hudi 系列文章"
+        aria-controls="graph-series-drawer"
+        aria-expanded="false">
+    <span class="graph-series-trigger-line" aria-hidden="true"></span>
+    <span class="graph-series-trigger-icon" aria-hidden="true">
+        <i class="fas fa-chevron-right"></i>
+    </span>
+</button>
+
+<div id="graph-series-backdrop" class="graph-series-backdrop" aria-hidden="true"></div>
+
+<aside id="graph-series-drawer"
+       class="graph-series-drawer"
+       role="dialog"
+       aria-modal="true"
+       aria-hidden="true"
+       aria-labelledby="graph-series-title"
+       data-graph-series-key="Hudi"
+       data-graph-series-count="15">
+    <header class="graph-series-header">
+        <div class="graph-series-heading">
+            <span class="graph-series-parent">存储框架</span>
+            <h2 id="graph-series-title">Hudi</h2>
+        </div>
+        <button type="button" class="graph-series-close" aria-label="关闭系列文章">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+    </header>
+
+    <nav class="graph-series-nav" aria-label="Hudi 系列文章">
+        <ol class="graph-series-list">
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/b0f5fd4f.html">
+                    <span class="graph-series-index" aria-hidden="true">1</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 01：Hudi 是什么？为什么数据湖需要 Hudi？</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/9aac5ae8.html">
+                    <span class="graph-series-index" aria-hidden="true">2</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 02：Hudi 测试环境安装</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/b51e77ea.html">
+                    <span class="graph-series-index" aria-hidden="true">3</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 03：Timeline、Instant、FileGroup 与 FileSlice</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/a71f8c09.html">
+                    <span class="graph-series-index" aria-hidden="true">4</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 04：Hudi 索引机制与索引选型</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/e62f9a31.html">
+                    <span class="graph-series-index" aria-hidden="true">5</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 05：COW 与 MOR 表类型，以及三种查询方式</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/c8f4d6a2.html">
+                    <span class="graph-series-index" aria-hidden="true">6</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 06：Hudi 写入流程与写操作类型详解</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/7f3a9c21.html">
+                    <span class="graph-series-index" aria-hidden="true">7</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 07：Spark 集成 Hudi 实战</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/8b6d2c91.html">
+                    <span class="graph-series-index" aria-hidden="true">8</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 08：使用 HoodieStreamer / DeltaStreamer 从 Kafka 导入数据到 Hudi</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/e91c6f2a.html">
+                    <span class="graph-series-index" aria-hidden="true">9</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 09：并发控制、锁机制与 Spark 写入调优</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/f4d8a2b7.html">
+                    <span class="graph-series-index" aria-hidden="true">10</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 10：Flink SQL 集成 Hudi 实战</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link is-current"
+                   href="/posts/a9e7c4d1.html"
+                   aria-current="page">
+                    <span class="graph-series-index" aria-hidden="true">11</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 11：Flink Hudi 核心参数与性能调优</span>
+                    
+                    <span class="graph-series-current">当前</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/d2c7e8f9.html">
+                    <span class="graph-series-index" aria-hidden="true">12</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 12：Flink Hudi 流读、CDC 入湖与全量接增量</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/b6c9e4a8.html">
+                    <span class="graph-series-index" aria-hidden="true">13</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 13：Flink Hudi 高级能力详解</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/c3e5a7d9.html">
+                    <span class="graph-series-index" aria-hidden="true">14</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 14：Hudi 底层读写原理解析</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/d7a4c2f5.html">
+                    <span class="graph-series-index" aria-hidden="true">15</span>
+                    <span class="graph-series-link-title">Apache Hudi 学习笔记 15：Hive 集成 Hudi 与 Hive Sync 实战</span>
+                    
+                </a>
+            </li>
+            
+        </ol>
+    </nav>
+</aside>
+
+<script defer src="/js/graph-series.js"></script>
+
+
+
 <main class="post-container content">
 
     
@@ -504,20 +684,12 @@
                                 <span class="chip bg-color">hudi</span>
                             </a>
                         
-                            <a href="/tags/compaction/">
-                                <span class="chip bg-color">compaction</span>
-                            </a>
-                        
-                            <a href="/tags/tuning/">
-                                <span class="chip bg-color">tuning</span>
+                            <a href="/tags/checkpoint/">
+                                <span class="chip bg-color">checkpoint</span>
                             </a>
                         
                             <a href="/tags/performance/">
                                 <span class="chip bg-color">performance</span>
-                            </a>
-                        
-                            <a href="/tags/checkpoint/">
-                                <span class="chip bg-color">checkpoint</span>
                             </a>
                         
                     </div>
@@ -1359,20 +1531,12 @@ hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_flink_hudi
                                     <span class="chip bg-color">hudi</span>
                                 </a>
                             
-                                <a href="/tags/compaction/">
-                                    <span class="chip bg-color">compaction</span>
-                                </a>
-                            
-                                <a href="/tags/tuning/">
-                                    <span class="chip bg-color">tuning</span>
+                                <a href="/tags/checkpoint/">
+                                    <span class="chip bg-color">checkpoint</span>
                                 </a>
                             
                                 <a href="/tags/performance/">
                                     <span class="chip bg-color">performance</span>
-                                </a>
-                            
-                                <a href="/tags/checkpoint/">
-                                    <span class="chip bg-color">checkpoint</span>
                                 </a>
                             
                         </div>
@@ -1726,24 +1890,12 @@ hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_flink_hudi
                         <span class="chip bg-color">Flink</span>
                     </a>
                     
-                    <a href="/tags/kafka/">
-                        <span class="chip bg-color">Kafka</span>
-                    </a>
-                    
                     <a href="/tags/hudi/">
                         <span class="chip bg-color">hudi</span>
                     </a>
                     
-                    <a href="/tags/data-lake/">
-                        <span class="chip bg-color">data-lake</span>
-                    </a>
-                    
                     <a href="/tags/cdc/">
                         <span class="chip bg-color">cdc</span>
-                    </a>
-                    
-                    <a href="/tags/streaming/">
-                        <span class="chip bg-color">streaming</span>
                     </a>
                     
                 </div>
@@ -1804,14 +1956,6 @@ hdfs dfs <span class="token parameter variable">-ls</span> /hudi/demo_flink_hudi
                     
                     <a href="/tags/flink-sql/">
                         <span class="chip bg-color">flink-sql</span>
-                    </a>
-                    
-                    <a href="/tags/checkpoint/">
-                        <span class="chip bg-color">checkpoint</span>
-                    </a>
-                    
-                    <a href="/tags/rocksdb/">
-                        <span class="chip bg-color">rocksdb</span>
                     </a>
                     
                 </div>
