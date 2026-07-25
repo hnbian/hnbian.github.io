@@ -601,7 +601,7 @@ profile:write  修改用户备注<span aria-hidden="true" class="line-numbers-ro
 <li>Payload：身份、签发方、受众、过期时间和权限等声明。</li>
 <li>Signature：使用私钥生成的签名，用于发现内容是否被篡改。</li>
 </ul>
-<p>本文使用的关键 Claim 如下：</p>
+<p>示例需要的关键 Claim 如下：</p>
 <table>
 <thead>
 <tr>
@@ -650,7 +650,7 @@ profile:write  修改用户备注<span aria-hidden="true" class="line-numbers-ro
 └── README.md<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>创建独立 Python 3.12 环境：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 
 python3.12 <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm_learning_mcp_auth .venv_mcp_auth
 <span class="token builtin class-name">source</span> .venv_mcp_auth/bin/activate
@@ -658,15 +658,7 @@ python3.12 <span class="token parameter variable">-m</span> venv <span class="to
 python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-r</span> mcp/p06_fastmcp_jwt_auth/requirements-lock.txt
 python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>本次锁定的主要版本为：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">fastmcp==3.3.1
-mcp==1.27.1
-langchain-mcp-adapters==0.2.2
-langchain==1.2.13
-langchain-openai==1.1.12
-langgraph==1.1.3<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>实测依赖检查通过：</p>
+<p>依赖由 <code>requirements-lock.txt</code> 统一管理。检查结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <h2 id="5-生成-RSA-密钥和测试-Token"><a href="#5-生成-RSA-密钥和测试-Token" class="headerlink" title="5. 生成 RSA 密钥和测试 Token"></a><strong>5. 生成 RSA 密钥和测试 Token</strong></h2><p>01_generate_test_credentials.py 生成一套 RSA 密钥，并创建五个测试 Token：</p>
@@ -699,7 +691,7 @@ AUDIENCE <span class="token operator">=</span> <span class="token string">"http:
     <span class="token comment"># 目录可能已经存在，显式收紧权限，避免其他本机用户读取测试凭据。</span>
     SECRETS_DIR<span class="token punctuation">.</span>chmod<span class="token punctuation">(</span><span class="token number">0o700</span><span class="token punctuation">)</span>
 
-    <span class="token comment"># 正常密钥负责签发本文使用的有效和异常测试 Token。</span>
+    <span class="token comment"># 正常密钥负责签发有效和异常测试 Token。</span>
     key_pair <span class="token operator">=</span> RSAKeyPair<span class="token punctuation">.</span>generate<span class="token punctuation">(</span><span class="token punctuation">)</span>
     private_key_file <span class="token operator">=</span> SECRETS_DIR <span class="token operator">/</span> <span class="token string">"private.pem"</span>
     private_key_file<span class="token punctuation">.</span>write_text<span class="token punctuation">(</span>
@@ -860,7 +852,7 @@ USER_PROFILES <span class="token operator">=</span> <span class="token punctuati
 <h2 id="7-require-scopes-如何保护-Tool"><a href="#7-require-scopes-如何保护-Tool" class="headerlink" title="7. require_scopes 如何保护 Tool"></a><strong>7. require_scopes 如何保护 Tool</strong></h2><p>JWTVerifier 先完成身份验证，require_scopes() 再对单个组件执行授权判断。</p>
 <p><img src="https://images.hnbian.cn/new/n-1aa6b5ff0fb08f83db6e26a3d5923a8a.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="MCP Scope 权限控制流程"></p>
 <p>get_access_token() 返回已经验证的访问令牌对象。Tool 可以读取其中的 sub 和 Scope，但不要再次自行解析请求头，更不能信任模型传入的用户 ID 代替已验证身份。</p>
-<p>在本文锁定的 FastMCP 3.3.1 中，组件授权同时影响能力发现和调用：只读 Token 执行 list_tools() 时只能看到 get_user_profile；即使客户端绕过列表直接请求 update_user_note，收到的也是 ToolError: Unknown tool。这种隐藏方式可以减少未授权能力的暴露。</p>
+<p>FastMCP 的组件授权同时影响能力发现和调用：只读 Token 执行 <code>list_tools()</code> 时只能看到 <code>get_user_profile</code>；即使客户端绕过列表直接请求 <code>update_user_note</code>，收到的也是 <code>ToolError: Unknown tool</code>。这种隐藏方式可以减少未授权能力的暴露。</p>
 <p>Scope 只解决“能不能执行某类操作”，不会自动解决“能操作哪一条数据”。示例中的 profile:read 允许读取资料，但 Tool 仍需在业务代码中判断 sub 是否可以访问传入的 user_id。生产系统不能只配置 Scope 就省略对象级授权。</p>
 <h2 id="8-验证四种无效-Token"><a href="#8-验证四种无效-Token" class="headerlink" title="8. 验证四种无效 Token"></a><strong>8. 验证四种无效 Token</strong></h2><p>02_test_auth_failures.py 先发送无 Token 请求，再使用三种无效 JWT 建立 MCP 连接。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""验证缺少 Token、过期、错误 Audience 和错误签名都会被 MCP Server 拒绝。"""</span>
@@ -984,7 +976,7 @@ write_result: &#123;"updated_by":"editor-001","user_id":"user-001","note":"喜�
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
 
 <span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
-  <span class="token parameter variable">--model</span> model <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
   <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
   <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
   --prompt-cache-size <span class="token number">0</span> <span class="token punctuation">\</span>
@@ -1027,7 +1019,7 @@ BASE_DIR <span class="token operator">=</span> Path<span class="token punctuatio
     <span class="token comment"># 本机模型请求不读取系统代理，避免 VPN 把 127.0.0.1 请求转发出去。</span>
     <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
         model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-            model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+            model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
             base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
             api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
             temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
@@ -1820,7 +1812,7 @@ Qwen3 answer: 小明喜欢在周末去西湖散步。<span aria-hidden="true" cl
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502k</span>
+                        class="white-color">1510.1k</span>
             
             
             

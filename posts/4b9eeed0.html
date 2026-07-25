@@ -538,14 +538,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    5.2k
+                    7.8k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    21 分
+                    31 分
                 </div>
                 
 
@@ -574,15 +574,19 @@
                  data-article-path="/posts/4b9eeed0.html">
                 <p>在开始写 LangChain 代码之前，先要准备一个可以稳定调用的大模型。</p>
 <p>如果模型本身还不能正常加载，后面遇到问题时，就很难判断究竟是 LangChain 代码写错了，还是模型、运行环境、网络接口出了问题。因此，本系列先从最底层开始：把模型下载到本地，并确认它可以独立完成一次推理。</p>
-<p>本文使用一台配备 64GB 统一内存的 M1 Max Mac，通过 Python 3.12、ModelScope 和 MLX-LM 部署 Qwen3-14B-AWQ-4bit-MLX。这里不讨论训练、微调和生产服务，只完成本地模型下载、资源检查和推理验证。</p>
+<p>本文使用一台配备 64GB 统一内存的 M1 Max Mac，通过 Python 3.12、ModelScope 和 MLX-LM 部署 Qwen3-14B-AWQ-4bit-MLX。这里不讨论训练、微调和企业生产服务，而是完成模型下载、资源检查、直接推理验证，并把模型启动为只允许本机访问的 HTTP 服务。</p>
 <p>如果还不清楚 LangChain、LangGraph 和 LangSmith 分别解决什么问题，可以先阅读 LangChain 系列 1《先搞懂 LangChain、LangGraph、LangSmith 是什么》。</p>
-<p>整个部署过程可以拆成环境准备、模型下载与检查、加载与推理验证三个阶段：</p>
-<p><img src="https://images.hnbian.cn/new/n-6d389441e2cdf422f3a4e1bcdd1ceb67.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Qwen3-14B MLX 本地部署流程"></p>
-<p>这三个阶段不是只追求“命令没有报错”。最终还要确认模型文件完整、MLX-LM 能够加载、模型可以生成中文，并且资源占用在机器可接受的范围内。</p>
+<p>整个部署过程可以拆成四个阶段：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">环境准备
+  -> 模型下载与文件检查
+  -> MLX-LM 直接加载与推理验证
+  -> 启动本机 HTTP 服务并验证聊天接口<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这四个阶段不是只追求“命令没有报错”。最终还要确认模型文件完整、MLX-LM 能够加载、模型可以生成中文、HTTP 聊天接口能够返回真实回答，并且资源占用在机器可接受的范围内。</p>
 <h2 id="1-先认识模型社区"><a href="#1-先认识模型社区" class="headerlink" title="1. 先认识模型社区"></a>1. 先认识模型社区</h2><h3 id="1-1-Hugging-Face"><a href="#1-1-Hugging-Face" class="headerlink" title="1.1 Hugging Face"></a>1.1 Hugging Face</h3><p><a target="_blank" rel="noopener" href="https://huggingface.co/">Hugging Face</a> 是常见的开放模型社区。开发者会把模型权重、配置、Tokenizer、数据集、示例代码和模型说明发布到 Hugging Face Hub。</p>
 <p>下载一个模型时，拿到的通常不只是一个权重文件，而是一整个模型仓库。后面会看到，模型目录中除了 .safetensors 权重，还包括 config.json、Tokenizer、聊天模板和生成参数等文件。</p>
 <h3 id="1-2-魔塔社区-ModelScope"><a href="#1-2-魔塔社区-ModelScope" class="headerlink" title="1.2 魔塔社区 ModelScope"></a>1.2 魔塔社区 ModelScope</h3><p><a target="_blank" rel="noopener" href="https://modelscope.cn/">魔塔社区 ModelScope</a> 是国内常用的模型社区和工具链，也提供模型浏览、下载、推理、训练和评测等能力。</p>
-<p>本文使用的模型位于：</p>
+<p>模型地址：</p>
 <p><a target="_blank" rel="noopener" href="https://modelscope.cn/models/mlx-community/Qwen3-14B-AWQ-4bit-MLX">mlx-community&#x2F;Qwen3-14B-AWQ-4bit-MLX</a></p>
 <p>选择 ModelScope 不是因为 Hugging Face 不能下载这个模型，而是因为本文的下载代码使用 ModelScope，并且在国内网络环境下通常更方便。</p>
 <h2 id="2-为什么选择-Qwen3-14B-AWQ-4bit-MLX"><a href="#2-为什么选择-Qwen3-14B-AWQ-4bit-MLX" class="headerlink" title="2. 为什么选择 Qwen3-14B-AWQ-4bit-MLX"></a>2. 为什么选择 Qwen3-14B-AWQ-4bit-MLX</h2><p>模型 ID 是：</p>
@@ -691,14 +695,14 @@
 <p>统一内存的组成可以这样理解：</p>
 <p><img src="https://images.hnbian.cn/new/n-ffbc2e1146b93334ef6114e58433ca62.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地推理的统一内存组成"></p>
 <p>图中各项不是固定比例。上下文越长、batch 越大、并发请求越多，KV Cache 和运行时开销通常越高，因此目录大小只能用于部署前粗估，不能替代运行时观察。</p>
-<p>本次模型目录实测为 7.8G，MLX-LM 生成日志中的 Peak memory 为 8.522 GB。这个指标反映 MLX 运行过程中的峰值内存，不等于整台 Mac 的总统一内存占用；判断系统压力时还要结合活动监视器和 vm_stat。对 M1 Max 64GB 来说，本次单用户推理有较充足的余量，但这不代表可以无限增加上下文和并发。</p>
+<p>本次模型目录实测为 7.8G，MLX-LM 生成日志中的 Peak memory 为 8.510 GB。这个指标反映 MLX 运行过程中的峰值内存，不等于整台 Mac 的总统一内存占用；判断系统压力时还要结合活动监视器和 vm_stat。对 M1 Max 64GB 来说，本次单用户推理有较充足的余量，但这不代表可以无限增加上下文和并发。</p>
 <h2 id="4-项目目录"><a href="#4-项目目录" class="headerlink" title="4. 项目目录"></a>4. 项目目录</h2><p>项目代码统一放在：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">~/Documents/git/blog/source/_posts/llm_learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">/path/to/llm-learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>第一阶段目录结构如下：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm_learning/
-├── .venv/
-├── model -> /Users/bianhn/Documents/git/llm/qwen3/model
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm-learning/
+├── .venv_langchain/
+├── Qwen3-14B-AWQ-4bit-MLX/
 ├── requirements.txt
 └── langchain/
     └── p02_local_models/
@@ -707,20 +711,20 @@
         ├── README.md
         └── requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>代码位于 langchain&#x2F;p02_local_models&#x2F;，模型入口放在项目根目录的 model&#x2F;。后续 LangChain、LangGraph 和 LangSmith 的代码都可以复用同一份模型，不需要每个阶段复制一份 7.8GB 的权重。</p>
-<p>本机的 model 是一个符号链接：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm_learning/model -> /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>代码位于 <code>langchain/p02_local_models/</code>，模型入口放在项目根目录的 <code>Qwen3-14B-AWQ-4bit-MLX/</code>。目录名直接展示了模型名称、量化方式和运行格式，后续阅读启动命令与客户端代码时，不需要再猜测 <code>model/</code> 代表哪一个模型。首次部署时，下载脚本会创建这个普通目录并把模型文件保存在其中。后续 LangChain、LangGraph 和 LangSmith 的代码都可以复用同一份模型，不需要每个阶段复制一份 7.8GB 的权重。</p>
+<p>为了复用此前已经下载的权重，本机将这个描述性目录设置成了符号链接：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">llm-learning/Qwen3-14B-AWQ-4bit-MLX -> /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>这表示代码访问的是 llm_learning&#x2F;model，模型文件实际仍保存在 &#x2F;Users&#x2F;bianhn&#x2F;Documents&#x2F;git&#x2F;llm&#x2F;qwen3&#x2F;model。如果是第一次部署，没有这个符号链接也没关系，下载脚本会直接创建 llm_learning&#x2F;model&#x2F; 目录。</p>
+<p>这只是作者本机的目录安排，不是运行本文的前置条件。代码始终访问项目根目录的 <code>Qwen3-14B-AWQ-4bit-MLX/</code>；第一次部署时不需要创建符号链接，下载脚本会直接创建同名普通目录并保存模型文件。</p>
 <h2 id="5-使用-Python-3-12-创建虚拟环境"><a href="#5-使用-Python-3-12-创建虚拟环境" class="headerlink" title="5. 使用 Python 3.12 创建虚拟环境"></a>5. 使用 Python 3.12 创建虚拟环境</h2><p>进入项目目录：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>明确使用 Python 3.12 创建同名虚拟环境：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3.12 <span class="token punctuation">\</span>
-  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm_learning .venv<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm-learning .venv_langchain<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>激活虚拟环境：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv/bin/activate<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langchain/bin/activate<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>检查 Python 版本和解释器位置：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-V</span>
@@ -728,7 +732,7 @@
 
 <p>本机输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">Python 3.12.11
-/Users/bianhn/Documents/git/blog/source/_posts/llm_learning/.venv/bin/python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+/Users/bianhn/Documents/git/llm-learning/.venv_langchain/bin/python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>必须检查 which python。只看终端前面的环境名称并不可靠，尤其是在 Conda 的 (base) 环境中再次激活 venv 时，要以解释器实际路径为准。</p>
 <h2 id="6-安装并锁定依赖"><a href="#6-安装并锁定依赖" class="headerlink" title="6. 安装并锁定依赖"></a>6. 安装并锁定依赖</h2><p>先升级 pip：</p>
@@ -760,13 +764,13 @@ PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span><
 
 <p>本机输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">python 3.12.11
-executable /Users/bianhn/Documents/git/blog/source/_posts/llm_learning/.venv/bin/python
+executable /Users/bianhn/Documents/git/llm-learning/.venv_langchain/bin/python
 mlx 0.29.3
 mlx-lm 0.28.3
 modelscope 1.31.0
 transformers 4.57.1<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>第一篇只安装本地推理需要的组件。LangChain、LangGraph 等依赖放到后续阶段安装，这样出现问题时更容易判断是模型环境还是应用框架造成的。</p>
+<p>本篇只安装本地推理需要的组件。LangChain、LangGraph 等依赖放到后续阶段安装，这样出现问题时更容易判断是模型环境还是应用框架造成的。</p>
 <h2 id="7-使用-ModelScope-下载模型"><a href="#7-使用-ModelScope-下载模型" class="headerlink" title="7. 使用 ModelScope 下载模型"></a>7. 使用 ModelScope 下载模型</h2><p>下载脚本是 langchain&#x2F;p02_local_models&#x2F;01_download_model.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
 <span class="token keyword">import</span> shutil
@@ -779,10 +783,10 @@ transformers 4.57.1<span aria-hidden="true" class="line-numbers-rows"><span></sp
 <span class="token comment"># 固定模型 ID，避免后续脚本误下载到原始 FP16/BF16 或其他量化版本。</span>
 MODEL_ID <span class="token operator">=</span> <span class="token string">"mlx-community/Qwen3-14B-AWQ-4bit-MLX"</span>
 MODEL_REVISION <span class="token operator">=</span> <span class="token string">"67a0161a28eb07263a862fa6b3a63fcd84b55c14"</span>
-<span class="token comment"># 当前脚本位于 llm_learning/langchain/p02_local_models/ 下。</span>
-<span class="token comment"># parents[2] 就是 llm_learning 项目根目录，模型统一放在根目录的 model/。</span>
+<span class="token comment"># 当前脚本位于 llm-learning/langchain/p02_local_models/ 下。</span>
+<span class="token comment"># parents[2] 就是 llm-learning 项目根目录。</span>
 ROOT_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
-MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"model"</span>
+MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span>
 
 <span class="token comment"># 4bit 权重约 7-8GB，但下载临时文件、缓存和日志也要占空间。</span>
 <span class="token comment"># 这里预留 25GB，磁盘不足时提前失败，比下载到一半报错更容易排查。</span>
@@ -841,18 +845,18 @@ MIN_FREE_GB <span class="token operator">=</span> <span class="token number">25<
     <span class="token keyword">raise</span> SystemExit<span class="token punctuation">(</span>main<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行脚本：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
-<span class="token builtin class-name">source</span> .venv/bin/activate
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
+<span class="token builtin class-name">source</span> .venv_langchain/bin/activate
 python langchain/p02_local_models/01_download_model.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>初次下载时，ModelScope SDK 共下载 15 个顶层文件，其中最耗时的是两个 .safetensors 权重分片。本次初次下载日志为：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">Downloading: 100%|██████████| 15/15 [49:12&lt;00:00, 196.86s/file]
-Downloaded to:    /Users/bianhn/Documents/git/llm/qwen3/model
+Downloaded to:    /Users/bianhn/Documents/git/llm-learning/Qwen3-14B-AWQ-4bit-MLX
 Elapsed seconds:  2956.4<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>初次下载约 49 分钟。实际时间会受到网络速度、ModelScope 服务状态和磁盘写入速度影响，不能把这个数据当成固定值。</p>
 <h2 id="8-模型目录中的-15-个文件"><a href="#8-模型目录中的-15-个文件" class="headerlink" title="8. 模型目录中的 15 个文件"></a>8. 模型目录中的 15 个文件</h2><p>下载完成后，可以先确认顶层文件数量：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">find</span> <span class="token parameter variable">-L</span> model <span class="token parameter variable">-maxdepth</span> <span class="token number">1</span> <span class="token parameter variable">-type</span> f <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-l</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">find</span> <span class="token parameter variable">-L</span> Qwen3-14B-AWQ-4bit-MLX <span class="token parameter variable">-maxdepth</span> <span class="token number">1</span> <span class="token parameter variable">-type</span> f <span class="token operator">|</span> <span class="token function">wc</span> <span class="token parameter variable">-l</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>本机输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">15<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
@@ -981,10 +985,10 @@ Elapsed seconds:  2956.4<span aria-hidden="true" class="line-numbers-rows"><span
 <span class="token keyword">from</span> mlx_lm <span class="token keyword">import</span> generate<span class="token punctuation">,</span> load
 
 
-<span class="token comment"># 当前脚本位于 llm_learning/langchain/p02_local_models/ 下。</span>
-<span class="token comment"># 使用项目根目录的 model/，不再依赖旧的 p02_local_models/model 路径。</span>
+<span class="token comment"># 当前脚本位于 llm-learning/langchain/p02_local_models/ 下。</span>
+<span class="token comment"># 直接写出模型目录名称，让读者一眼看出当前加载的模型。</span>
 ROOT_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
-MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"model"</span>
+MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token operator">/</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span>
 
 
 <span class="token keyword">def</span> <span class="token function">run</span><span class="token punctuation">(</span>command<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
@@ -1015,8 +1019,8 @@ MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token oper
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Model load elapsed seconds: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>load_elapsed<span class="token punctuation">:</span><span class="token format-spec">.1f</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
     messages <span class="token operator">=</span> <span class="token punctuation">[</span>
-        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"system"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"你是一个本地运行的中文技术助手。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请用三句话说明什么是大语言模型本地部署。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"system"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"你是一个老师。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请用一句话说明唐诗和宋词的区别。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     <span class="token punctuation">]</span>
 
     prompt <span class="token operator">=</span> tokenizer<span class="token punctuation">.</span>apply_chat_template<span class="token punctuation">(</span>
@@ -1054,33 +1058,165 @@ MODEL_DIR <span class="token operator">=</span> ROOT_DIR <span class="token oper
     main<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行测试：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> ~/Documents/git/blog/source/_posts/llm_learning
-<span class="token builtin class-name">source</span> .venv/bin/activate
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
+<span class="token builtin class-name">source</span> .venv_langchain/bin/activate
 python langchain/p02_local_models/02_test_generate.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>本次重新运行后的关键输出：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">Model directory: /Users/bianhn/Documents/git/blog/source/_posts/llm_learning/model
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">Model directory: /Users/bianhn/Documents/git/llm-learning/Qwen3-14B-AWQ-4bit-MLX
 Model target: /Users/bianhn/Documents/git/llm/qwen3/model
 Model size: 7.8G  /Users/bianhn/Documents/git/llm/qwen3/model
-Model load elapsed seconds: 4.3
-Prompt: 38 tokens, 30.039 tokens-per-sec
-Generation: 64 tokens, 33.326 tokens-per-sec
-Peak memory: 8.522 GB
-Generate elapsed seconds: 4.8<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+Model load elapsed seconds: 1.2
+Prompt: 32 tokens, 36.757 tokens-per-sec
+Generation: 38 tokens, 15.371 tokens-per-sec
+Peak memory: 8.510 GB
+Generate elapsed seconds: 3.7<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>模型实际回答：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">大语言模型本地部署是指将大型语言模型安装在本地服务器或个人计算机上，而非依赖云端服务。这种方式可以提高数据处理的隐私性和响应速度，同时减少对外部网络的依赖。本地部署通常需要较高的硬件配置，如高性能GPU或TPU来支持模型的运行。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">唐诗以格律严谨、意境宏大见长，注重对仗与声律，而宋词则更重情感表达与音乐性，形式灵活，题材广泛。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>回答中关于 GPU、TPU 的表述比较笼统。本文实际使用的是 Apple Silicon 的 GPU、统一内存和 MLX，并不是 CUDA GPU。不过这次测试的目的不是评估回答质量，而是确认模型文件完整、MLX-LM 可以加载模型，并且模型能够生成中文内容。</p>
+<p>这次测试的目的不是系统评估回答质量，而是确认模型文件完整、MLX-LM 可以加载权重、聊天模板能够正确组织消息，并且模型可以生成中文内容。脚本执行结束后进程会退出，模型也不再提供服务，因此还需要继续把它启动成常驻 HTTP 服务。</p>
 <p>到这里可以确认：模型目录可访问、15 个文件可以被正确读取、MLX-LM 能够加载权重，Tokenizer 和聊天模板也能正常工作。</p>
 <p>加载耗时和生成速度会随着机器负载、系统缓存、提示词长度和输出长度变化，因此文章记录的是本次实测值，不是性能保证。</p>
-<h2 id="10-怎样观察资源占用"><a href="#10-怎样观察资源占用" class="headerlink" title="10. 怎样观察资源占用"></a>10. 怎样观察资源占用</h2><h3 id="10-1-检查模型文件大小"><a href="#10-1-检查模型文件大小" class="headerlink" title="10.1 检查模型文件大小"></a>10.1 检查模型文件大小</h3><p>项目使用符号链接，所以检查真实目标目录：</p>
+<h2 id="10-选择哪一种本地推理服务"><a href="#10-选择哪一种本地推理服务" class="headerlink" title="10. 选择哪一种本地推理服务"></a>10. 选择哪一种本地推理服务</h2><p>下载模型只是把权重和配置保存到磁盘。要让 OpenAI SDK、LangChain 或其他程序通过统一地址调用模型，还需要启动一个持续运行的推理服务。</p>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>MLX-LM Server</th>
+<th>Ollama</th>
+<th>vLLM</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主要定位</td>
+<td>Apple Silicon 上的 MLX 模型推理与本地 HTTP 接口</td>
+<td>简化本地模型下载、管理和运行</td>
+<td>面向吞吐量、批处理和服务化的推理引擎</td>
+</tr>
+<tr>
+<td>常见硬件与系统</td>
+<td>Apple Silicon Mac</td>
+<td>macOS、Linux、Windows，可使用 CPU 或受支持的 GPU</td>
+<td>常见于 Linux 与服务器加速器；其他平台的支持取决于当前版本和硬件插件</td>
+</tr>
+<tr>
+<td>模型产物</td>
+<td>直接加载 MLX 格式权重</td>
+<td>使用 Ollama 模型或其支持导入的模型格式</td>
+<td>使用 vLLM 当前版本支持的模型架构与权重格式</td>
+</tr>
+<tr>
+<td>接口</td>
+<td>提供与 OpenAI Chat API 相近的 HTTP 接口</td>
+<td>提供原生 API，也兼容部分 OpenAI API</td>
+<td>提供 OpenAI 兼容服务接口</td>
+</tr>
+<tr>
+<td>并发与吞吐</td>
+<td>适合本地开发和基础调用，本文不做高并发承诺</td>
+<td>支持并行请求和队列，实际能力取决于内存、上下文和并发配置</td>
+<td>连续批处理等能力更适合高吞吐场景，但仍需容量测试</td>
+</tr>
+<tr>
+<td>部署复杂度</td>
+<td>已有 MLX 模型时最直接</td>
+<td>日常本地使用和模型管理较方便</td>
+<td>参数和运行环境较多，生产部署还需要外围基础设施</td>
+</tr>
+<tr>
+<td>安全边界</td>
+<td>官方说明只提供基础安全检查，不建议直接用于生产</td>
+<td>默认本机使用；对外暴露时仍需认证和网络防护</td>
+<td>推理引擎不等于完整安全网关，生产环境仍需认证、TLS、限流和审计</td>
+</tr>
+</tbody></table>
+<p>对比依据可以查看 <a target="_blank" rel="noopener" href="https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md">MLX-LM Server 官方说明</a>、<a target="_blank" rel="noopener" href="https://docs.ollama.com/import">Ollama 模型导入文档</a>、<a target="_blank" rel="noopener" href="https://docs.ollama.com/faq">Ollama 并发说明</a>和 <a target="_blank" rel="noopener" href="https://docs.vllm.ai/en/latest/getting_started/installation/">vLLM 安装说明</a>。这些工具仍在持续更新，因此表格说明的是选型方向，不是永久不变的兼容矩阵。</p>
+<p>还需要注意，GGUF 是一种模型文件格式，不等于量化方法。GGUF 文件既可以保存不同精度的权重，也可以使用 Q4、Q8 等量化版本。类似地，本文目录中虽然也有 .safetensors 文件，但其中保存的是已经转换过的 MLX 量化张量，不能只根据扩展名判断它可以被 Ollama 或 vLLM 直接加载。</p>
+<p>本文已经下载的是 MLX 格式模型，并且运行机器是 M1 Max，所以继续使用 MLX-LM Server 可以避免重新下载或转换另一份权重。</p>
+<h2 id="11-启动本地私有化服务"><a href="#11-启动本地私有化服务" class="headerlink" title="11. 启动本地私有化服务"></a>11. 启动本地私有化服务</h2><p>这里的“私有化服务”是指模型文件和推理过程都位于本机，HTTP 服务也只监听本机回环地址。它可以供本机的 OpenAI SDK 和 LangChain 调用，但不等同于已经完成企业生产部署。</p>
+<h3 id="11-1-启动-MLX-LM-Server"><a href="#11-1-启动-MLX-LM-Server" class="headerlink" title="11.1 启动 MLX-LM Server"></a>11.1 启动 MLX-LM Server</h3><p>在第一个终端进入项目并激活虚拟环境：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
+<span class="token builtin class-name">source</span> .venv_langchain/bin/activate<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>启动服务：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
+  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
+  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这里显式使用虚拟环境中的 Python，避免终端误调用 Conda Base 或其他环境中的 MLX-LM。参数含义如下。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--model Qwen3-14B-AWQ-4bit-MLX</code></td>
+<td>从项目根目录的同名模型目录读取权重、配置和 Tokenizer</td>
+</tr>
+<tr>
+<td><code>--host 127.0.0.1</code></td>
+<td>只监听本机回环地址，局域网和公网不能直接访问</td>
+</tr>
+<tr>
+<td><code>--port 18080</code></td>
+<td>将 HTTP 服务端口固定为 18080</td>
+</tr>
+<tr>
+<td><code>enable_thinking: false</code></td>
+<td>基础连通性测试关闭 Qwen3 thinking 输出</td>
+</tr>
+</tbody></table>
+<p>启动后会看到类似日志：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">UserWarning: mlx_lm.server is not recommended for production as it only implements basic security checks.
+INFO - Starting httpd at 127.0.0.1 on port 18080...<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>出现启动日志后，这个终端仍需保持运行。它表示 HTTP 服务已经监听端口，但还不能单独证明模型能够完成生成。</p>
+<h3 id="11-2-检查-HTTP-服务"><a href="#11-2-检查-HTTP-服务" class="headerlink" title="11.2 检查 HTTP 服务"></a>11.2 检查 HTTP 服务</h3><p>在第二个终端执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> --fail-with-body <span class="token parameter variable">--silent</span> --show-error <span class="token punctuation">\</span>
+  http://127.0.0.1:18080/v1/models <span class="token operator">|</span> python <span class="token parameter variable">-m</span> json.tool<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>该接口在当前环境返回：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+    <span class="token property">"object"</span><span class="token operator">:</span> <span class="token string">"list"</span><span class="token punctuation">,</span>
+    <span class="token property">"data"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>HTTP 200 说明端口和路由可以访问。这个版本返回空的 data，不代表没有指定模型，也不能证明模型已经成功生成内容，因此还要继续请求聊天接口。</p>
+<h3 id="11-3-验证聊天接口"><a href="#11-3-验证聊天接口" class="headerlink" title="11.3 验证聊天接口"></a>11.3 验证聊天接口</h3><p>执行一次最小聊天请求：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> --fail-with-body <span class="token parameter variable">--silent</span> --show-error <span class="token punctuation">\</span>
+  http://127.0.0.1:18080/v1/chat/completions <span class="token punctuation">\</span>
+  <span class="token parameter variable">-H</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-d</span> <span class="token string">'&#123;
+    "model": "Qwen3-14B-AWQ-4bit-MLX",
+    "messages": [
+      &#123;"role": "system", "content": "你是一个老师。"&#125;,
+      &#123;"role": "user", "content": "请用一句话说明唐诗和宋词的区别。"&#125;
+    ],
+    "temperature": 0,
+    "max_tokens": 96
+  &#125;'</span> <span class="token operator">|</span> python <span class="token parameter variable">-c</span> <span class="token punctuation">\</span>
+  <span class="token string">'import json, sys; data = json.load(sys.stdin); print(data["choices"][0]["message"]["content"]); print(data["usage"])'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>复测输出：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">唐诗以格律严谨、意境宏大见长，注重对仗与声律，而宋词则更重情感表达与音乐性，形式灵活，题材广泛。
+&#123;'prompt_tokens': 32, 'completion_tokens': 38, 'total_tokens': 70&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>聊天接口返回 HTTP 200、非空中文回答和 token 用量，才能确认 HTTP 服务、模型加载、聊天模板与生成流程都已经连通。请求中的 <code>Qwen3-14B-AWQ-4bit-MLX</code> 与启动命令的 <code>--model Qwen3-14B-AWQ-4bit-MLX</code> 保持一致；它既是当前项目中的模型目录名，也是客户端明确声明的模型名称。</p>
+<h3 id="11-4-停止服务与安全边界"><a href="#11-4-停止服务与安全边界" class="headerlink" title="11.4 停止服务与安全边界"></a>11.4 停止服务与安全边界</h3><p>测试完成后，在运行 MLX-LM Server 的第一个终端按 Ctrl+C 停止服务。停止后再次访问 18080 端口应该连接失败。</p>
+<p>本文特意使用 127.0.0.1，而不是 0.0.0.0。MLX-LM 官方也明确提示这个服务只实现了基础安全检查，不建议直接用于生产环境。不要把 18080 端口直接暴露到局域网或公网。</p>
+<p>企业环境除了推理引擎，还需要认证、TLS、反向代理、访问控制、限流、日志审计、监控告警和容量评测。本文只验证单机本地开发链路，不实现这些生产设施。</p>
+<h2 id="12-怎样观察资源占用"><a href="#12-怎样观察资源占用" class="headerlink" title="12. 怎样观察资源占用"></a>12. 怎样观察资源占用</h2><h3 id="12-1-检查模型文件大小"><a href="#12-1-检查模型文件大小" class="headerlink" title="12.1 检查模型文件大小"></a>12.1 检查模型文件大小</h3><p>当前环境使用符号链接，所以检查它指向的真实模型目录：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">du</span> <span class="token parameter variable">-sh</span> /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">7.8G    /Users/bianhn/Documents/git/llm/qwen3/model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<h3 id="10-2-查看系统内存"><a href="#10-2-查看系统内存" class="headerlink" title="10.2 查看系统内存"></a>10.2 查看系统内存</h3><p>可以在另一个终端执行：</p>
+<h3 id="12-2-查看系统内存"><a href="#12-2-查看系统内存" class="headerlink" title="12.2 查看系统内存"></a>12.2 查看系统内存</h3><p>可以在另一个终端执行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">vm_stat
 <span class="token function">top</span> <span class="token parameter variable">-o</span> mem
 <span class="token function">ps</span> aux <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">'[p]ython'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
@@ -1093,19 +1229,19 @@ Generate elapsed seconds: 4.8<span aria-hidden="true" class="line-numbers-rows">
 <li>生成结束后内存是否能够回收。</li>
 </ol>
 <p>vm_stat 中的 Swapins、Swapouts 是系统启动以来的累计计数，不能只看到非零值就判断本次推理正在大量使用 Swap。判断当前状态时，应结合活动监视器中的内存压力和 Swap 使用量。</p>
-<h2 id="11-本次遇到的问题"><a href="#11-本次遇到的问题" class="headerlink" title="11. 本次遇到的问题"></a>11. 本次遇到的问题</h2><h3 id="11-1-系统-python3-不是-Python-3-12"><a href="#11-1-系统-python3-不是-Python-3-12" class="headerlink" title="11.1 系统 python3 不是 Python 3.12"></a>11.1 系统 python3 不是 Python 3.12</h3><p>第一次直接执行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3 <span class="token parameter variable">-m</span> venv .venv<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h2 id="13-本次遇到的问题"><a href="#13-本次遇到的问题" class="headerlink" title="13. 本次遇到的问题"></a>13. 本次遇到的问题</h2><h3 id="13-1-系统-python3-不是-Python-3-12"><a href="#13-1-系统-python3-不是-Python-3-12" class="headerlink" title="13.1 系统 python3 不是 Python 3.12"></a>13.1 系统 python3 不是 Python 3.12</h3><p>第一次直接执行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3 <span class="token parameter variable">-m</span> venv .venv_langchain<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>创建出来的是 Python 3.9 环境，并出现了 urllib3 与 LibreSSL 相关警告。</p>
 <p>解决方法是删除错误环境，然后明确使用 Python 3.12：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> .venv
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> <span class="token parameter variable">-rf</span> .venv_langchain
 python3.12 <span class="token punctuation">\</span>
-  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm_learning .venv
-<span class="token builtin class-name">source</span> .venv/bin/activate
+  <span class="token parameter variable">-m</span> venv <span class="token parameter variable">--prompt</span> llm-learning .venv_langchain
+<span class="token builtin class-name">source</span> .venv_langchain/bin/activate
 python <span class="token parameter variable">-V</span>
 <span class="token function">which</span> python<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<h3 id="11-2-未固定版本导致依赖组合发生变化"><a href="#11-2-未固定版本导致依赖组合发生变化" class="headerlink" title="11.2 未固定版本导致依赖组合发生变化"></a>11.2 未固定版本导致依赖组合发生变化</h3><p>直接执行不带版本约束的安装命令，会随着软件仓库更新而得到不同依赖组合。为了让本文环境可以复现，应使用项目锁定并经过实测的固定版本：</p>
+<h3 id="13-2-未固定版本导致依赖组合发生变化"><a href="#13-2-未固定版本导致依赖组合发生变化" class="headerlink" title="13.2 未固定版本导致依赖组合发生变化"></a>13.2 未固定版本导致依赖组合发生变化</h3><p>直接执行不带版本约束的安装命令，会随着软件仓库更新而得到不同依赖组合。需要重建环境时，应优先使用项目的 requirements.txt；下面的命令用于强制重新安装其中记录的依赖：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> --force-reinstall <span class="token punctuation">\</span>
   <span class="token string">'mlx-lm==0.28.3'</span> <span class="token punctuation">\</span>
   <span class="token string">'mlx==0.29.3'</span> <span class="token punctuation">\</span>
@@ -1113,106 +1249,169 @@ python <span class="token parameter variable">-V</span>
   <span class="token string">'transformers==4.57.1'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>因此，后续复现应优先使用仓库中的 requirements.txt，不要无条件升级所有依赖。</p>
-<h3 id="11-3-ModelScope-大文件下载中断"><a href="#11-3-ModelScope-大文件下载中断" class="headerlink" title="11.3 ModelScope 大文件下载中断"></a>11.3 ModelScope 大文件下载中断</h3><p>下载两个权重分片时出现过网络中断和 SSL 抖动：</p>
+<h3 id="13-3-ModelScope-大文件下载中断"><a href="#13-3-ModelScope-大文件下载中断" class="headerlink" title="13.3 ModelScope 大文件下载中断"></a>13.3 ModelScope 大文件下载中断</h3><p>下载两个权重分片时出现过网络中断和 SSL 抖动：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">IncompleteRead(...), will retry
 SSLError(1, '[SSL: WRONG_VERSION_NUMBER] wrong version number'), will retry<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>处理时不要删除已经下载的 model&#x2F;，也不要临时更换下载目录。先让 ModelScope SDK 自动重试；如果脚本最终退出，再使用相同模型 ID 和相同目录重新运行，避免重新下载已有文件。</p>
-<h3 id="11-4-Qwen3-的-thinking-占满输出长度"><a href="#11-4-Qwen3-的-thinking-占满输出长度" class="headerlink" title="11.4 Qwen3 的 thinking 占满输出长度"></a>11.4 Qwen3 的 thinking 占满输出长度</h3><p>第一次测试没有关闭 thinking，模型先生成较长的 <think>…</think>。当 max_tokens&#x3D;256 时，思考内容可能占满输出长度，真正回答反而被截断。</p>
+<p>处理时不要删除已经下载的 <code>Qwen3-14B-AWQ-4bit-MLX/</code>，也不要临时更换下载目录。先让 ModelScope SDK 自动重试；如果脚本最终退出，再使用相同模型 ID 和相同目录重新运行，避免重新下载已有文件。</p>
+<h3 id="13-4-Qwen3-的-thinking-占满输出长度"><a href="#13-4-Qwen3-的-thinking-占满输出长度" class="headerlink" title="13.4 Qwen3 的 thinking 占满输出长度"></a>13.4 Qwen3 的 thinking 占满输出长度</h3><p>第一次测试没有关闭 thinking，模型先生成较长的 <think>…</think>。当 max_tokens&#x3D;256 时，思考内容可能占满输出长度，真正回答反而被截断。</p>
 <p>本文只是做连通性测试，因此在聊天模板中设置：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">enable_thinking<span class="token operator">=</span><span class="token boolean">False</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>这不会改变模型文件，只影响本次 prompt 的聊天模板。后续确实需要观察推理过程时，可以再开启 thinking，并相应提高 max_tokens。</p>
-<h3 id="11-5-移动项目后找不到模型"><a href="#11-5-移动项目后找不到模型" class="headerlink" title="11.5 移动项目后找不到模型"></a>11.5 移动项目后找不到模型</h3><p>模型文件很大，不适合随着每个示例目录复制。项目通过根目录的 model 符号链接复用原来的权重：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-ld</span> model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h3 id="13-5-移动项目后找不到模型"><a href="#13-5-移动项目后找不到模型" class="headerlink" title="13.5 移动项目后找不到模型"></a>13.5 移动项目后找不到模型</h3><p>模型文件很大，不适合随着每个示例目录复制。作者本机通过项目根目录的 <code>Qwen3-14B-AWQ-4bit-MLX</code> 符号链接复用原来的权重：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-ld</span> Qwen3-14B-AWQ-4bit-MLX<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>如果链接失效，可以重新创建：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> model
-<span class="token function">ln</span> <span class="token parameter variable">-s</span> /Users/bianhn/Documents/git/llm/qwen3/model model<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">rm</span> Qwen3-14B-AWQ-4bit-MLX
+<span class="token function">ln</span> <span class="token parameter variable">-s</span> /Users/bianhn/Documents/git/llm/qwen3/model Qwen3-14B-AWQ-4bit-MLX<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>如果不是符号链接，而是正常的 model&#x2F; 目录，不要执行 rm model。先用 ls -ld model 确认第一个字符是 l，再处理链接。</p>
-<h3 id="11-6-mx-metal-device-info-弃用警告"><a href="#11-6-mx-metal-device-info-弃用警告" class="headerlink" title="11.6 mx.metal.device_info 弃用警告"></a>11.6 mx.metal.device_info 弃用警告</h3><p>运行时可能看到：</p>
+<p>如果它不是符号链接，而是正常的模型目录，不要执行 <code>rm Qwen3-14B-AWQ-4bit-MLX</code>。先用 <code>ls -ld Qwen3-14B-AWQ-4bit-MLX</code> 确认第一个字符是 <code>l</code>，再处理链接。</p>
+<h3 id="13-6-mx-metal-device-info-弃用警告"><a href="#13-6-mx-metal-device-info-弃用警告" class="headerlink" title="13.6 mx.metal.device_info 弃用警告"></a>13.6 mx.metal.device_info 弃用警告</h3><p>运行时可能看到：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">mx.metal.device_info is deprecated and will be removed in a future version.
 Use mx.device_info instead.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>这是 MLX-LM 内部调用产生的弃用警告，不会阻止当前模型加载和生成。只要后面仍然有正常回答、生成速度和峰值内存日志，就不需要为了这个警告修改业务代码。</p>
-<h2 id="12-小结"><a href="#12-小结" class="headerlink" title="12. 小结"></a>12. 小结</h2><p>这次部署完成了四件事：</p>
+<h3 id="13-7-v1-models-可访问，但聊天请求返回-502"><a href="#13-7-v1-models-可访问，但聊天请求返回-502" class="headerlink" title="13.7 &#x2F;v1&#x2F;models 可访问，但聊天请求返回 502"></a>13.7 &#x2F;v1&#x2F;models 可访问，但聊天请求返回 502</h3><p>本次实际遇到过 &#x2F;v1&#x2F;models 返回 HTTP 200，而聊天请求返回 502 的情况。服务端日志中同时出现：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">RuntimeError: There is no Stream(gpu, 0) in current thread.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>原因不是模型列表接口，而是客户端使用项目 <code>.venv_langchain</code>，服务端命令却调用了 Miniforge Base 环境中的旧版 MLX-LM。HTTP 路由可以先启动，真正进入模型生成线程后才暴露版本不匹配。</p>
+<p>排查时应先查看运行 MLX-LM Server 的终端日志，然后检查解释器和依赖版本：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-c</span> <span class="token string">'import sys; print(sys.executable)'</span>
+python <span class="token parameter variable">-c</span> <span class="token punctuation">\</span>
+  <span class="token string">'from importlib.metadata import version; print(version("mlx-lm"), version("mlx"), version("transformers"))'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>确认无误后，使用项目虚拟环境中的解释器重新启动服务：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
+  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
+  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="13-8-VPN-或代理影响本地请求"><a href="#13-8-VPN-或代理影响本地请求" class="headerlink" title="13.8 VPN 或代理影响本地请求"></a>13.8 VPN 或代理影响本地请求</h3><p>如果系统代理错误地接管 localhost 请求，客户端可能收到代理返回的 502，而 MLX-LM Server 终端中完全没有请求日志。先用 curl 强制绕过代理：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>后续 Python 客户端使用 httpx 时，可以设置 <code>trust_env=False</code>，避免读取代理环境变量。如果绕过代理后仍然失败，就继续检查服务端日志，而不是只看客户端状态码。</p>
+<h2 id="14-小结"><a href="#14-小结" class="headerlink" title="14. 小结"></a>14. 小结</h2><p>这次部署完成了五件事：</p>
 <ol>
-<li>使用 Python 3.12 创建独立的 llm_learning 虚拟环境。</li>
+<li>使用 Python 3.12 创建独立的 <code>.venv_langchain</code> 虚拟环境。</li>
 <li>使用 ModelScope 下载 Qwen3-14B-AWQ-4bit-MLX 的 15 个模型文件。</li>
 <li>使用 MLX-LM 直接加载本地模型并生成中文回答。</li>
-<li>记录模型大小、加载时间、生成速度、峰值内存和实际报错处理过程。</li>
+<li>使用 MLX-LM Server 启动只监听本机的 HTTP 服务。</li>
+<li>分别验证模型列表路由和真实聊天生成接口，并记录资源占用与排错过程。</li>
 </ol>
-<p>对于 M1 Max 64GB，14B MLX 4bit 模型能够在保留较多系统余量的情况下完成本地单用户推理。这里验证的是“模型本身可以工作”。下一篇再把它启动为 OpenAI 兼容服务，分别使用 OpenAI Python SDK 和 LangChain 进行调用。</p>
-<h2 id="13-最终部署结果"><a href="#13-最终部署结果" class="headerlink" title="13. 最终部署结果"></a>13. 最终部署结果</h2><p>完成环境安装、模型下载和推理测试后，将本次实际部署数据整理如下。</p>
+<p>对于 M1 Max 64GB，14B MLX 4bit 模型能够在保留较多系统余量的情况下完成本地单用户推理，并通过 OpenAI 风格的聊天接口为本机程序提供服务。下一篇不再重复部署服务，而是分别使用 OpenAI Python SDK 和 LangChain 调用这个地址。</p>
+<h2 id="15-最终部署结果"><a href="#15-最终部署结果" class="headerlink" title="15. 最终部署结果"></a>15. 最终部署结果</h2><p>完成环境安装、模型下载、直接推理和 HTTP 服务验证后，将本次实际部署数据整理如下。</p>
 <table>
 <thead>
 <tr>
 <th>项目</th>
 <th>实测结果</th>
+<th>含义</th>
 </tr>
 </thead>
 <tbody><tr>
 <td>机器</td>
 <td>Apple M1 Max，64GB 统一内存</td>
+<td>本次部署使用的硬件及可供 CPU、GPU 共同使用的内存容量</td>
 </tr>
 <tr>
 <td>系统</td>
 <td>macOS 15，arm64</td>
+<td>操作系统版本及 Apple Silicon 使用的处理器架构</td>
 </tr>
 <tr>
 <td>Python</td>
 <td>3.12.11</td>
+<td>运行下载和推理脚本的 Python 版本</td>
 </tr>
 <tr>
 <td>模型</td>
 <td>mlx-community&#x2F;Qwen3-14B-AWQ-4bit-MLX</td>
+<td>ModelScope 上的完整模型仓库 ID，指向本次下载的具体模型版本</td>
+</tr>
+<tr>
+<td>模型 revision</td>
+<td>67a0161a28eb07263a862fa6b3a63fcd84b55c14</td>
+<td>下载脚本固定的模型仓库提交版本</td>
 </tr>
 <tr>
 <td>模型格式</td>
 <td>MLX，AWQ 4bit 量化</td>
+<td>权重适用于 MLX 框架，并使用 AWQ 方法压缩为 4bit</td>
 </tr>
 <tr>
 <td>模型目录大小</td>
 <td>7.8G</td>
+<td>模型全部文件在磁盘上的实际占用空间</td>
 </tr>
 <tr>
 <td>模型文件数量</td>
 <td>15 个顶层文件</td>
+<td>模型目录第一层包含的权重、配置和分词器等文件数量</td>
 </tr>
 <tr>
 <td>初次下载耗时</td>
-<td>2956.4 秒，约 49 分钟</td>
+<td>约 49 分钟</td>
+<td>首次从 ModelScope 下载完整模型所需时间</td>
 </tr>
 <tr>
 <td>MLX-LM</td>
 <td>0.28.3</td>
+<td>用于加载和运行大语言模型的 MLX-LM 工具版本</td>
 </tr>
 <tr>
 <td>MLX</td>
 <td>0.29.3</td>
+<td>Apple Silicon 上执行张量计算的 MLX 框架版本</td>
 </tr>
 <tr>
 <td>ModelScope</td>
 <td>1.31.0</td>
+<td>用于从魔塔社区下载模型的 Python 包版本</td>
 </tr>
 <tr>
 <td>transformers</td>
 <td>4.57.1</td>
+<td>用于读取模型配置和分词器等内容的 Transformers 版本</td>
 </tr>
 <tr>
 <td>本次复测加载耗时</td>
-<td>4.3 秒</td>
+<td>1.2 秒</td>
+<td>从本地磁盘加载模型并完成推理准备所需时间</td>
 </tr>
 <tr>
 <td>本次复测生成速度</td>
-<td>33.326 tokens&#x2F;s</td>
+<td>15.371 tokens&#x2F;s</td>
+<td>模型平均每秒生成的 token 数量</td>
 </tr>
 <tr>
 <td>本次复测 MLX-LM Peak memory</td>
-<td>8.522 GB</td>
+<td>8.510 GB</td>
+<td>本次推理过程中 MLX-LM 记录的峰值内存占用</td>
+</tr>
+<tr>
+<td>本地服务地址</td>
+<td><a target="_blank" rel="noopener" href="http://127.0.0.1:18080/">http://127.0.0.1:18080</a></td>
+<td>只允许本机访问的 MLX-LM Server 地址</td>
+</tr>
+<tr>
+<td>&#x2F;v1&#x2F;models</td>
+<td>HTTP 200，data 为空数组</td>
+<td>证明 HTTP 路由可访问，不单独代表推理成功</td>
+</tr>
+<tr>
+<td>&#x2F;v1&#x2F;chat&#x2F;completions</td>
+<td>HTTP 200，返回中文回答与 token 用量</td>
+<td>证明服务端已经完成真实模型生成</td>
+</tr>
+<tr>
+<td>服务适用范围</td>
+<td>本机开发与接口联调</td>
+<td>MLX-LM Server 只提供基础安全检查，不直接作为生产公网服务</td>
 </tr>
 </tbody></table>
+<p>模型的 <code>bit</code> 数表示权重保存时使用的精度。16bit 精度较高，但模型体积和内存占用最大；8bit 在精度与资源占用之间较均衡；4bit 占用最小，更适合本地部署，但可能带来少量效果损失。以 14B 模型为例，仅权重的理论大小在 16bit、8bit 和 4bit 下分别约为 28GB、14GB 和 7GB。</p>
 
                 
             </div>
@@ -1896,7 +2095,7 @@ Use mx.device_info instead.<span aria-hidden="true" class="line-numbers-rows"><s
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502k</span>
+                        class="white-color">1510.1k</span>
             
             
             

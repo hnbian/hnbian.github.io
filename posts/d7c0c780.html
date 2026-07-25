@@ -669,19 +669,13 @@ resource_base_url<span class="token operator">=</span><span class="token string"
 </tr>
 </tbody></table>
 <p>安装依赖：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 <span class="token builtin class-name">source</span> .venv_mcp_auth/bin/activate
 
 python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token parameter variable">-r</span> mcp/p07_keycloak_oauth_agent/requirements-lock.txt
 python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>主要版本：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">fastmcp==3.3.1
-mcp==1.27.1
-langchain-mcp-adapters==0.2.2
-keycloak==26.6.2<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>这里的 keycloak&#x3D;&#x3D;26.6.2 表示 Docker 镜像版本，不是 Python 包。</p>
+<p>Python 依赖由 <code>requirements-lock.txt</code> 管理，Keycloak 则通过 Docker 镜像启动，不是 Python 包。</p>
 <h2 id="6-生成本地配置"><a href="#6-生成本地配置" class="headerlink" title="6. 生成本地配置"></a><strong>6. 生成本地配置</strong></h2><p>01_prepare_local_config.py 会生成：</p>
 <ul>
 <li>Keycloak 管理员随机密码。</li>
@@ -1075,7 +1069,7 @@ tools <span class="token operator">=</span> <span class="token keyword">await</s
 <p>其余 Agent 代码与前面的 MCP Agent 一致：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
     model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-        model<span class="token operator">=</span><span class="token string">"default_model"</span><span class="token punctuation">,</span>
+        model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
         base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
         api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
         temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
@@ -1110,7 +1104,7 @@ Qwen3 answer: 小明喜欢在周末去西湖散步。<span aria-hidden="true" cl
 <li>401：没有 Token、Token 无效、过期、Audience 错误或签名失败。</li>
 <li>403：HTTP 语义上表示身份已经验证，但当前授权不足。</li>
 </ul>
-<p>发生 401 时，Resource Server 通过 WWW-Authenticate 告诉客户端去哪里读取 Protected Resource Metadata。但在本文锁定的 fastmcp&#x3D;&#x3D;3.3.1 中，require_scopes() 的组件级授权会先从 tools&#x2F;list 过滤无权 Tool；如果客户端强行调用，实测收到的是 ToolError: Unknown tool，而不是可直接观察的 HTTP 403。不能把通用 HTTP 定义与这个框架的具体表现混在一起。</p>
+<p>发生 401 时，Resource Server 通过 <code>WWW-Authenticate</code> 告诉客户端去哪里读取 Protected Resource Metadata。<code>require_scopes()</code> 的组件级授权会先从 <code>tools/list</code> 过滤无权 Tool；如果客户端强行调用，收到的是 <code>ToolError: Unknown tool</code>，而不是可直接观察的 HTTP 403。不能把通用 HTTP 定义与框架的具体表现混在一起。</p>
 <h2 id="15-安全边界"><a href="#15-安全边界" class="headerlink" title="15. 安全边界"></a><strong>15. 安全边界</strong></h2><h3 id="15-1-Token-不能放进-URL"><a href="#15-1-Token-不能放进-URL" class="headerlink" title="15.1 Token 不能放进 URL"></a>15.1 Token 不能放进 URL</h3><p>Access Token 只能放在 Authorization 请求头中。URL 会进入浏览器历史、代理日志、监控系统和 Referer，更容易泄漏。</p>
 <h3 id="15-2-不允许开放任意回调地址"><a href="#15-2-不允许开放任意回调地址" class="headerlink" title="15.2 不允许开放任意回调地址"></a>15.2 不允许开放任意回调地址</h3><p>本例为了本机回调允许 localhost 和 127.0.0.1 的动态端口。生产客户端必须配置精确的 HTTPS 回调地址，不能使用任意域名通配符。</p>
 <h3 id="15-3-本机-HTTP-不能复制到生产环境"><a href="#15-3-本机-HTTP-不能复制到生产环境" class="headerlink" title="15.3 本机 HTTP 不能复制到生产环境"></a>15.3 本机 HTTP 不能复制到生产环境</h3><p>start-dev、HTTP 和非安全 Cookie 只适合本机。生产环境需要 HTTPS、安全 Cookie、反向代理、正式数据库、备份和审计。</p>
@@ -1890,7 +1884,7 @@ Qwen3 answer: 小明喜欢在周末去西湖散步。<span aria-hidden="true" cl
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502k</span>
+                        class="white-color">1510.1k</span>
             
             
             

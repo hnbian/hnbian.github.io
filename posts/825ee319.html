@@ -598,14 +598,9 @@
 <p>下图把服务边界和 Graph 内部循环放在一起：Studio 或 API 客户端只请求 2024 端口；模型节点请求 18080 端口；工具节点在 Agent Server 进程中执行；开发状态写入 .langgraph_api。</p>
 <p><img src="https://images.hnbian.cn/new/n-f47fcc79fb72b81b80145424b5127c27.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地 Agent Server 的服务边界与工具调用循环"></p>
 <h2 id="2-启动本地-Qwen3"><a href="#2-启动本地-Qwen3" class="headerlink" title="2. 启动本地 Qwen3"></a><strong>2. 启动本地 Qwen3</strong></h2><p>前面的普通聊天接口可以使用主 .venv，但 Agent 工具调用还要求推理服务返回完整的 Tool Call ID。主环境中的旧版 MLX-LM 会返回 id&#x3D;None，ToolNode 无法据此创建匹配的 ToolMessage。</p>
-<p>因此从本篇开始为模型服务创建独立的 .venv_tool_server。直接依赖固定为：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">mlx-lm==0.31.1
-mlx==0.31.0
-transformers==5.3.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-
-<p>这些依赖已经写入 p03_local_agent_server&#x2F;requirements-server.in，完整安装结果保存在同目录的 requirements-server-lock.txt。</p>
+<p>因此从本篇开始为模型服务创建独立的 <code>.venv_tool_server</code>。直接依赖写在 <code>p03_local_agent_server/requirements-server.in</code>，完整安装结果保存在同目录的 <code>requirements-server-lock.txt</code>。</p>
 <p>打开第一个终端，进入 llm_learning 根目录并创建环境：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 
 python3.12 <span class="token parameter variable">-m</span> venv <span class="token punctuation">\</span>
   <span class="token parameter variable">--prompt</span> llm_learning_tool_server <span class="token punctuation">\</span>
@@ -621,7 +616,7 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 
 <p>保持这个环境处于激活状态，启动模型服务：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
-  <span class="token parameter variable">--model</span> model <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
   <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
   <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
   --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
@@ -633,7 +628,7 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 <p>只要返回 object: list，并且 data 中存在模型，说明 Qwen3 服务已经就绪。</p>
 <p>如果这一步失败，不要继续排查 LangGraph。Agent Server 可以启动，但运行到模型节点时一定会报连接错误。</p>
 <h2 id="3-启动-Agent-Server"><a href="#3-启动-Agent-Server" class="headerlink" title="3. 启动 Agent Server"></a><strong>3. 启动 Agent Server</strong></h2><p>打开第二个终端：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 <span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 <span class="token builtin class-name">cd</span> langgraph/p02_local_agent_project<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
@@ -686,7 +681,7 @@ Starting In-Memory runtime<span aria-hidden="true" class="line-numbers-rows"><sp
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"接口数量：</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">len</span><span class="token punctuation">(</span>openapi<span class="token punctuation">[</span><span class="token string">'paths'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> source/_posts/llm_learning
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 <span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 
 python langgraph/p03_local_agent_server/01_check_server.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
@@ -1561,7 +1556,7 @@ API 标题：LangSmith Deployment
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1502k</span>
+                        class="white-color">1510.1k</span>
             
             
             
