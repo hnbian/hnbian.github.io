@@ -638,7 +638,7 @@
                 <a class="graph-series-link"
                    href="/posts/beeb3f66.html">
                     <span class="graph-series-index" aria-hidden="true">14</span>
-                    <span class="graph-series-link-title">LangGraph 系列 13：使用 Bing 与 12306 MCP 构建智能小秘书 Workflow</span>
+                    <span class="graph-series-link-title">LangGraph 系列 13：使用 Bing 与 12306 MCP 构建 Workflow</span>
                     
                 </a>
             </li>
@@ -725,14 +725,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    1.8k
+                    2.2k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    7 分
+                    8 分
                 </div>
                 
 
@@ -768,12 +768,12 @@
 attraction <span class="token operator">=</span> <span class="token keyword">await</span> lookup_attraction<span class="token punctuation">(</span><span class="token string">"杭州"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>只有同时创建多个任务，才能让等待过程重叠：</p>
+<p>asyncio.gather() 会同时调度这两个协程，但返回列表仍按照传入协程的顺序排列。因此，输出顺序稳定并不表示两个工具也是按这个顺序完成的。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">results <span class="token operator">=</span> <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>gather<span class="token punctuation">(</span>
     lookup_weather<span class="token punctuation">(</span><span class="token string">"杭州"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
     lookup_attraction<span class="token punctuation">(</span><span class="token string">"杭州"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>asyncio.gather() 会同时调度这两个协程，但返回列表仍按照传入协程的顺序排列。因此，输出顺序稳定并不表示两个工具也是按这个顺序完成的。</p>
 <p><img src="https://images.hnbian.cn/new/n-9203e4d494b52fdd2e81a7f9b04740f3.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="多个 Tool Call 的异步并发执行"></p>
 <p>示例使用两个各等待一秒的函数。运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
@@ -870,7 +870,57 @@ lookup_attraction call-attraction 杭州：西湖
 <p>这个自定义实现还有一个明确边界：只要其中一个工具抛出异常，asyncio.gather() 默认就会把异常继续向上抛出。实际项目需要根据业务要求决定是终止整批调用，还是把单个错误转换成对应的 ToolMessage。</p>
 <h2 id="4-使用内置-ToolNode"><a href="#4-使用内置-ToolNode" class="headerlink" title="4. 使用内置 ToolNode"></a><strong>4. 使用内置 ToolNode</strong></h2><p>LangGraph 已经提供 <a target="_blank" rel="noopener" href="https://reference.langchain.com/python/langgraph.prebuilt/tool_node/ToolNode">ToolNode</a>。它会读取 Tool Call、并行执行互不依赖的工具，并把普通工具结果转换成 ToolMessage。错误处理可以配置，但不能简单理解为所有异常都会被自动吞掉。</p>
 <p><img src="https://images.hnbian.cn/new/n-f0240abb118e9e5fc98a0d01d3ad36fc.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="自定义工具节点与内置 ToolNode"></p>
-<p>在下面的状态输入方式中，<code>ToolNode</code> 放进 <code>StateGraph</code> 后，由 LangGraph Runtime 提供执行配置：</p>
+<p>结合上一节实现的 <code>CustomAsyncToolNode</code>，两种方式可以从下面几个方面比较：</p>
+<table>
+<thead>
+<tr>
+<th align="left"><strong>对比项</strong></th>
+<th align="left"><strong>CustomAsyncToolNode（自定义）</strong></th>
+<th align="left"><strong>ToolNode（内置）</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">工具调用解析</td>
+<td align="left">手动读取 AIMessage.tool_calls，根据 name 查找工具并传入 args</td>
+<td align="left">自动解析 Tool Call，并在已经注册的工具中完成名称和参数匹配</td>
+</tr>
+<tr>
+<td align="left">同步与异步执行</td>
+<td align="left">自己决定调用 .invoke() 还是 .ainvoke()；多个调用需要手动使用 asyncio.gather() 等方式并发</td>
+<td align="left">同时支持同步和异步工具，并内置多个 Tool Call 的并行执行</td>
+</tr>
+<tr>
+<td align="left">结果与状态更新</td>
+<td align="left">手动构造 ToolMessage、关联 tool_call_id，再返回 {“messages”: …}</td>
+<td align="left">自动把普通工具结果转换成 ToolMessage，并以 State 局部更新的形式返回</td>
+</tr>
+<tr>
+<td align="left">错误处理</td>
+<td align="left">手动校验工具名称、捕获异常，并决定抛出还是转换成错误消息</td>
+<td align="left">内置工具名称与参数校验；可以通过 handle_tool_errors 配置异常处理策略</td>
+</tr>
+<tr>
+<td align="left">LangGraph 集成</td>
+<td align="left">需要自己注册节点、添加边并编写路由函数</td>
+<td align="left">可以直接作为 StateGraph 节点，并配合 tools_condition 建立标准工具循环</td>
+</tr>
+<tr>
+<td align="left">并发与资源控制</td>
+<td align="left">并发、超时、重试和限流策略都由业务代码实现</td>
+<td align="left">提供通用并发调度；特殊的顺序、限流和重试要求仍需额外实现</td>
+</tr>
+<tr>
+<td align="left">适用场景</td>
+<td align="left">需要审批、审计、参数改写或特殊调度规则的工具流程</td>
+<td align="left">大多数标准的模型工具调用流程</td>
+</tr>
+</tbody></table>
+<p>这里有两个容易混淆的地方：</p>
+<ul>
+<li>ToolNode 返回的是 State 的局部更新，最终仍由 LangGraph 按 State Schema 和 Reducer 合并，并不是直接修改原 State。</li>
+<li>tools_condition 是与 ToolNode 配合使用的预构建路由函数，不是 ToolNode 内部自动创建的边。</li>
+</ul>
+<p>在下面的状态输入方式中，ToolNode 放进 StateGraph 后，由 LangGraph Runtime 提供执行配置：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 1 步：把 ToolNode 放入最小图中，由 LangGraph Runtime 提供执行配置。</span>
 builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> ToolNode<span class="token punctuation">(</span><span class="token punctuation">[</span>lookup_weather<span class="token punctuation">,</span> lookup_attraction<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
@@ -1316,9 +1366,9 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
                 <a href="/posts/beeb3f66.html">
                     <div class="card-image">
                         
-                        <img src="https://images.hnbian.cn/new/n-5c5dd65fe2126c00806fd46ac6a498bc.jpg" class="responsive-img" alt="LangGraph 系列 13：使用 Bing 与 12306 MCP 构建智能小秘书 Workflow">
+                        <img src="https://images.hnbian.cn/new/n-5c5dd65fe2126c00806fd46ac6a498bc.jpg" class="responsive-img" alt="LangGraph 系列 13：使用 Bing 与 12306 MCP 构建 Workflow">
                         
-                        <span class="card-title">LangGraph 系列 13：使用 Bing 与 12306 MCP 构建智能小秘书 Workflow</span>
+                        <span class="card-title">LangGraph 系列 13：使用 Bing 与 12306 MCP 构建 Workflow</span>
                     </div>
                 </a>
                 <div class="card-content article-content">
@@ -1594,7 +1644,7 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1434.4k</span>
+                        class="white-color">1442k</span>
             
             
             
