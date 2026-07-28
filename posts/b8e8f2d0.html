@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    6k
+                    6.2k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    23 分
+                    24 分
                 </div>
                 
 
@@ -847,6 +847,7 @@
 
     attempts <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"attempts"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">1</span>
 
+    <span class="token comment"># 第一次没有 feedback，重试时会收到评估节点写入的 feedback。</span>
     <span class="token keyword">if</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"feedback"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
         joke <span class="token operator">=</span> <span class="token string">"程序员去海边为什么带键盘？因为他想按一下浪（浪）。"</span>
     <span class="token keyword">else</span><span class="token punctuation">:</span>
@@ -872,6 +873,7 @@
 <span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Literal<span class="token punctuation">[</span><span class="token string">"accepted"</span><span class="token punctuation">,</span> <span class="token string">"retry"</span><span class="token punctuation">,</span> <span class="token string">"max_attempts"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""根据评估结果和生成次数决定结束还是重试。"""</span>
 
+    <span class="token comment"># 判断顺序很重要：先检查是否通过，再检查是否达到次数上限。</span>
     <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span><span class="token punctuation">:</span>
         <span class="token keyword">return</span> <span class="token string">"accepted"</span>
     <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span> <span class="token operator">>=</span> state<span class="token punctuation">[</span><span class="token string">"max_attempts"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
@@ -882,10 +884,14 @@
 <span class="token keyword">def</span> <span class="token function">finish</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""写入稳定的停止原因，便于调用方判断工作流如何结束。"""</span>
 
-    stop_reason <span class="token operator">=</span> <span class="token string">"accepted"</span> <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span> <span class="token keyword">else</span> <span class="token string">"max_attempts"</span>
+    <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span><span class="token punctuation">:</span>
+        stop_reason <span class="token operator">=</span> <span class="token string">"accepted"</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        stop_reason <span class="token operator">=</span> <span class="token string">"max_attempts"</span>
     <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"stop_reason"</span><span class="token punctuation">:</span> stop_reason<span class="token punctuation">&#125;</span>
 
 
+<span class="token comment"># 第 1 步：按照“生成 → 评估 → 路由”的顺序构建循环。</span>
 builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>JokeState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> generate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span> evaluate_joke<span class="token punctuation">)</span>
@@ -916,6 +922,7 @@ workflow <span class="token operator">=</span> builder<span class="token punctua
         <span class="token string">"max_attempts"</span><span class="token punctuation">:</span> max_attempts<span class="token punctuation">,</span>
     <span class="token punctuation">&#125;</span>
 
+    <span class="token comment"># 第 2 步：updates 模式返回每个节点本次修改的字段。</span>
     <span class="token keyword">for</span> update <span class="token keyword">in</span> workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>final_state<span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
         <span class="token keyword">for</span> node_name<span class="token punctuation">,</span> node_update <span class="token keyword">in</span> update<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
             final_state<span class="token punctuation">.</span>update<span class="token punctuation">(</span>node_update<span class="token punctuation">)</span>
@@ -932,8 +939,7 @@ workflow <span class="token operator">=</span> builder<span class="token punctua
 
 
 run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">)</span>
-run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
+run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>运行代码：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 python langgraph/p11_evaluator_optimizer/01_deterministic_evaluator_loop.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
@@ -1003,6 +1009,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
 <span class="token comment"># 本地 MLX-LM 已验证 function_calling，可以返回符合 Feedback 的参数。</span>
 evaluator <span class="token operator">=</span> model<span class="token punctuation">.</span>with_structured_output<span class="token punctuation">(</span>Feedback<span class="token punctuation">,</span> method<span class="token operator">=</span><span class="token string">"function_calling"</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 1 步：把固定笑话交给结构化评估器。</span>
 result <span class="token operator">=</span> evaluator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
     <span class="token triple-quoted-string string">"""请评估下面的中文冷笑话。
 
@@ -1016,11 +1023,13 @@ result <span class="token operator">=</span> evaluator<span class="token punctua
 如果不通过，请给出一条可以直接执行的修改建议。"""</span>
 <span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：result 已由 Pydantic 校验，可以直接读取属性。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"返回类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>grade<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估反馈："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>feedback<span class="token punctuation">)</span>
 
-http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token comment"># 第 3 步：显式关闭底层 HTTP 连接。</span>
+http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <h2 id="8-启动本地-Qwen3-服务"><a href="#8-启动本地-Qwen3-服务" class="headerlink" title="8. 启动本地 Qwen3 服务"></a><strong>8. 启动本地 Qwen3 服务</strong></h2><p>进入 llm_learning 根目录，在独立终端启动模型服务：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
@@ -1139,9 +1148,9 @@ MAX_ATTEMPTS <span class="token operator">=</span> <span class="token number">3<
     feedback<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"判断理由；不通过时给出具体修改建议"</span><span class="token punctuation">)</span>
 
 
-<span class="token comment"># 两个模型客户端访问同一个 Qwen3 服务，但使用不同温度。</span>
-generator_http_client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-evaluator_http_client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+<span class="token comment"># 两个模型访问同一个 Qwen3 服务，可以复用同一个 HTTP 客户端。</span>
+<span class="token comment"># 生成器温度较高以增加变化，评估器温度为 0 以保持判断稳定。</span>
+http_client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
 
 generator_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
@@ -1149,7 +1158,7 @@ generator_model <span class="token operator">=</span> ChatOpenAI<span class="tok
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0.7</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-    http_client<span class="token operator">=</span>generator_http_client<span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
 evaluator_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
@@ -1158,7 +1167,7 @@ evaluator_model <span class="token operator">=</span> ChatOpenAI<span class="tok
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-    http_client<span class="token operator">=</span>evaluator_http_client<span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
 structured_evaluator <span class="token operator">=</span> evaluator_model<span class="token punctuation">.</span>with_structured_output<span class="token punctuation">(</span>
@@ -1173,6 +1182,7 @@ structured_evaluator <span class="token operator">=</span> evaluator_model<span 
     attempts <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"attempts"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">1</span>
     feedback <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"feedback"</span><span class="token punctuation">)</span>
 
+    <span class="token comment"># 第一次生成没有反馈；重试时把上一轮反馈加入提示词。</span>
     <span class="token keyword">if</span> feedback<span class="token punctuation">:</span>
         instruction <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""请围绕“</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">'topic'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">”重新写一个简短的中文冷笑话。
 上一版没有通过，评估反馈是：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>feedback<span class="token punctuation">&#125;</span></span><span class="token string">
@@ -1227,10 +1237,14 @@ structured_evaluator <span class="token operator">=</span> evaluator_model<span 
 <span class="token keyword">def</span> <span class="token function">finish</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""记录工作流的真实停止原因。"""</span>
 
-    stop_reason <span class="token operator">=</span> <span class="token string">"accepted"</span> <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span> <span class="token keyword">else</span> <span class="token string">"max_attempts"</span>
+    <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span><span class="token punctuation">:</span>
+        stop_reason <span class="token operator">=</span> <span class="token string">"accepted"</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        stop_reason <span class="token operator">=</span> <span class="token string">"max_attempts"</span>
     <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"stop_reason"</span><span class="token punctuation">:</span> stop_reason<span class="token punctuation">&#125;</span>
 
 
+<span class="token comment"># 第 1 步：构建“生成 → 评估 → 条件路由”的循环。</span>
 builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>JokeState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> generate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span> evaluate_joke<span class="token punctuation">)</span>
@@ -1254,6 +1268,7 @@ workflow <span class="token operator">=</span> builder<span class="token punctua
 initial_state<span class="token punctuation">:</span> JokeState <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">&#125;</span>
 final_state <span class="token operator">=</span> initial_state<span class="token punctuation">.</span>copy<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：运行工作流，并把各节点更新合并到 final_state。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"节点更新："</span><span class="token punctuation">)</span>
 <span class="token keyword">for</span> update <span class="token keyword">in</span> workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
     initial_state<span class="token punctuation">,</span>
@@ -1278,9 +1293,8 @@ final_state <span class="token operator">=</span> initial_state<span class="toke
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"停止原因："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"stop_reason"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 
-generator_http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-evaluator_http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
+<span class="token comment"># 第 3 步：两个模型共用一个客户端，只需要关闭一次。</span>
+http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>运行代码：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
@@ -2112,7 +2126,7 @@ python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.p
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

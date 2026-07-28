@@ -581,7 +581,7 @@
                 <a class="graph-series-link"
                    href="/posts/88394b1e.html">
                     <span class="graph-series-index" aria-hidden="true">7</span>
-                    <span class="graph-series-link-title">RAG 系列 7：部署 Milvus 并实现向量检索</span>
+                    <span class="graph-series-link-title">RAG 系列 7：使用 Milvus 实现持久化向量检索</span>
                     
                 </a>
             </li>
@@ -590,7 +590,7 @@
                 <a class="graph-series-link"
                    href="/posts/2fa165f5.html">
                     <span class="graph-series-index" aria-hidden="true">8</span>
-                    <span class="graph-series-link-title">RAG 系列 8：从网页到 Chroma 构建 RAG 知识库</span>
+                    <span class="graph-series-link-title">RAG 系列 8：RAG 知识库的构建</span>
                     
                 </a>
             </li>
@@ -680,14 +680,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    4.6k
+                    4.1k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    18 分
+                    17 分
                 </div>
                 
 
@@ -764,96 +764,16 @@ numpy==2.2.6<span aria-hidden="true" class="line-numbers-rows"><span></span><spa
 <p>本机检查结果为：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<h2 id="4-下载评论数据"><a href="#4-下载评论数据" class="headerlink" title="4. 下载评论数据"></a>4. 下载评论数据</h2><p>本文使用 <a target="_blank" rel="noopener" href="https://github.com/openai/openai-cookbook/blob/main/examples/data/fine_food_reviews_1k.csv">OpenAI Cookbook 中的 Fine Food Reviews 数据</a>。为了避免上游文件发生变化，下载地址固定到了具体 Git 提交，并使用 SHA-256 校验文件内容。</p>
+
+
+<h2 id="4-准备数据"><a href="#4-准备数据" class="headerlink" title="4. 准备数据"></a>4. 准备数据</h2><h3 id="4-1-下载数据"><a href="#4-1-下载数据" class="headerlink" title="4.1. 下载数据"></a>4.1. 下载数据</h3><p>本文使用 <a target="_blank" rel="noopener" href="https://github.com/openai/openai-cookbook/blob/main/examples/data/fine_food_reviews_1k.csv">OpenAI Cookbook 中的 Fine Food Reviews 数据</a>。为了避免上游文件发生变化，下载地址固定到了具体 Git 提交，并使用 SHA-256 校验文件内容。</p>
 <p>代码文件为 01_download_review_data.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件下载评论语义搜索使用的美食评论数据。</span>
-<span class="token comment"># 下载完成后会检查 SHA-256、记录数量和字段，确保数据可以稳定复现。</span>
-
-<span class="token keyword">import</span> csv
-<span class="token keyword">import</span> hashlib
-<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
-<span class="token keyword">from</span> urllib<span class="token punctuation">.</span>error <span class="token keyword">import</span> URLError
-<span class="token keyword">from</span> urllib<span class="token punctuation">.</span>request <span class="token keyword">import</span> ProxyHandler<span class="token punctuation">,</span> build_opener
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">curl <span class="token operator">-</span>L <span class="token operator">-</span>o fine_food_reviews_1k<span class="token punctuation">.</span>csv \
+  <span class="token string">"https://raw.githubusercontent.com/openai/openai-cookbook/2515ddc7b8905e56160693e1a1fe08a6683436e4/examples/data/fine_food_reviews_1k.csv"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 
-PROJECT_ROOT <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
-DATA_DIR <span class="token operator">=</span> PROJECT_ROOT <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"p03_review_semantic_search"</span>
-DATA_FILE <span class="token operator">=</span> DATA_DIR <span class="token operator">/</span> <span class="token string">"fine_food_reviews_1k.csv"</span>
 
-<span class="token comment"># 固定到 OpenAI Cookbook 的具体提交，避免上游文件变化影响运行结果。</span>
-DATA_URL <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"https://raw.githubusercontent.com/openai/openai-cookbook/"</span>
-    <span class="token string">"2515ddc7b8905e56160693e1a1fe08a6683436e4/"</span>
-    <span class="token string">"examples/data/fine_food_reviews_1k.csv"</span>
-<span class="token punctuation">)</span>
-EXPECTED_SHA256 <span class="token operator">=</span> <span class="token string">"716853f9ba5d857aef56fe1f3d46189a20e94403a950c8640a7b6b8851cc92c0"</span>
-EXPECTED_ROWS <span class="token operator">=</span> <span class="token number">1000</span>
-EXPECTED_FIELDS <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">""</span><span class="token punctuation">,</span> <span class="token string">"Time"</span><span class="token punctuation">,</span> <span class="token string">"ProductId"</span><span class="token punctuation">,</span> <span class="token string">"UserId"</span><span class="token punctuation">,</span> <span class="token string">"Score"</span><span class="token punctuation">,</span> <span class="token string">"Summary"</span><span class="token punctuation">,</span> <span class="token string">"Text"</span><span class="token punctuation">]</span>
-
-
-<span class="token keyword">def</span> <span class="token function">calculate_sha256</span><span class="token punctuation">(</span>file_path<span class="token punctuation">:</span> Path<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""分块计算文件的 SHA-256，避免一次把整个文件读入内存。"""</span>
-    digest <span class="token operator">=</span> hashlib<span class="token punctuation">.</span>sha256<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">with</span> file_path<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"rb"</span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token builtin">file</span><span class="token punctuation">:</span>
-        <span class="token keyword">for</span> block <span class="token keyword">in</span> <span class="token builtin">iter</span><span class="token punctuation">(</span><span class="token keyword">lambda</span><span class="token punctuation">:</span> <span class="token builtin">file</span><span class="token punctuation">.</span>read<span class="token punctuation">(</span><span class="token number">1024</span> <span class="token operator">*</span> <span class="token number">1024</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">b""</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-            digest<span class="token punctuation">.</span>update<span class="token punctuation">(</span>block<span class="token punctuation">)</span>
-    <span class="token keyword">return</span> digest<span class="token punctuation">.</span>hexdigest<span class="token punctuation">(</span><span class="token punctuation">)</span>
-
-
-DATA_DIR<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-
-<span class="token comment"># 文件不存在或校验失败时重新下载。先尝试直连，失败后再使用系统网络配置。</span>
-<span class="token keyword">if</span> <span class="token keyword">not</span> DATA_FILE<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">or</span> calculate_sha256<span class="token punctuation">(</span>DATA_FILE<span class="token punctuation">)</span> <span class="token operator">!=</span> EXPECTED_SHA256<span class="token punctuation">:</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"开始下载评论数据……"</span><span class="token punctuation">)</span>
-    direct_opener <span class="token operator">=</span> build_opener<span class="token punctuation">(</span>ProxyHandler<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-    <span class="token keyword">try</span><span class="token punctuation">:</span>
-        <span class="token keyword">with</span> direct_opener<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span>DATA_URL<span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">10</span><span class="token punctuation">)</span> <span class="token keyword">as</span> response<span class="token punctuation">:</span>
-            DATA_FILE<span class="token punctuation">.</span>write_bytes<span class="token punctuation">(</span>response<span class="token punctuation">.</span>read<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"下载方式：直连"</span><span class="token punctuation">)</span>
-    <span class="token keyword">except</span> <span class="token punctuation">(</span>TimeoutError<span class="token punctuation">,</span> URLError<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"直连下载失败，改用系统网络配置重试。"</span><span class="token punctuation">)</span>
-        <span class="token keyword">with</span> build_opener<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span>DATA_URL<span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">60</span><span class="token punctuation">)</span> <span class="token keyword">as</span> response<span class="token punctuation">:</span>
-            DATA_FILE<span class="token punctuation">.</span>write_bytes<span class="token punctuation">(</span>response<span class="token punctuation">.</span>read<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"下载方式：系统网络配置"</span><span class="token punctuation">)</span>
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"数据文件已存在且校验通过，不重复下载。"</span><span class="token punctuation">)</span>
-
-actual_sha256 <span class="token operator">=</span> calculate_sha256<span class="token punctuation">(</span>DATA_FILE<span class="token punctuation">)</span>
-<span class="token keyword">if</span> actual_sha256 <span class="token operator">!=</span> EXPECTED_SHA256<span class="token punctuation">:</span>
-    <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"数据文件 SHA-256 不正确：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>actual_sha256<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-
-<span class="token comment"># 使用标准库读取 CSV，只检查结构，不在下载步骤引入 Pandas 处理逻辑。</span>
-<span class="token keyword">with</span> DATA_FILE<span class="token punctuation">.</span><span class="token builtin">open</span><span class="token punctuation">(</span><span class="token string">"r"</span><span class="token punctuation">,</span> encoding<span class="token operator">=</span><span class="token string">"utf-8"</span><span class="token punctuation">,</span> newline<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">)</span> <span class="token keyword">as</span> <span class="token builtin">file</span><span class="token punctuation">:</span>
-    reader <span class="token operator">=</span> csv<span class="token punctuation">.</span>DictReader<span class="token punctuation">(</span><span class="token builtin">file</span><span class="token punctuation">)</span>
-    rows <span class="token operator">=</span> <span class="token builtin">list</span><span class="token punctuation">(</span>reader<span class="token punctuation">)</span>
-    fields <span class="token operator">=</span> reader<span class="token punctuation">.</span>fieldnames
-
-<span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>rows<span class="token punctuation">)</span> <span class="token operator">!=</span> EXPECTED_ROWS<span class="token punctuation">:</span>
-    <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"数据记录数不正确：期望 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>EXPECTED_ROWS<span class="token punctuation">&#125;</span></span><span class="token string">，实际 </span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">len</span><span class="token punctuation">(</span>rows<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-
-<span class="token keyword">if</span> fields <span class="token operator">!=</span> EXPECTED_FIELDS<span class="token punctuation">:</span>
-    <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"数据字段不正确：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>fields<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"数据文件："</span><span class="token punctuation">,</span> DATA_FILE<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"文件大小："</span><span class="token punctuation">,</span> DATA_FILE<span class="token punctuation">.</span>stat<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>st_size<span class="token punctuation">,</span> <span class="token string">"bytes"</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"SHA-256："</span><span class="token punctuation">,</span> actual_sha256<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"记录数量："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>rows<span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"字段列表："</span><span class="token punctuation">,</span> fields<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python rag/p03_review_semantic_search/01_download_review_data.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>本机直连 GitHub Raw 地址失败，程序自动改用系统网络配置后下载成功：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">开始下载评论数据……
-直连下载失败，改用系统网络配置重试。
-下载方式：系统网络配置
-文件大小： 436148 bytes
-SHA-256： 716853f9ba5d857aef56fe1f3d46189a20e94403a950c8640a7b6b8851cc92c0
-记录数量： 1000
-字段列表： ['', 'Time', 'ProductId', 'UserId', 'Score', 'Summary', 'Text']<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>如果文件已经存在且哈希正确，脚本不会重复下载。</p>
-<h2 id="5-认识评论数据"><a href="#5-认识评论数据" class="headerlink" title="5. 认识评论数据"></a>5. 认识评论数据</h2><p>CSV 中真正需要使用的字段如下：</p>
+<h3 id="4-2-数据分析"><a href="#4-2-数据分析" class="headerlink" title="4.2. 数据分析"></a>4.2. 数据分析</h3><p>CSV 中真正需要使用的字段如下：</p>
 <table>
 <thead>
 <tr>
@@ -890,7 +810,7 @@ SHA-256： 716853f9ba5d857aef56fe1f3d46189a20e94403a950c8640a7b6b8851cc92c0
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">source_df <span class="token operator">=</span> pd<span class="token punctuation">.</span>read_csv<span class="token punctuation">(</span>SOURCE_FILE<span class="token punctuation">,</span> index_col<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>这样第一列会成为 DataFrame 索引，不会被误当成业务字段。</p>
-<h2 id="6-清洗并合并评论文本"><a href="#6-清洗并合并评论文本" class="headerlink" title="6. 清洗并合并评论文本"></a>6. 清洗并合并评论文本</h2><p>一条评论的语义同时存在于标题和正文中。只使用标题可能丢失细节，只使用正文又可能忽略总结，所以把两者合并成统一文本：</p>
+<h3 id="4-3-清洗并合并评论文本"><a href="#4-3-清洗并合并评论文本" class="headerlink" title="4.3. 清洗并合并评论文本"></a>4.3. 清洗并合并评论文本</h3><p>一条评论的语义同时存在于标题和正文中。只使用标题可能丢失细节，只使用正文又可能忽略总结，所以把两者合并成统一文本：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">Summary: 评论标题; Text: 评论正文<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>在合并之前先做三项处理：</p>
@@ -900,9 +820,15 @@ SHA-256： 716853f9ba5d857aef56fe1f3d46189a20e94403a950c8640a7b6b8851cc92c0
 <li>默认截取前 100 条，降低学习和重复测试的等待时间。</li>
 </ol>
 <p>将 REVIEW_LIMIT 从 100 改为 1000，就可以处理完整数据集。</p>
-<h2 id="7-批量生成评论向量"><a href="#7-批量生成评论向量" class="headerlink" title="7. 批量生成评论向量"></a>7. 批量生成评论向量</h2><p>代码文件为 02_build_review_embeddings.py：</p>
+<h2 id="5-批量生成评论向量"><a href="#5-批量生成评论向量" class="headerlink" title="5. 批量生成评论向量"></a>5. 批量生成评论向量</h2><p>代码文件为 02_build_review_embeddings.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件读取美食评论，清洗文本并批量生成评论向量。</span>
-<span class="token comment"># 生成结果会写入新的 CSV，供后续语义搜索脚本直接读取。</span>
+<span class="token comment"># 生成结果会写入新的 CSV，供 03_search_review_embeddings.py 直接读取。</span>
+<span class="token comment">#</span>
+<span class="token comment"># 前置步骤：</span>
+<span class="token comment">#   1. RAG p02 部署 Qwen3 Embedding 模型</span>
+<span class="token comment">#   2. 01_download_review_data.py 下载 fine_food_reviews_1k.csv</span>
+<span class="token comment">#</span>
+<span class="token comment"># 流程：读 CSV → 清洗 → 合并 Summary+Text → embed_documents → 写入带 embedding 列的新 CSV</span>
 
 <span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
 <span class="token keyword">from</span> time <span class="token keyword">import</span> perf_counter
@@ -911,10 +837,8 @@ SHA-256： 716853f9ba5d857aef56fe1f3d46189a20e94403a950c8640a7b6b8851cc92c0
 <span class="token keyword">import</span> torch
 <span class="token keyword">from</span> langchain_huggingface <span class="token keyword">import</span> HuggingFaceEmbeddings
 
-
-PROJECT_ROOT <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
-MODEL_PATH <span class="token operator">=</span> PROJECT_ROOT <span class="token operator">/</span> <span class="token string">"embedding_model"</span>
-DATA_DIR <span class="token operator">=</span> PROJECT_ROOT <span class="token operator">/</span> <span class="token string">"data"</span> <span class="token operator">/</span> <span class="token string">"p03_review_semantic_search"</span>
+MODEL_PATH <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"/Users/bianhn/git/llm/qwen3-embedding/model"</span><span class="token punctuation">)</span>
+DATA_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"/Users/bianhn/git/llm"</span><span class="token punctuation">)</span>
 SOURCE_FILE <span class="token operator">=</span> DATA_DIR <span class="token operator">/</span> <span class="token string">"fine_food_reviews_1k.csv"</span>
 OUTPUT_FILE <span class="token operator">=</span> DATA_DIR <span class="token operator">/</span> <span class="token string">"reviews_with_qwen3_embeddings.csv"</span>
 
@@ -929,7 +853,8 @@ REVIEW_LIMIT <span class="token operator">=</span> <span class="token number">10
 
 device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span>
 
-<span class="token comment"># 文档向量做归一化；查询端配置留给下一步的 embed_query() 使用。</span>
+<span class="token comment"># embed_documents 走 encode_kwargs：批量把评论文本转成向量，并归一化到长度约 1。</span>
+<span class="token comment"># query_encode_kwargs 在此脚本中不会用到，但配置与 03 保持一致，便于两边模型行为相同。</span>
 embeddings_model <span class="token operator">=</span> HuggingFaceEmbeddings<span class="token punctuation">(</span>
     model_name<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_PATH<span class="token punctuation">)</span><span class="token punctuation">,</span>
     model_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"device"</span><span class="token punctuation">:</span> device<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
@@ -951,19 +876,21 @@ reviews_df<span class="token punctuation">[</span><span class="token string">"Te
 reviews_df <span class="token operator">=</span> reviews_df<span class="token punctuation">[</span><span class="token punctuation">(</span>reviews_df<span class="token punctuation">[</span><span class="token string">"Summary"</span><span class="token punctuation">]</span> <span class="token operator">!=</span> <span class="token string">""</span><span class="token punctuation">)</span> <span class="token operator">&amp;</span> <span class="token punctuation">(</span>reviews_df<span class="token punctuation">[</span><span class="token string">"Text"</span><span class="token punctuation">]</span> <span class="token operator">!=</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
 reviews_df <span class="token operator">=</span> reviews_df<span class="token punctuation">.</span>head<span class="token punctuation">(</span>REVIEW_LIMIT<span class="token punctuation">)</span><span class="token punctuation">.</span>copy<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
-<span class="token comment"># 将摘要和正文合并成一段文本，让一个向量同时表达两部分语义。</span>
+<span class="token comment"># 将摘要和正文合并成一段文本，让一个向量同时表达标题和正文的语义。</span>
 reviews_df<span class="token punctuation">[</span><span class="token string">"text_content"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">(</span>
     <span class="token string">"Summary: "</span> <span class="token operator">+</span> reviews_df<span class="token punctuation">[</span><span class="token string">"Summary"</span><span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token string">"; Text: "</span> <span class="token operator">+</span> reviews_df<span class="token punctuation">[</span><span class="token string">"Text"</span><span class="token punctuation">]</span>
 <span class="token punctuation">)</span>
 
+<span class="token comment"># embed_documents：一次传入多条 text_content，返回 list[list[float]]，每条评论一个 1024 维向量。</span>
 start_time <span class="token operator">=</span> perf_counter<span class="token punctuation">(</span><span class="token punctuation">)</span>
 vectors <span class="token operator">=</span> embeddings_model<span class="token punctuation">.</span>embed_documents<span class="token punctuation">(</span>reviews_df<span class="token punctuation">[</span><span class="token string">"text_content"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tolist<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 elapsed <span class="token operator">=</span> perf_counter<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> start_time
 
-<span class="token comment"># Pandas 会把 Python 列表序列化为 CSV 单元格中的字符串。</span>
+<span class="token comment"># Pandas 写入 CSV 时会把 list[float] 序列化成字符串，03 读取时用 literal_eval 还原。</span>
 reviews_df<span class="token punctuation">[</span><span class="token string">"embedding"</span><span class="token punctuation">]</span> <span class="token operator">=</span> vectors
 reviews_df<span class="token punctuation">.</span>to_csv<span class="token punctuation">(</span>OUTPUT_FILE<span class="token punctuation">,</span> index<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 归一化后首条向量范数应接近 1.0，用于确认 embed 配置是否生效。</span>
 first_vector_norm <span class="token operator">=</span> <span class="token builtin">sum</span><span class="token punctuation">(</span>value <span class="token operator">*</span> value <span class="token keyword">for</span> value <span class="token keyword">in</span> vectors<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">**</span> <span class="token number">0.5</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"运行设备："</span><span class="token punctuation">,</span> device<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"原始记录数："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>source_df<span class="token punctuation">)</span><span class="token punctuation">)</span>
@@ -972,23 +899,25 @@ first_vector_norm <span class="token operator">=</span> <span class="token built
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"首条向量范数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>first_vector_norm<span class="token punctuation">:</span><span class="token format-spec">.6f</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"向量生成耗时：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>elapsed<span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">&#125;</span></span><span class="token string"> 秒"</span></span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"输出文件大小：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>OUTPUT_FILE<span class="token punctuation">.</span>stat<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>st_size <span class="token operator">/</span> <span class="token number">1024</span> <span class="token operator">/</span> <span class="token number">1024</span><span class="token punctuation">:</span><span class="token format-spec">.2f</span><span class="token punctuation">&#125;</span></span><span class="token string"> MiB"</span></span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"输出文件："</span><span class="token punctuation">,</span> OUTPUT_FILE<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"输出文件："</span><span class="token punctuation">,</span> OUTPUT_FILE<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python rag/p03_review_semantic_search/02_build_review_embeddings.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>本机使用 Apple MPS 的真实输出为：</p>
+<p>输出为：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">运行设备： mps
 原始记录数： 1000
 生成向量数： 100
 向量维度： 1024
 首条向量范数：1.000000
-向量生成耗时：6.69 秒
-输出文件大小：2.25 MiB<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+向量生成耗时：6.25 秒
+输出文件大小：2.25 MiB
+输出文件： /Users/bianhn/git/llm/reviews_with_qwen3_embeddings.csv<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>按照 <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/integrations/embeddings">LangChain Embeddings 接口</a>的划分，embed_documents() 接收多条文本，因此输入类型是 list[str]，返回类型是 list[list[float]]。100 条评论会得到 100 个向量，每个向量包含 1024 个浮点数。</p>
 <p>normalize_embeddings&#x3D;True 把向量归一化到长度约为 1。实测首条向量范数为 1.000000。</p>
-<h2 id="8-为什么-CSV-中的向量变成了字符串"><a href="#8-为什么-CSV-中的向量变成了字符串" class="headerlink" title="8. 为什么 CSV 中的向量变成了字符串"></a>8. 为什么 CSV 中的向量变成了字符串</h2><p><img src="https://images.hnbian.cn/new/n-ee48afd48c96cf3c95ecabc52bed7037.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="向量在 CSV 中的序列化与还原"></p>
+<h3 id="5-1-为什么-CSV-中的向量变成了字符串"><a href="#5-1-为什么-CSV-中的向量变成了字符串" class="headerlink" title="5.1. 为什么 CSV 中的向量变成了字符串"></a>5.1. 为什么 CSV 中的向量变成了字符串</h3><p><img src="https://images.hnbian.cn/new/n-ee48afd48c96cf3c95ecabc52bed7037.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="向量在 CSV 中的序列化与还原"></p>
 <p>在 Python 中，一条向量是浮点数列表：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token punctuation">[</span><span class="token number">0.0123</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">0.0456</span><span class="token punctuation">,</span> <span class="token number">0.0789</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
@@ -1001,7 +930,7 @@ first_vector_norm <span class="token operator">=</span> <span class="token built
 vector <span class="token operator">=</span> literal_eval<span class="token punctuation">(</span><span class="token string">"[0.0123, -0.0456, 0.0789]"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>不要使用 eval() 解析外部数据。literal_eval() 只接受 Python 的基础字面量，风险更小。即便如此，生产系统仍应保证数据文件来源可信。</p>
-<h2 id="9-计算余弦相似度"><a href="#9-计算余弦相似度" class="headerlink" title="9. 计算余弦相似度"></a>9. 计算余弦相似度</h2><p>查询向量为 (A)，评论向量为 (B)，余弦相似度公式为：</p>
+<h3 id="5-2-计算余弦相似度"><a href="#5-2-计算余弦相似度" class="headerlink" title="5.2. 计算余弦相似度"></a>5.2. 计算余弦相似度</h3><p>查询向量为 (A)，评论向量为 (B)，余弦相似度公式为：</p>
 <p>$$<br>\cos(\theta) &#x3D; \frac{A \cdot B}{\lVert A \rVert \lVert B \rVert}<br>$$</p>
 <p>对应代码：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">cosine_similarity</span><span class="token punctuation">(</span>vector_a<span class="token punctuation">:</span> np<span class="token punctuation">.</span>ndarray<span class="token punctuation">,</span> vector_b<span class="token punctuation">:</span> np<span class="token punctuation">.</span>ndarray<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">float</span><span class="token punctuation">:</span>
@@ -1011,7 +940,7 @@ vector <span class="token operator">=</span> literal_eval<span class="token punc
     <span class="token keyword">return</span> <span class="token builtin">float</span><span class="token punctuation">(</span>np<span class="token punctuation">.</span>dot<span class="token punctuation">(</span>vector_a<span class="token punctuation">,</span> vector_b<span class="token punctuation">)</span> <span class="token operator">/</span> denominator<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>当前查询向量和评论向量都已经归一化。理论上两个向量的模长都是 1，此时点积就等于余弦相似度。不过这里仍保留完整公式，便于理解，也提醒关闭归一化后需要同步修改计算方法。</p>
-<h2 id="10-使用-embed-query-生成查询向量"><a href="#10-使用-embed-query-生成查询向量" class="headerlink" title="10. 使用 embed_query() 生成查询向量"></a>10. 使用 embed_query() 生成查询向量</h2><p>评论使用 embed_documents()，查询使用 embed_query()。两者调用的是同一个模型，但 Qwen3 Embedding 为查询端提供了专门的 query prompt：</p>
+<h3 id="5-3-使用-embed-query-生成查询向量"><a href="#5-3-使用-embed-query-生成查询向量" class="headerlink" title="5.3. 使用 embed_query() 生成查询向量"></a>5.3. 使用 embed_query() 生成查询向量</h3><p>评论使用 embed_documents()，查询使用 embed_query()。两者调用的是同一个模型，但 Qwen3 Embedding 为查询端提供了专门的 query prompt：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">query_encode_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span>
     <span class="token string">"prompt_name"</span><span class="token punctuation">:</span> <span class="token string">"query"</span><span class="token punctuation">,</span>
     <span class="token string">"normalize_embeddings"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">,</span>
@@ -1024,9 +953,20 @@ vector <span class="token operator">=</span> literal_eval<span class="token punc
 <li>两边必须使用兼容的维度、归一化和提示配置。</li>
 </ul>
 <p>不同模型生成的向量通常不在同一个向量空间中，不能直接计算相似度。</p>
-<h2 id="11-完整搜索代码"><a href="#11-完整搜索代码" class="headerlink" title="11. 完整搜索代码"></a>11. 完整搜索代码</h2><p>代码文件为 03_search_review_embeddings.py：</p>
+<h2 id="6-完整搜索代码"><a href="#6-完整搜索代码" class="headerlink" title="6. 完整搜索代码"></a>6. 完整搜索代码</h2><p>代码文件为 03_search_review_embeddings.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 这个文件把用户问题转换成向量，再从评论数据中找出语义最接近的内容。</span>
-<span class="token comment"># 示例使用完整的余弦相似度公式，方便理解语义搜索的计算过程。</span>
+<span class="token comment">#</span>
+<span class="token comment"># 前置步骤：</span>
+<span class="token comment">#   1. 下载评论 CSV</span>
+<span class="token comment">#   2. 为每条评论生成向量并写入 CSV</span>
+<span class="token comment">#</span>
+<span class="token comment"># 流程：</span>
+<span class="token comment">#   用户 query → embed_query 转向量</span>
+<span class="token comment">#            → 与 CSV 里每条评论的 embedding 算余弦相似度</span>
+<span class="token comment">#            → 取 similarity 最高的 top_n 条打印</span>
+<span class="token comment">#</span>
+<span class="token comment"># 与 02 的分工：02 离线算好「文档向量」；本文件在线只算「查询向量」，再逐条比对。</span>
+<span class="token comment"># 本文件使用完整的余弦相似度公式，方便理解语义搜索（向量已归一化时，点积即余弦相似度）。</span>
 
 <span class="token keyword">from</span> ast <span class="token keyword">import</span> literal_eval
 <span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
@@ -1036,22 +976,17 @@ vector <span class="token operator">=</span> literal_eval<span class="token punc
 <span class="token keyword">import</span> torch
 <span class="token keyword">from</span> langchain_huggingface <span class="token keyword">import</span> HuggingFaceEmbeddings
 
-
-PROJECT_ROOT <span class="token operator">=</span> Path<span class="token punctuation">(</span>__file__<span class="token punctuation">)</span><span class="token punctuation">.</span>resolve<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>parents<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span>
-MODEL_PATH <span class="token operator">=</span> PROJECT_ROOT <span class="token operator">/</span> <span class="token string">"embedding_model"</span>
-DATA_FILE <span class="token operator">=</span> <span class="token punctuation">(</span>
-    PROJECT_ROOT
-    <span class="token operator">/</span> <span class="token string">"data"</span>
-    <span class="token operator">/</span> <span class="token string">"p03_review_semantic_search"</span>
-    <span class="token operator">/</span> <span class="token string">"reviews_with_qwen3_embeddings.csv"</span>
-<span class="token punctuation">)</span>
+MODEL_PATH <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"/Users/bianhn/git/llm/qwen3-embedding/model"</span><span class="token punctuation">)</span>
+DATA_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"/Users/bianhn/git/llm"</span><span class="token punctuation">)</span>
+<span class="token comment"># 02 输出的 CSV：每行评论附带一列 embedding（字符串形式的 1024 维向量）。</span>
+DATA_FILE <span class="token operator">=</span> DATA_DIR <span class="token operator">/</span> <span class="token string">"reviews_with_qwen3_embeddings.csv"</span>
 
 <span class="token keyword">if</span> <span class="token keyword">not</span> DATA_FILE<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token keyword">raise</span> FileNotFoundError<span class="token punctuation">(</span><span class="token string">"没有找到评论向量文件，请先运行 02_build_review_embeddings.py。"</span><span class="token punctuation">)</span>
 
 device <span class="token operator">=</span> <span class="token string">"mps"</span> <span class="token keyword">if</span> torch<span class="token punctuation">.</span>backends<span class="token punctuation">.</span>mps<span class="token punctuation">.</span>is_available<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">else</span> <span class="token string">"cpu"</span>
 
-<span class="token comment"># 查询向量使用 Qwen3 Embedding 内置的 query prompt，文档向量不使用该提示。</span>
+<span class="token comment"># embed_query 走 query_encode_kwargs（含 query prompt），与 02 里 embed_documents 的文档侧不同。</span>
 embeddings_model <span class="token operator">=</span> HuggingFaceEmbeddings<span class="token punctuation">(</span>
     model_name<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>MODEL_PATH<span class="token punctuation">)</span><span class="token punctuation">,</span>
     model_kwargs<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"device"</span><span class="token punctuation">:</span> device<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
@@ -1063,42 +998,88 @@ embeddings_model <span class="token operator">=</span> HuggingFaceEmbeddings<spa
 <span class="token punctuation">)</span>
 
 
+<span class="token keyword">def</span> <span class="token function">parse_embedding</span><span class="token punctuation">(</span>cell_value<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> np<span class="token punctuation">.</span>ndarray<span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""把 CSV 里存的向量字符串还原成 numpy 数组。
+
+    02 写入 CSV 时，Pandas 会把 list[float] 转成字符串，例如 "[0.1, 0.2, ...]"。
+    literal_eval 可以安全地把这种字符串解析回 Python 列表（比 eval 更安全）。
+    """</span>
+    number_list <span class="token operator">=</span> literal_eval<span class="token punctuation">(</span>cell_value<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> np<span class="token punctuation">.</span>asarray<span class="token punctuation">(</span>number_list<span class="token punctuation">,</span> dtype<span class="token operator">=</span>np<span class="token punctuation">.</span>float32<span class="token punctuation">)</span>
+
+
 <span class="token keyword">def</span> <span class="token function">cosine_similarity</span><span class="token punctuation">(</span>vector_a<span class="token punctuation">:</span> np<span class="token punctuation">.</span>ndarray<span class="token punctuation">,</span> vector_b<span class="token punctuation">:</span> np<span class="token punctuation">.</span>ndarray<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">float</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""按照点积除以两个向量模长的公式计算余弦相似度。"""</span>
-    denominator <span class="token operator">=</span> np<span class="token punctuation">.</span>linalg<span class="token punctuation">.</span>norm<span class="token punctuation">(</span>vector_a<span class="token punctuation">)</span> <span class="token operator">*</span> np<span class="token punctuation">.</span>linalg<span class="token punctuation">.</span>norm<span class="token punctuation">(</span>vector_b<span class="token punctuation">)</span>
-    <span class="token keyword">if</span> denominator <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""余弦相似度 = 点积 / (|A| × |B|)，取值约 -1 到 1，越大越相似。
+
+    02、03 中向量均已 normalize_embeddings=True，理论上可直接用点积；
+    这里仍写完整公式，便于对照 p01 的学习示例。
+    """</span>
+    length_a <span class="token operator">=</span> np<span class="token punctuation">.</span>linalg<span class="token punctuation">.</span>norm<span class="token punctuation">(</span>vector_a<span class="token punctuation">)</span>
+    length_b <span class="token operator">=</span> np<span class="token punctuation">.</span>linalg<span class="token punctuation">.</span>norm<span class="token punctuation">(</span>vector_b<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> length_a <span class="token operator">==</span> <span class="token number">0</span> <span class="token keyword">or</span> length_b <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">:</span>
         <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"余弦相似度不能用于零向量。"</span><span class="token punctuation">)</span>
-    <span class="token keyword">return</span> <span class="token builtin">float</span><span class="token punctuation">(</span>np<span class="token punctuation">.</span>dot<span class="token punctuation">(</span>vector_a<span class="token punctuation">,</span> vector_b<span class="token punctuation">)</span> <span class="token operator">/</span> denominator<span class="token punctuation">)</span>
+    dot_product <span class="token operator">=</span> np<span class="token punctuation">.</span>dot<span class="token punctuation">(</span>vector_a<span class="token punctuation">,</span> vector_b<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token builtin">float</span><span class="token punctuation">(</span>dot_product <span class="token operator">/</span> <span class="token punctuation">(</span>length_a <span class="token operator">*</span> length_b<span class="token punctuation">)</span><span class="token punctuation">)</span>
 
 
-<span class="token keyword">def</span> <span class="token function">search_reviews</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> top_n<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">3</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""搜索评论并打印相似度最高的前 top_n 条结果。"""</span>
+<span class="token keyword">def</span> <span class="token function">load_reviews_with_vectors</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> pd<span class="token punctuation">.</span>DataFrame<span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""读取带 embedding 列的评论表，并新增 embedding_vector 列（numpy 数组）。
+
+    按 CSV 行顺序逐条解析；第 i 个 embedding 仍对应第 i 行评论（与 02 写入时一致）。
+    """</span>
     reviews_df <span class="token operator">=</span> pd<span class="token punctuation">.</span>read_csv<span class="token punctuation">(</span>DATA_FILE<span class="token punctuation">)</span>
 
-    <span class="token comment"># CSV 中的向量是字符串，literal_eval 可以安全还原成 Python 列表。</span>
-    reviews_df<span class="token punctuation">[</span><span class="token string">"embedding_vector"</span><span class="token punctuation">]</span> <span class="token operator">=</span> reviews_df<span class="token punctuation">[</span><span class="token string">"embedding"</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token builtin">apply</span><span class="token punctuation">(</span>
-        <span class="token keyword">lambda</span> value<span class="token punctuation">:</span> np<span class="token punctuation">.</span>asarray<span class="token punctuation">(</span>literal_eval<span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">,</span> dtype<span class="token operator">=</span>np<span class="token punctuation">.</span>float32<span class="token punctuation">)</span>
-    <span class="token punctuation">)</span>
+    embedding_vectors <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token keyword">for</span> cell_value <span class="token keyword">in</span> reviews_df<span class="token punctuation">[</span><span class="token string">"embedding"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+        embedding_vectors<span class="token punctuation">.</span>append<span class="token punctuation">(</span>parse_embedding<span class="token punctuation">(</span>cell_value<span class="token punctuation">)</span><span class="token punctuation">)</span>
 
+    reviews_df<span class="token punctuation">[</span><span class="token string">"embedding_vector"</span><span class="token punctuation">]</span> <span class="token operator">=</span> embedding_vectors
+    <span class="token keyword">return</span> reviews_df
+
+
+<span class="token keyword">def</span> <span class="token function">shorten_text</span><span class="token punctuation">(</span>text<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> max_length<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">220</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""合并多余空白并截断，避免终端被一整篇评论占满。"""</span>
+    cleaned <span class="token operator">=</span> <span class="token string">" "</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>cleaned<span class="token punctuation">)</span> <span class="token operator">&lt;=</span> max_length<span class="token punctuation">:</span>
+        <span class="token keyword">return</span> cleaned
+    <span class="token keyword">return</span> cleaned<span class="token punctuation">[</span><span class="token punctuation">:</span>max_length<span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token string">"..."</span>
+
+
+<span class="token keyword">def</span> <span class="token function">search_reviews</span><span class="token punctuation">(</span>query<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> reviews_df<span class="token punctuation">:</span> pd<span class="token punctuation">.</span>DataFrame<span class="token punctuation">,</span> top_n<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">3</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""对一条 query 做语义检索，打印相似度最高的前 top_n 条评论。
+
+    参数：
+        query       用户检索问题（中/英文均可）
+        reviews_df  含 embedding_vector 列的评论表
+        top_n       返回几条最相似的结果
+    """</span>
+    <span class="token comment"># embed_query：只把当前这一条问题转成 1024 维向量。</span>
     query_vector <span class="token operator">=</span> np<span class="token punctuation">.</span>asarray<span class="token punctuation">(</span>embeddings_model<span class="token punctuation">.</span>embed_query<span class="token punctuation">(</span>query<span class="token punctuation">)</span><span class="token punctuation">,</span> dtype<span class="token operator">=</span>np<span class="token punctuation">.</span>float32<span class="token punctuation">)</span>
-    reviews_df<span class="token punctuation">[</span><span class="token string">"similarity"</span><span class="token punctuation">]</span> <span class="token operator">=</span> reviews_df<span class="token punctuation">[</span><span class="token string">"embedding_vector"</span><span class="token punctuation">]</span><span class="token punctuation">.</span><span class="token builtin">apply</span><span class="token punctuation">(</span>
-        <span class="token keyword">lambda</span> vector<span class="token punctuation">:</span> cosine_similarity<span class="token punctuation">(</span>vector<span class="token punctuation">,</span> query_vector<span class="token punctuation">)</span>
-    <span class="token punctuation">)</span>
 
-    results <span class="token operator">=</span> reviews_df<span class="token punctuation">.</span>nlargest<span class="token punctuation">(</span>top_n<span class="token punctuation">,</span> <span class="token string">"similarity"</span><span class="token punctuation">)</span>
+    <span class="token comment"># 暴力扫描：每条评论向量都与 query_vector 算一次余弦相似度（数据量大时会改用向量数据库）。</span>
+    similarities <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+    <span class="token keyword">for</span> document_vector <span class="token keyword">in</span> reviews_df<span class="token punctuation">[</span><span class="token string">"embedding_vector"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+        score <span class="token operator">=</span> cosine_similarity<span class="token punctuation">(</span>document_vector<span class="token punctuation">,</span> query_vector<span class="token punctuation">)</span>
+        similarities<span class="token punctuation">.</span>append<span class="token punctuation">(</span>score<span class="token punctuation">)</span>
+
+    <span class="token comment"># copy() 避免在共用 reviews_table 时把 similarity 列写回全局缓存。</span>
+    reviews_with_scores <span class="token operator">=</span> reviews_df<span class="token punctuation">.</span>copy<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    reviews_with_scores<span class="token punctuation">[</span><span class="token string">"similarity"</span><span class="token punctuation">]</span> <span class="token operator">=</span> similarities
+
+    <span class="token comment"># nlargest：按 similarity 列降序取前 top_n 行。</span>
+    top_results <span class="token operator">=</span> reviews_with_scores<span class="token punctuation">.</span>nlargest<span class="token punctuation">(</span>top_n<span class="token punctuation">,</span> <span class="token string">"similarity"</span><span class="token punctuation">)</span>
 
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n查询：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>query<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-    <span class="token keyword">for</span> rank<span class="token punctuation">,</span> <span class="token punctuation">(</span>_<span class="token punctuation">,</span> row<span class="token punctuation">)</span> <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>results<span class="token punctuation">.</span>iterrows<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token comment"># 合并连续空白并截断正文，避免终端被一整篇评论占满。</span>
-        text <span class="token operator">=</span> <span class="token string">" "</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>row<span class="token punctuation">[</span><span class="token string">"Text"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">.</span>split<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-        <span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">220</span><span class="token punctuation">:</span>
-            text <span class="token operator">=</span> text<span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">220</span><span class="token punctuation">]</span> <span class="token operator">+</span> <span class="token string">"..."</span>
-
+    <span class="token keyword">for</span> rank<span class="token punctuation">,</span> <span class="token punctuation">(</span>_<span class="token punctuation">,</span> row<span class="token punctuation">)</span> <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>top_results<span class="token punctuation">.</span>iterrows<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
         <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>rank<span class="token punctuation">&#125;</span></span><span class="token string">. 相似度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>row<span class="token punctuation">[</span><span class="token string">'similarity'</span><span class="token punctuation">]</span><span class="token punctuation">:</span><span class="token format-spec">.4f</span><span class="token punctuation">&#125;</span></span><span class="token string">，评分：</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">int</span><span class="token punctuation">(</span>row<span class="token punctuation">[</span><span class="token string">'Score'</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
         <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"   标题："</span><span class="token punctuation">,</span> row<span class="token punctuation">[</span><span class="token string">"Summary"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"   评论："</span><span class="token punctuation">,</span> text<span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"   评论："</span><span class="token punctuation">,</span> shorten_text<span class="token punctuation">(</span>row<span class="token punctuation">[</span><span class="token string">"Text"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
 
+<span class="token comment"># 评论表只加载一次，下面三条 query 共用，避免重复读 CSV 和解析 embedding。</span>
+reviews_table <span class="token operator">=</span> load_reviews_with_vectors<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token comment"># 三条示例 query：英文、中文、英文，用于观察跨语言语义检索效果。</span>
 queries <span class="token operator">=</span> <span class="token punctuation">[</span>
     <span class="token string">"delicious beans"</span><span class="token punctuation">,</span>
     <span class="token string">"适合孩子吃的健康零食"</span><span class="token punctuation">,</span>
@@ -1106,73 +1087,50 @@ queries <span class="token operator">=</span> <span class="token punctuation">[<
 <span class="token punctuation">]</span>
 
 <span class="token keyword">for</span> query_text <span class="token keyword">in</span> queries<span class="token punctuation">:</span>
-    search_reviews<span class="token punctuation">(</span>query_text<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    search_reviews<span class="token punctuation">(</span>query_text<span class="token punctuation">,</span> reviews_table<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python rag/p03_review_semantic_search/03_search_review_embeddings.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<h2 id="12-三组真实查询结果"><a href="#12-三组真实查询结果" class="headerlink" title="12. 三组真实查询结果"></a>12. 三组真实查询结果</h2><h3 id="12-1-查询-delicious-beans"><a href="#12-1-查询-delicious-beans" class="headerlink" title="12.1 查询 delicious beans"></a>12.1 查询 delicious beans</h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">查询：delicious beans
-1. 相似度：0.5121，评分：5
-   标题： Delicious!
-2. 相似度：0.4874，评分：3
-   标题： This price is ridiculous!
-3. 相似度：0.3984，评分：5
-   标题： yummy<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="6-1-查询-delicious-beans"><a href="#6-1-查询-delicious-beans" class="headerlink" title="6.1 查询 delicious beans"></a>6.1 查询 delicious beans</h3><pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">查询：delicious beans
+<span class="token number">1</span>. 相似度：0.5121，评分：5
+   标题： Delicious<span class="token operator">!</span>
+   评论： I enjoy this white beans seasoning, it gives a rich flavor to the beans I just love it, my mother <span class="token keyword">in</span> law didn<span class="token string">'t know about this Zatarain'</span>s brand and now she is traying different seasoning and she likes it very much.<span class="token operator">&lt;</span>br /<span class="token punctuation">..</span>.
+<span class="token number">2</span>. 相似度：0.4874，评分：3
+   标题： This price is ridiculous<span class="token operator">!</span>
+   评论： There's nothing wrong with variety, except when it comes at too high a price. If you want variety, go <span class="token keyword">in</span> with a friend on a few of the <span class="token number">9</span> bags <span class="token keyword">for</span> <span class="token variable">$26</span>.01 deals that are offered <span class="token keyword">for</span> different flavors of Beanitos. My favori<span class="token punctuation">..</span>.
+<span class="token number">3</span>. 相似度：0.3984，评分：5
+   标题： yummy
+   评论： these are the best super yummy and i never get sick of the flavor. a little bit pricey but not filled with sugar<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>第一条评论正文明确提到了 white beans 和 seasoning，与查询语义一致。第二条虽然标题看不出来，但正文讨论了不同口味的 Beanitos，因此也得到了较高分数。</p>
-<h3 id="12-2-查询适合孩子吃的健康零食"><a href="#12-2-查询适合孩子吃的健康零食" class="headerlink" title="12.2 查询适合孩子吃的健康零食"></a>12.2 查询适合孩子吃的健康零食</h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">查询：适合孩子吃的健康零食
+<h3 id="6-2-查询适合孩子吃的健康零食"><a href="#6-2-查询适合孩子吃的健康零食" class="headerlink" title="6.2 查询适合孩子吃的健康零食"></a>6.2 查询适合孩子吃的健康零食</h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">查询：适合孩子吃的健康零食
 1. 相似度：0.6257，评分：5
    标题： Yum
+   评论： My kids love these Earnest Eats snacks. I like that they are more nutritional and healthier that traditional snack bars in the grocery store. I also admire the use non-oil alternative products such as almond butter and n...
 2. 相似度：0.5089，评分：5
    标题： Woody and Arlo's favorites!
+   评论： My two dogs LOVE these! I cut each strip into bite-sized six pieces. I like the fact that they are quite a healthy treat and low fat.&lt;br />&lt;a href="http://www.amazon.com/gp/product/B002UV2V7C">Healthy Partner Pet Snacks ...
 3. 相似度：0.5026，评分：5
-   标题： Tasty, and the yogurt coating is a nice addition<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+   标题： Tasty, and the yogurt coating is a nice addition
+   评论： While I like yogurt out of a cup, I'm usually not fond of things that are dipped in yogurt. These are the exception - the yogurt coating on the bottom adds a very nice taste to the granola. Sweet, but not candy bar sweet...<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>第一条英文评论写到孩子喜欢这些零食，而且比传统零食棒更健康。查询是中文，评论是英文，仍然排在第一位，说明模型能够进行跨语言语义匹配。</p>
 <p>第二条实际是健康、低脂的宠物零食。它命中了“健康零食”的含义，却不满足“给孩子吃”这个业务条件。这是单纯向量相似度的典型局限。</p>
 <h3 id="12-3-查询-I-like-juicy-barbecued-meat"><a href="#12-3-查询-I-like-juicy-barbecued-meat" class="headerlink" title="12.3 查询 I like juicy barbecued meat."></a>12.3 查询 I like juicy barbecued meat.</h3><pre class="line-numbers language-text" data-language="text"><code class="language-text">查询：I like juicy barbecued meat.
 1. 相似度：0.5491，评分：5
    标题： Makes me drool just thinking of them
+   评论： The Brit's have out done us. The flavor is supreme,they satisfy my hunger for steak and onions...&lt;br />Get them while you can... Their other flavors are great tooo
 2. 相似度：0.5491，评分：5
    标题： Makes me drool just thinking of them
+   评论： The Brit's have out done us. The flavor is supreme,they satisfy my hunger for steak and onions...&lt;br />Get them while you can... Their other flavors are great tooo
 3. 相似度：0.4694，评分：5
-   标题： Tasty and Quick Pasta<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+   标题： Tasty and Quick Pasta
+   评论： Barilla Whole Grain Fusilli with Vegetable Marinara is tasty and has an excellent chunky vegetable marinara. I just wish there was more of it. If you aren't starving or on a diet, the 9oz serving is enough for lunch alth...<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>前两条内容相同，正文提到了 steak and onions，因此与肉类查询接近。重复结果不是计算错误，而是原始 100 条数据中存在重复评论。</p>
-<h2 id="13-为什么有些结果不够理想"><a href="#13-为什么有些结果不够理想" class="headerlink" title="13. 为什么有些结果不够理想"></a>13. 为什么有些结果不够理想</h2><p>语义相似度只是“接近程度”，不是事实判断或业务规则判断。本次结果暴露了几个实际问题。</p>
-<h3 id="13-1-数据量太小"><a href="#13-1-数据量太小" class="headerlink" title="13.1 数据量太小"></a>13.1 数据量太小</h3><p>默认只搜索 100 条评论。如果数据中没有真正匹配的内容，程序仍会返回分数最高的 3 条，但“最高”不代表“一定正确”。</p>
-<h3 id="13-2-原始数据存在重复"><a href="#13-2-原始数据存在重复" class="headerlink" title="13.2 原始数据存在重复"></a>13.2 原始数据存在重复</h3><p>重复评论会占用多个 Top-N 位置。正式使用前应根据评论 ID、正文哈希或业务主键去重。</p>
-<h3 id="13-3-缺少业务过滤条件"><a href="#13-3-缺少业务过滤条件" class="headerlink" title="13.3 缺少业务过滤条件"></a>13.3 缺少业务过滤条件</h3><p>“健康的宠物零食”和“健康的儿童零食”在向量空间中可能接近。真实系统通常还会结合商品类别、评分、时间等结构化字段过滤。</p>
-<h3 id="13-4-没有最低分数阈值"><a href="#13-4-没有最低分数阈值" class="headerlink" title="13.4 没有最低分数阈值"></a>13.4 没有最低分数阈值</h3><p>当前代码无论分数高低都会返回 3 条。实际业务可以设置最低相似度，低于阈值时直接提示没有合适结果。阈值不能凭感觉固定，应使用真实测试数据评估后确定。</p>
-<h2 id="14-CSV-暴力检索适合什么场景"><a href="#14-CSV-暴力检索适合什么场景" class="headerlink" title="14. CSV 暴力检索适合什么场景"></a>14. CSV 暴力检索适合什么场景</h2><p>本例每次查询都会执行这些操作：</p>
-<ol>
-<li>从 CSV 读取全部评论。</li>
-<li>把每个向量字符串还原成数组。</li>
-<li>将查询向量与全部评论逐条计算相似度。</li>
-<li>使用 nlargest() 从全部分数中选出 Top-N。</li>
-</ol>
-<p>100 条或 1000 条数据用于学习完全足够，代码也非常直观。但当数据达到几十万或几百万条时，逐条比较的速度和内存成本都会明显增加。</p>
-<p>因此，CSV 暴力检索适合：</p>
-<ul>
-<li>学习 Embedding 和余弦相似度。</li>
-<li>验证模型是否适合某类数据。</li>
-<li>小规模离线实验。</li>
-<li>排查向量和查询配置问题。</li>
-</ul>
-<p>它不适合大规模生产检索。后续学习向量数据库时，再解决索引、近似最近邻、增量更新和持久化查询等问题。</p>
-<h2 id="15-常见问题"><a href="#15-常见问题" class="headerlink" title="15. 常见问题"></a>15. 常见问题</h2><h3 id="15-1-下载一直超时"><a href="#15-1-下载一直超时" class="headerlink" title="15.1 下载一直超时"></a>15.1 下载一直超时</h3><p>当前脚本先尝试直连，10 秒内失败后使用系统网络配置重试。本机就是通过第二种方式下载成功的。</p>
-<p>如果两种方式都失败，先检查浏览器能否打开数据链接，再检查 VPN、代理和 DNS。不要跳过 SHA-256 校验，否则无法确认文件是否完整。</p>
-<h3 id="15-2-找不到-embedding-model"><a href="#15-2-找不到-embedding-model" class="headerlink" title="15.2 找不到 embedding_model"></a>15.2 找不到 embedding_model</h3><p>说明还没有完成 RAG 系列 2，或者模型符号链接失效。进入 llm_learning 后检查：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">ls</span> <span class="token parameter variable">-l</span> embedding_model<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="15-3-找不到评论数据或向量文件"><a href="#15-3-找不到评论数据或向量文件" class="headerlink" title="15.3 找不到评论数据或向量文件"></a>15.3 找不到评论数据或向量文件</h3><p>三个脚本必须按编号执行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python rag/p03_review_semantic_search/01_download_review_data.py
-python rag/p03_review_semantic_search/02_build_review_embeddings.py
-python rag/p03_review_semantic_search/03_search_review_embeddings.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-
-<h3 id="15-4-literal-eval-解析失败"><a href="#15-4-literal-eval-解析失败" class="headerlink" title="15.4 literal_eval 解析失败"></a>15.4 literal_eval 解析失败</h3><p>先确认读取的是 reviews_with_qwen3_embeddings.csv，并且 embedding 列没有被手工修改。如果写入过程被中断，重新运行第二个脚本生成文件。</p>
-<h3 id="15-5-查询和评论向量维度不同"><a href="#15-5-查询和评论向量维度不同" class="headerlink" title="15.5 查询和评论向量维度不同"></a>15.5 查询和评论向量维度不同</h3><p>最常见原因是两边使用了不同模型，或者更换模型后没有重新生成评论向量。修改模型后必须删除旧向量文件并重新执行第二步。</p>
-<h2 id="16-总结"><a href="#16-总结" class="headerlink" title="16. 总结"></a>16. 总结</h2><p>这次完成了一个最小但完整的语义搜索流程：</p>
+<h2 id="7-总结"><a href="#7-总结" class="headerlink" title="7. 总结"></a>7. 总结</h2><p>这次完成了一个最小但完整的语义搜索流程：</p>
 <ol>
 <li>使用 Pandas 清洗真实评论。</li>
 <li>使用 LangChain 的 embed_documents() 批量生成文档向量。</li>
@@ -1183,62 +1141,6 @@ python rag/p03_review_semantic_search/03_search_review_embeddings.py<span aria-h
 <li>按分数降序返回 Top-N 评论。</li>
 </ol>
 <p>这个案例把 RAG 系列 1 的向量原理和 RAG 系列 2 的本地 Qwen3 Embedding 接口真正组合了起来。同时也能看到，Embedding 解决的是语义表示问题，不会自动解决数据去重、业务过滤和大规模索引问题。</p>
-<table>
-<thead>
-<tr>
-<th>检查项</th>
-<th>本次结果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>原始数据</td>
-<td>1000 条美食评论</td>
-</tr>
-<tr>
-<td>默认参与检索的数据</td>
-<td>100 条</td>
-</tr>
-<tr>
-<td>Embedding 模型</td>
-<td>Qwen&#x2F;Qwen3-Embedding-0.6B</td>
-</tr>
-<tr>
-<td>LangChain 文档接口</td>
-<td>embed_documents()</td>
-</tr>
-<tr>
-<td>LangChain 查询接口</td>
-<td>embed_query()</td>
-</tr>
-<tr>
-<td>运行设备</td>
-<td>Apple MPS</td>
-</tr>
-<tr>
-<td>向量维度</td>
-<td>1024</td>
-</tr>
-<tr>
-<td>首条向量范数</td>
-<td>1.000000</td>
-</tr>
-<tr>
-<td>100 条向量生成耗时</td>
-<td>6.69 秒</td>
-</tr>
-<tr>
-<td>向量 CSV 大小</td>
-<td>2.25 MiB</td>
-</tr>
-<tr>
-<td>检索方式</td>
-<td>NumPy 余弦相似度全量比较</td>
-</tr>
-<tr>
-<td>返回数量</td>
-<td>每次查询 Top 3</td>
-</tr>
-</tbody></table>
 
                 
             </div>
@@ -1946,7 +1848,7 @@ python rag/p03_review_semantic_search/03_search_review_embeddings.py<span aria-h
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

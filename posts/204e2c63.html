@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,7 +722,7 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    2.1k
+                    2.2k
                 </div>
                 
 
@@ -827,21 +827,24 @@
 
 <p>这样可以直接通过文件是否存在判断副作用有没有发生。</p>
 <h2 id="4-检查暂停状态"><a href="#4-检查暂停状态" class="headerlink" title="4. 检查暂停状态"></a><strong>4. 检查暂停状态</strong></h2><p>图结构仍然是标准工具循环：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 1 步：构建标准的“chatbot → tools → chatbot”工具循环。</span>
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"chatbot"</span><span class="token punctuation">,</span> chatbot<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> ToolNode<span class="token punctuation">(</span><span class="token punctuation">[</span>send_email<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"chatbot"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span><span class="token string">"chatbot"</span><span class="token punctuation">,</span> tools_condition<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> <span class="token string">"chatbot"</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：在 tools 节点之前设置静态断点。</span>
 graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span>
     checkpointer<span class="token operator">=</span>InMemorySaver<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
     interrupt_before<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"tools"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>第一次调用提供固定线程：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">config <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p14-inspect"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span>
 
+<span class="token comment"># 第 3 步：首次调用会停在 tools 前面，send_email 尚未执行。</span>
 graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
     <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请发送周末散步计划邮件。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     config<span class="token operator">=</span>config<span class="token punctuation">,</span>
@@ -850,7 +853,7 @@ snapshot <span class="token operator">=</span> graph<span class="token punctuati
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"下一节点："</span><span class="token punctuation">,</span> snapshot<span class="token punctuation">.</span><span class="token builtin">next</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具调用："</span><span class="token punctuation">,</span> snapshot<span class="token punctuation">.</span>values<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"发件箱存在："</span><span class="token punctuation">,</span> OUTBOX<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"发件箱存在："</span><span class="token punctuation">,</span> OUTBOX<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
@@ -865,25 +868,28 @@ python langgraph/p14_static_tool_approval/01_interrupt_before_tools.py<span aria
 <p>snapshot.next 指向 tools，说明下一步准备执行工具。发件箱不存在，证明副作用还没有发生。</p>
 <p><img src="https://images.hnbian.cn/new/n-d0bae5e04d0944013b278e547d19eb62.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="静态断点暂停后的 StateSnapshot"></p>
 <h2 id="5-批准工具执行"><a href="#5-批准工具执行" class="headerlink" title="5. 批准工具执行"></a><strong>5. 批准工具执行</strong></h2><p>静态断点通过传入 None 继续：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">final_state <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> config<span class="token operator">=</span>config<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 使用 None 恢复，表示批准并继续进入 tools 节点。</span>
+final_state <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> config<span class="token operator">=</span>config<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>必须使用与暂停时相同的 thread_id。Checkpointer 根据它查找对应的 State 和下一节点。</p>
 <p>完整批准逻辑：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">OUTBOX<span class="token punctuation">.</span>unlink<span class="token punctuation">(</span>missing_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
 config <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p14-approve"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span>
 
+<span class="token comment"># 第 1 步：启动流程。此时只提出工具请求，不写发件箱。</span>
 graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
     <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请发送周末散步计划邮件。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     config<span class="token operator">=</span>config<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"暂停后发件箱存在："</span><span class="token punctuation">,</span> OUTBOX<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：批准工具调用并继续执行。</span>
 final_state <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> config<span class="token operator">=</span>config<span class="token punctuation">)</span>
 lines <span class="token operator">=</span> OUTBOX<span class="token punctuation">.</span>read_text<span class="token punctuation">(</span>encoding<span class="token operator">=</span><span class="token string">"utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>splitlines<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
 <span class="token keyword">assert</span> <span class="token builtin">len</span><span class="token punctuation">(</span>lines<span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token number">1</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"批准后发件箱记录数："</span><span class="token punctuation">,</span> <span class="token builtin">len</span><span class="token punctuation">(</span>lines<span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>真实输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">暂停后发件箱存在： False
@@ -893,11 +899,13 @@ lines <span class="token operator">=</span> OUTBOX<span class="token punctuation
 <p>记录数断言可以发现工具被重复执行的问题。</p>
 <h2 id="6-拒绝工具执行"><a href="#6-拒绝工具执行" class="headerlink" title="6. 拒绝工具执行"></a><strong>6. 拒绝工具执行</strong></h2><p>静态断点的 graph.invoke(None) 只表示继续，没有内置的“拒绝”参数。如果用户拒绝，需要自己构造一条工具结果，然后从工具节点之后继续。</p>
 <p>首先取得模型生成的 Tool Call：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">snapshot <span class="token operator">=</span> graph<span class="token punctuation">.</span>get_state<span class="token punctuation">(</span>config<span class="token punctuation">)</span>
-tool_call <span class="token operator">=</span> snapshot<span class="token punctuation">.</span>values<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 1 步：读取当前等待审批的 Tool Call。</span>
+snapshot <span class="token operator">=</span> graph<span class="token punctuation">.</span>get_state<span class="token punctuation">(</span>config<span class="token punctuation">)</span>
+tool_call <span class="token operator">=</span> snapshot<span class="token punctuation">.</span>values<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>然后写入匹配 ID 的 ToolMessage：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">graph<span class="token punctuation">.</span>update_state<span class="token punctuation">(</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 2 步：写入一条匹配原调用 ID 的拒绝结果，不执行真实工具。</span>
+graph<span class="token punctuation">.</span>update_state<span class="token punctuation">(</span>
     config<span class="token punctuation">,</span>
     <span class="token punctuation">&#123;</span>
         <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
@@ -909,16 +917,17 @@ tool_call <span class="token operator">=</span> snapshot<span class="token punct
         <span class="token punctuation">]</span>
     <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     as_node<span class="token operator">=</span><span class="token string">"tools"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>as_node&#x3D;”tools” 表示这次更新相当于 tools 节点已经完成。LangGraph 会按照 tools -&gt; chatbot 的边继续，而不会再次进入被暂停的 ToolNode。</p>
 <p>这里的“相当于完成”只用于计算下一条边，并不会暗中执行 send_email。真正写入 State 的工具结果，是应用手动构造的拒绝 ToolMessage。</p>
 <p>最后恢复流程：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">final_state <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> config<span class="token operator">=</span>config<span class="token punctuation">)</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 3 步：从 tools 节点之后继续，让 chatbot 整理拒绝结果。</span>
+final_state <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> config<span class="token operator">=</span>config<span class="token punctuation">)</span>
 
 <span class="token keyword">assert</span> <span class="token keyword">not</span> OUTBOX<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"拒绝后发件箱存在："</span><span class="token punctuation">,</span> OUTBOX<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>真实输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">拒绝后发件箱存在： False
@@ -1428,16 +1437,16 @@ tool_call <span class="token operator">=</span> snapshot<span class="token punct
                         <span class="chip bg-color">langgraph</span>
                     </a>
                     
+                    <a href="/tags/command/">
+                        <span class="chip bg-color">command</span>
+                    </a>
+                    
                     <a href="/tags/human-in-the-loop/">
                         <span class="chip bg-color">human-in-the-loop</span>
                     </a>
                     
                     <a href="/tags/interrupt/">
                         <span class="chip bg-color">interrupt</span>
-                    </a>
-                    
-                    <a href="/tags/command/">
-                        <span class="chip bg-color">command</span>
                     </a>
                     
                 </div>
@@ -1492,12 +1501,12 @@ tool_call <span class="token operator">=</span> snapshot<span class="token punct
                         <span class="chip bg-color">qwen</span>
                     </a>
                     
-                    <a href="/tags/workflow/">
-                        <span class="chip bg-color">workflow</span>
-                    </a>
-                    
                     <a href="/tags/mcp/">
                         <span class="chip bg-color">mcp</span>
+                    </a>
+                    
+                    <a href="/tags/workflow/">
+                        <span class="chip bg-color">workflow</span>
                     </a>
                     
                 </div>
@@ -1680,7 +1689,7 @@ tool_call <span class="token operator">=</span> snapshot<span class="token punct
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

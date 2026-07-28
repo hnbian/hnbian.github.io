@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    4.4k
+                    5.1k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    18 分
+                    22 分
                 </div>
                 
 
@@ -759,7 +759,7 @@
                 <p>上一篇介绍了智能体的 Runtime Context。Context 适合保存用户 ID、用户名和权限等调用开始时已经确定的数据，在一次运行中通常按只读方式使用。</p>
 <p>但是 Agent 运行起来以后，还会不断产生新的内容。例如用户消息、模型生成的工具调用、工具执行结果，以及工具从外部系统得到的数据。这些数据会随着执行过程变化，因此不能全部放在静态 Context 中。</p>
 <p>LangChain 使用 AgentState 管理这类运行时状态。本篇从默认消息状态开始，再为 State 增加自定义字段，并让两个 Tool 通过 State 传递用户名。</p>
-<h2 id="1-为什么-Agent-需要-State"><a href="#1-为什么-Agent-需要-State" class="headerlink" title="1. 为什么 Agent 需要 State"></a><strong>1. 为什么 Agent 需要 State</strong></h2><p>普通模型调用通常只有一次输入和一次输出：</p>
+<h2 id="1-Agent-中的-State"><a href="#1-Agent-中的-State" class="headerlink" title="1. Agent 中的 State"></a>1. Agent 中的 State</h2><p>普通模型调用通常只有一次输入和一次输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">用户问题 -> 模型回答<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>具有工具调用能力的 Agent 会经历多个步骤：</p>
@@ -776,7 +776,7 @@
 <li>保存应用自己定义的可变字段。</li>
 </ol>
 <p>AgentState 是状态的结构，不是数据库。State 中有数据，不代表这些数据已经持久化。</p>
-<h2 id="2-默认-State-如何保存消息"><a href="#2-默认-State-如何保存消息" class="headerlink" title="2. 默认 State 如何保存消息"></a><strong>2. 默认 State 如何保存消息</strong></h2><p>一次完整的工具调用通常会生成四条消息：</p>
+<h2 id="2-默认-State-如何保存消息"><a href="#2-默认-State-如何保存消息" class="headerlink" title="2. 默认 State 如何保存消息"></a>2. 默认 State 如何保存消息</h2><p>一次完整的工具调用通常会生成四条消息：</p>
 <ol>
 <li>用户输入形成 HumanMessage。</li>
 <li>模型生成包含 tool_calls 的 AIMessage。</li>
@@ -786,7 +786,7 @@
 <p>下图中的每个 State 卡片都是 stream_mode&#x3D;”values” 返回的完整快照，不是某个节点单独返回的局部更新。后一个快照保留了前面的消息，并通过 add_messages 合并本步骤产生的新消息。</p>
 <p><img src="https://images.hnbian.cn/new/n-518c9116ad68b34a8ec3ae2b6cf7ef86.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="AgentState 消息与完整状态快照"></p>
 <p>这些消息保存在 AgentState.messages 中。Agent 每执行完一个节点，都会提交一部分状态更新；messages 字段通过 add_messages 合并新消息，不需要业务代码每次重新构造完整消息列表。</p>
-<h3 id="2-1-当前-AgentState-的导入与字段"><a href="#2-1-当前-AgentState-的导入与字段" class="headerlink" title="2.1 当前 AgentState 的导入与字段"></a><strong>2.1 当前 AgentState 的导入与字段</strong></h3><p><code>AgentState</code> 应从 <code>langchain.agents</code> 导入：</p>
+<h3 id="2-1-默认AgentState-的导入与字段"><a href="#2-1-默认AgentState-的导入与字段" class="headerlink" title="2.1 默认AgentState 的导入与字段"></a>2.1 默认AgentState 的导入与字段</h3><p><code>AgentState</code> 应从 <code>langchain.agents</code> 导入：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> AgentState<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>当前定义的主要字段可以简化理解为：</p>
@@ -800,11 +800,7 @@
 <li>jump_to 是框架内部控制执行跳转使用的字段，普通 Agent 代码通常不需要操作。</li>
 <li>structured_response 在 Agent 使用结构化输出时保存解析后的结果。</li>
 </ul>
-<p>早期版本可以看到下面的导入路径：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>prebuilt<span class="token punctuation">.</span>chat_agent_executor <span class="token keyword">import</span> AgentState<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>这个兼容入口已经弃用，而且旧定义中还包含 <code>remaining_steps</code>。因此不能把旧源码中的字段直接当作当前固定字段，应使用新的导入路径并以实际安装包中的定义为准。</p>
-<h2 id="3-观察默认-AgentState-的变化过程"><a href="#3-观察默认-AgentState-的变化过程" class="headerlink" title="3. 观察默认 AgentState 的变化过程"></a><strong>3. 观察默认 AgentState 的变化过程</strong></h2><p>示例代码放在：</p>
+<h3 id="2-2-默认-AgentState-代码"><a href="#2-2-默认-AgentState-代码" class="headerlink" title="2.2 默认 AgentState 代码"></a>2.2 默认 AgentState 代码</h3><p>示例代码放在：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">llm-learning/langgraph/p08_agent_state/<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>本文继续使用 .venv_langgraph，不需要安装新的数据库或向量组件：</p>
@@ -825,20 +821,23 @@ python <span class="token parameter variable">-m</span> pip <span class="token f
 <p>先确认模型接口正常：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<h3 id="3-1-完整代码"><a href="#3-1-完整代码" class="headerlink" title="3.1 完整代码"></a><strong>3.1 完整代码</strong></h3><p>01_inspect_default_agent_state.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""观察默认 AgentState 中的消息如何随 Agent 执行过程逐步增加。"""</span>
+<p>代码: </p>
+<p>01_inspect_default_agent_state.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""观察默认 AgentState 中的 messages 如何随 Agent 执行逐步增加。
+
+默认 state 结构：&#123;"messages": [HumanMessage, AIMessage, ToolMessage, ...]&#125;
+本脚本每执行一步打印一次 messages 列表的长度和最后一条消息。
+"""</span>
 
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
 <span class="token keyword">from</span> langchain<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage<span class="token punctuation">,</span> ToolMessage
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 
 
 <span class="token decorator annotation punctuation">@tool</span>
 <span class="token keyword">def</span> <span class="token function">calculator</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">int</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">int</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""计算两个整数的加法。"""</span>
-
     <span class="token keyword">return</span> a <span class="token operator">+</span> b
 
 
@@ -848,10 +847,9 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
-    <span class="token comment"># 禁止本机请求读取系统代理，避免 VPN 影响 127.0.0.1。</span>
     http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    http_async_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-
 
 agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
     model<span class="token operator">=</span>model<span class="token punctuation">,</span>
@@ -860,37 +858,47 @@ agent <span class="token operator">=</span> create_agent<span class="token punct
 <span class="token punctuation">)</span>
 
 
-<span class="token comment"># values 模式会在每个执行步骤后返回一份完整状态快照。</span>
-states <span class="token operator">=</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-    <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请计算 12 加 8。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-    stream_mode<span class="token operator">=</span><span class="token string">"values"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">describe_latest_message</span><span class="token punctuation">(</span>messages<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""用一句话描述 messages 里最后一条消息在干什么。"""</span>
+    latest <span class="token operator">=</span> messages<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span>
+    kind <span class="token operator">=</span> <span class="token builtin">type</span><span class="token punctuation">(</span>latest<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__
 
-<span class="token keyword">for</span> step<span class="token punctuation">,</span> state <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>states<span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token comment"># 模型决定调工具：AIMessage 里带 tool_calls</span>
+    <span class="token keyword">if</span> kind <span class="token operator">==</span> <span class="token string">"AIMessage"</span> <span class="token keyword">and</span> latest<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+        call <span class="token operator">=</span> latest<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"模型要调用 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>call<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">，参数 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>call<span class="token punctuation">[</span><span class="token string">'args'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+    <span class="token comment"># 工具执行完毕：ToolMessage</span>
+    <span class="token keyword">if</span> kind <span class="token operator">==</span> <span class="token string">"ToolMessage"</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"工具返回 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>latest<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+    <span class="token comment"># 模型给出文字回答</span>
+    <span class="token keyword">if</span> kind <span class="token operator">==</span> <span class="token string">"AIMessage"</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"模型回答 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>latest<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>kind<span class="token punctuation">&#125;</span></span><span class="token string">：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>latest<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+<span class="token comment"># agent.stream() 返回的是迭代器（不是 list），每迭代一次 Agent 前进一步。</span>
+<span class="token comment"># stream_mode="values" 时，每次迭代得到的是一个 dict，即当时的完整 state 快照：</span>
+<span class="token comment">#   &#123;"messages": [HumanMessage, AIMessage, ...]&#125;</span>
+input_state <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请计算 12 加 8。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span>
+state_snapshots <span class="token operator">=</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>input_state<span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"values"</span><span class="token punctuation">)</span>
+
+step <span class="token operator">=</span> <span class="token number">1</span>
+<span class="token keyword">for</span> state <span class="token keyword">in</span> state_snapshots<span class="token punctuation">:</span>
     messages <span class="token operator">=</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span>
-    latest_message <span class="token operator">=</span> messages<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span>
-
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"步骤 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>step<span class="token punctuation">&#125;</span></span><span class="token string">：消息数量=</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">len</span><span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">，最新类型=</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">type</span><span class="token punctuation">(</span>latest_message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-
-    <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>latest_message<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span> <span class="token keyword">and</span> latest_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-        tool_call <span class="token operator">=</span> latest_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  工具调用：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">，参数=</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">[</span><span class="token string">'args'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-    <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>latest_message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  工具结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>latest_message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-    <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>latest_message<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>latest_message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"步骤 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>step<span class="token punctuation">&#125;</span></span><span class="token string"> | 共 </span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">len</span><span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string"> 条消息 | </span><span class="token interpolation"><span class="token punctuation">&#123;</span>describe_latest_message<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    step <span class="token operator">+=</span> <span class="token number">1</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p08_agent_state/01_inspect_default_agent_state.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>真实输出如下：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">步骤 1：消息数量=1，最新类型=HumanMessage
-步骤 2：消息数量=2，最新类型=AIMessage
-  工具调用：calculator，参数=&#123;'a': 12, 'b': 8&#125;
-步骤 3：消息数量=3，最新类型=ToolMessage
-  工具结果：20
-步骤 4：消息数量=4，最新类型=AIMessage
-  最终回答：12 加 8 的结果是 20。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">步骤 1 | 共 1 条消息 | HumanMessage：请计算 12 加 8。
+步骤 2 | 共 2 条消息 | 模型要调用 calculator，参数 &#123;'a': 12, 'b': 8&#125;
+步骤 3 | 共 3 条消息 | 工具返回 20
+步骤 4 | 共 4 条消息 | 模型回答 12 加 8 的结果是 20。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>stream_mode&#x3D;”values” 返回每个步骤执行后的完整 State，所以可以直接看到 messages 从 1 条增加到 4 条。这不是四次独立调用，而是同一次 Agent 运行的四个状态快照。</p>
 <h2 id="4-自定义-AgentState"><a href="#4-自定义-AgentState" class="headerlink" title="4. 自定义 AgentState"></a><strong>4. 自定义 AgentState</strong></h2><p>默认 State 已经能够保存消息。如果还要保存用户名、订单号、当前任务阶段或工具生成的中间数据，就需要扩展 AgentState。</p>
@@ -908,7 +916,7 @@ states <span class="token operator">=</span> agent<span class="token punctuation
 <span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>如果只定义 CustomState，却没有传给 state_schema，Agent 不会按这份自定义 Schema 管理字段。</p>
-<h2 id="5-Context-与-State-如何配合"><a href="#5-Context-与-State-如何配合" class="headerlink" title="5. Context 与 State 如何配合"></a><strong>5. Context 与 State 如何配合</strong></h2><p>上一篇已经区分了静态 Context 与可变 State。本例把两者连接起来：</p>
+<h3 id="4-1-Context-与-State-如何配合"><a href="#4-1-Context-与-State-如何配合" class="headerlink" title="4.1 . Context 与 State 如何配合"></a><strong>4.1 . Context 与 State 如何配合</strong></h3><p>上一篇已经区分了静态 Context 与可变 State。本例把两者连接起来：</p>
 <ol>
 <li>调用方通过 Context 传入用户名。</li>
 <li>load_user_name 从 runtime.context 读取用户名。</li>
@@ -919,7 +927,7 @@ states <span class="token operator">=</span> agent<span class="token punctuation
 <p>图中保留了两次 Tool 调用前后的模型决策。Command(update&#x3D;…) 只把字段和 ToolMessage 提交给 State，并不会直接执行 greet_user；Qwen3 读取第一条工具结果后，才决定发起第二次工具调用。</p>
 <p><img src="https://images.hnbian.cn/new/n-d49cc0bf80f15cd34830d81a4d880242.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Runtime Context、Command 与自定义 AgentState 更新流程"></p>
 <p>这里特意不让第二个 Tool 再次读取 Context。这样可以明确验证：第一个 Tool 写入的 State，确实能够被后续执行步骤读取。</p>
-<h2 id="6-使用-Command-更新-State"><a href="#6-使用-Command-更新-State" class="headerlink" title="6. 使用 Command 更新 State"></a><strong>6. 使用 Command 更新 State</strong></h2><p>普通 Tool 返回字符串或字典时，返回值会转换成工具结果交给模型，但不会自动写入任意自定义 State 字段。</p>
+<h3 id="4-2-使用-Command-更新-State"><a href="#4-2-使用-Command-更新-State" class="headerlink" title="4.2 . 使用 Command 更新 State"></a>4.2 . 使用 Command 更新 State</h3><p>普通 Tool 返回字符串或字典时，返回值会转换成工具结果交给模型，但不会自动写入任意自定义 State 字段。</p>
 <p>需要修改 State 时，Tool 应返回 Command：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> Command<span class="token punctuation">(</span>
     update<span class="token operator">=</span><span class="token punctuation">&#123;</span>
@@ -938,10 +946,10 @@ states <span class="token operator">=</span> agent<span class="token punctuation
 <li>user_name 保存应用需要的自定义状态。</li>
 <li>messages 保存模型需要看到的工具执行结果。</li>
 </ul>
-<h3 id="6-1-为什么还要返回-ToolMessage"><a href="#6-1-为什么还要返回-ToolMessage" class="headerlink" title="6.1 为什么还要返回 ToolMessage"></a><strong>6.1 为什么还要返回 ToolMessage</strong></h3><p>模型生成工具调用时，会产生一个工具调用 ID。工具执行后的 ToolMessage 必须使用相同 ID，模型才能知道这条结果对应哪一次调用。</p>
+<h3 id="4-3-返回-ToolMessage"><a href="#4-3-返回-ToolMessage" class="headerlink" title="4.3 返回 ToolMessage"></a>4.3 返回 ToolMessage</h3><p>模型生成工具调用时，会产生一个工具调用 ID。工具执行后的 ToolMessage 必须使用相同 ID，模型才能知道这条结果对应哪一次调用。</p>
 <p>当前 API 可以直接通过 <code>runtime.tool_call_id</code> 取得该值，不需要再单独声明 <code>InjectedToolCallId</code> 参数。</p>
 <p>如果 Tool 返回 Command 却不补充对应的 ToolMessage，消息历史可能出现只有工具请求、没有工具结果的无效结构，后续模型调用可能失败。</p>
-<h2 id="7-Tool-如何读取-State"><a href="#7-Tool-如何读取-State" class="headerlink" title="7. Tool 如何读取 State"></a><strong>7. Tool 如何读取 State</strong></h2><p>当前代码使用 ToolRuntime：</p>
+<h3 id="4-4-Tool-如何读取-State"><a href="#4-4-Tool-如何读取-State" class="headerlink" title="4.4. Tool 如何读取 State"></a>4.4. Tool 如何读取 State</h3><p>当前代码使用 ToolRuntime：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token decorator annotation punctuation">@tool</span>
 <span class="token keyword">def</span> <span class="token function">greet_user</span><span class="token punctuation">(</span>runtime<span class="token punctuation">:</span> ToolRuntime<span class="token punctuation">[</span>UserContext<span class="token punctuation">,</span> CustomState<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     user_name <span class="token operator">=</span> runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"user_name"</span><span class="token punctuation">)</span>
@@ -958,7 +966,7 @@ states <span class="token operator">=</span> agent<span class="token punctuation
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"祝你使用顺利，</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">'user_name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">！"</span></span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这种写法仍然可以用于只注入 State 的场景。本文使用 ToolRuntime，因为同一个 Tool 还需要访问 Context 和工具调用 ID，入口更加统一。</p>
-<h2 id="8-完整的自定义-State-示例"><a href="#8-完整的自定义-State-示例" class="headerlink" title="8. 完整的自定义 State 示例"></a><strong>8. 完整的自定义 State 示例</strong></h2><p>02_custom_state_and_command.py：</p>
+<h3 id="4-5-完整代码"><a href="#4-5-完整代码" class="headerlink" title="4.5. 完整代码"></a>4.5. 完整代码</h3><p>02_custom_state_and_command.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用自定义 AgentState、ToolRuntime 和 Command 在工具之间传递用户名。"""</span>
 
 <span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> NotRequired<span class="token punctuation">,</span> TypedDict
@@ -993,7 +1001,9 @@ states <span class="token operator">=</span> agent<span class="token punctuation
 
     user_name <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context<span class="token punctuation">[</span><span class="token string">"user_name"</span><span class="token punctuation">]</span>
 
-    <span class="token comment"># Tool 返回 Command 时，同时更新自定义字段和对应的工具结果消息。</span>
+    <span class="token comment"># Command.update 同时更新两部分 State：</span>
+    <span class="token comment"># 1. user_name 是本例新增的自定义字段；</span>
+    <span class="token comment"># 2. messages 保存与本次 Tool Call 对应的工具结果。</span>
     <span class="token keyword">return</span> Command<span class="token punctuation">(</span>
         update<span class="token operator">=</span><span class="token punctuation">&#123;</span>
             <span class="token string">"user_name"</span><span class="token punctuation">:</span> user_name<span class="token punctuation">,</span>
@@ -1019,6 +1029,7 @@ states <span class="token operator">=</span> agent<span class="token punctuation
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"祝你使用顺利，</span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_name<span class="token punctuation">&#125;</span></span><span class="token string">！"</span></span>
 
 
+<span class="token comment"># 第 1 步：创建模型，再声明 Agent 可以使用的 Context 和 State 结构。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1034,26 +1045,32 @@ agent <span class="token operator">=</span> create_agent<span class="token punct
     tools<span class="token operator">=</span><span class="token punctuation">[</span>load_user_name<span class="token punctuation">,</span> greet_user<span class="token punctuation">]</span><span class="token punctuation">,</span>
     system_prompt<span class="token operator">=</span><span class="token punctuation">(</span>
         <span class="token string">"你是一个祝福助手。"</span>
-        <span class="token string">"必须先调用 load_user_name 把用户名写入状态，"</span>
-        <span class="token string">"再调用 greet_user 生成祝福，最后整理工具结果。"</span>
     <span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token comment"># context_schema：声明 invoke(..., context=&#123;...&#125;) 可以传入哪些字段。</span>
+    <span class="token comment"># Context 是「本次调用的固定输入」，整次运行不变；由 ToolRuntime.context 读取。</span>
     context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
+    <span class="token comment"># state_schema：声明 Agent 运行过程中可读写哪些 state 字段（在默认 messages 之外扩展）。</span>
+    <span class="token comment"># State 会随工具执行变化；load_user_name 通过 Command.update 写入 user_name，</span>
+    <span class="token comment"># greet_user 再从 ToolRuntime.state 读取。</span>
     state_schema<span class="token operator">=</span>CustomState<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-
 
 <span class="token keyword">def</span> <span class="token function">run_for_user</span><span class="token punctuation">(</span>user_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""使用指定用户名独立运行一次 Agent。"""</span>
 
+    <span class="token comment"># 第 2 步：Context 是本次调用的固定输入，State 会在工具执行时变化。</span>
     result <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
         <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请给当前用户一句祝福语。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
         context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> user_name<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     <span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 3 步：遍历消息，查看两个工具的实际调用顺序。</span>
     tool_names <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
     <span class="token keyword">for</span> message <span class="token keyword">in</span> result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
         <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-            tool_names<span class="token punctuation">.</span>extend<span class="token punctuation">(</span>call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span> <span class="token keyword">for</span> call <span class="token keyword">in</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">)</span>
+            <span class="token comment"># 一条 AIMessage 可能包含多个 Tool Call，所以再遍历一次。</span>
+            <span class="token keyword">for</span> call <span class="token keyword">in</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+                tool_names<span class="token punctuation">.</span>append<span class="token punctuation">(</span>call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
         <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
             <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
@@ -1061,7 +1078,6 @@ agent <span class="token operator">=</span> create_agent<span class="token punct
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具调用顺序：</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token string">' -> '</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>tool_names<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终 State 用户名：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'user_name'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span><span class="token punctuation">)</span>
-
 
 <span class="token comment"># runtime 由框架注入，因此两个工具都没有模型可见参数。</span>
 <span class="token keyword">for</span> current_tool <span class="token keyword">in</span> <span class="token punctuation">[</span>load_user_name<span class="token punctuation">,</span> greet_user<span class="token punctuation">]</span><span class="token punctuation">:</span>
@@ -1071,8 +1087,8 @@ agent <span class="token operator">=</span> create_agent<span class="token punct
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 run_for_user<span class="token punctuation">(</span><span class="token string">"小明"</span><span class="token punctuation">)</span>
-run_for_user<span class="token punctuation">(</span><span class="token string">"小红"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
+run_for_user<span class="token punctuation">(</span><span class="token string">"小红"</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p08_agent_state/02_custom_state_and_command.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
@@ -1101,7 +1117,7 @@ greet_user 的模型可见参数：&#123;&#125;
 <li>小明和小红的两次 invoke() 没有互相覆盖。</li>
 </ol>
 <p>工具调用 ID 是动态值，示例没有打印它，但 runtime.tool_call_id 已经用于创建匹配的 ToolMessage。</p>
-<h2 id="9-messages-为什么不会被直接覆盖"><a href="#9-messages-为什么不会被直接覆盖" class="headerlink" title="9. messages 为什么不会被直接覆盖"></a><strong>9. messages 为什么不会被直接覆盖</strong></h2><p>普通状态字段如果没有 Reducer，新值通常会覆盖旧值。但 AgentState.messages 已经使用 add_messages 作为内置 Reducer。</p>
+<h2 id="5-状态的追加-修改与删除"><a href="#5-状态的追加-修改与删除" class="headerlink" title="5. 状态的追加,修改与删除"></a>5. 状态的追加,修改与删除</h2><p>普通状态字段如果没有 Reducer，新值通常会覆盖旧值。但 AgentState.messages 已经使用 add_messages 作为内置 Reducer。</p>
 <p>它至少解决三个问题：</p>
 <ol>
 <li>新消息拥有新 ID 时追加到列表。</li>
@@ -1109,62 +1125,262 @@ greet_user 的模型可见参数：&#123;&#125;
 <li>收到 RemoveMessage 时删除对应 ID 的消息。</li>
 </ol>
 <p>这里只介绍默认 messages 字段必须理解的行为。自定义 Reducer、并行节点冲突和工作流状态合并留到后续 Workflow 文章。</p>
-<h3 id="9-1-完整代码"><a href="#9-1-完整代码" class="headerlink" title="9.1 完整代码"></a><strong>9.1 完整代码</strong></h3><p>03_message_update_and_remove.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""演示 AgentState.messages 使用的 add_messages 如何追加、替换和删除消息。"""</span>
+<p>完整代码: </p>
+<p>03_message_update_and_remove.py：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""结合 LLM 与自定义 State，演示 messages / state 的追加、修改、删除。
 
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage<span class="token punctuation">,</span> HumanMessage<span class="token punctuation">,</span> RemoveMessage
+流程：
+  1. 与 02 相同：invoke Agent，LLM + 工具自然追加 messages 和 user_name
+  2. 在真实对话结果上，用 add_messages 手动「追加 / 同 ID 替换 / RemoveMessage 删除」
+  3. 用修剪后的 messages 再次 invoke，观察 LLM 只能看到保留下来的历史
+
+messages 的 reducer 规则（add_messages）：
+  - 新 ID  → 追加到列表末尾
+  - 相同 ID → 替换原消息（修改）
+  - RemoveMessage(id=...) → 删除该条消息
+"""</span>
+
+<span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> NotRequired<span class="token punctuation">,</span> TypedDict
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> AgentState<span class="token punctuation">,</span> create_agent
+<span class="token keyword">from</span> langchain<span class="token punctuation">.</span>tools <span class="token keyword">import</span> ToolRuntime<span class="token punctuation">,</span> tool
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> <span class="token punctuation">(</span>
+    AIMessage<span class="token punctuation">,</span>
+    HumanMessage<span class="token punctuation">,</span>
+    RemoveMessage<span class="token punctuation">,</span>
+    ToolMessage<span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph<span class="token punctuation">.</span>message <span class="token keyword">import</span> add_messages
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>types <span class="token keyword">import</span> Command
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 
 
-<span class="token keyword">def</span> <span class="token function">print_messages</span><span class="token punctuation">(</span>title<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> messages<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""打印当前消息 ID、类型和内容。"""</span>
+<span class="token keyword">class</span> <span class="token class-name">UserContext</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    user_name<span class="token punctuation">:</span> <span class="token builtin">str</span>
 
+
+<span class="token keyword">class</span> <span class="token class-name">CustomState</span><span class="token punctuation">(</span>AgentState<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    user_name<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
+    <span class="token comment"># 记录对消息历史做过的操作，演示自定义字段也可随 Command 更新。</span>
+    edit_log<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+
+
+<span class="token keyword">def</span> <span class="token function">_message_preview</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    content <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content <span class="token keyword">or</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> content<span class="token punctuation">:</span>
+        <span class="token keyword">return</span> content<span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">50</span><span class="token punctuation">]</span><span class="token punctuation">.</span>replace<span class="token punctuation">(</span><span class="token string">"\n"</span><span class="token punctuation">,</span> <span class="token string">" "</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+        names <span class="token operator">=</span> <span class="token string">", "</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>tc<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span> <span class="token keyword">for</span> tc <span class="token keyword">in</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"[tool_calls: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>names<span class="token punctuation">&#125;</span></span><span class="token string">]"</span></span>
+    <span class="token keyword">return</span> <span class="token string">""</span>
+
+
+<span class="token keyword">def</span> <span class="token function">print_state</span><span class="token punctuation">(</span>title<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> state<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""打印 state 中的自定义字段和 messages 摘要。"""</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token string">'='</span> <span class="token operator">*</span> <span class="token number">60</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span>title<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"user_name: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'user_name'</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"edit_log:  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'edit_log'</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    messages <span class="token operator">=</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"messages:"</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> messages<span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"  (empty)"</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span>
+    id_width <span class="token operator">=</span> <span class="token builtin">max</span><span class="token punctuation">(</span><span class="token builtin">len</span><span class="token punctuation">(</span><span class="token builtin">str</span><span class="token punctuation">(</span>m<span class="token punctuation">.</span><span class="token builtin">id</span> <span class="token keyword">or</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">for</span> m <span class="token keyword">in</span> messages<span class="token punctuation">)</span>
+    type_width <span class="token operator">=</span> <span class="token builtin">max</span><span class="token punctuation">(</span><span class="token builtin">len</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>m<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span> <span class="token keyword">for</span> m <span class="token keyword">in</span> messages<span class="token punctuation">)</span>
     <span class="token keyword">for</span> message <span class="token keyword">in</span> messages<span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">&#125;</span></span><span class="token string"> | </span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">type</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">&#125;</span></span><span class="token string"> | </span><span class="token interpolation"><span class="token punctuation">&#123;</span>message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+        msg_id <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span><span class="token builtin">id</span> <span class="token keyword">or</span> <span class="token string">""</span><span class="token punctuation">)</span>
+        msg_type <span class="token operator">=</span> <span class="token builtin">type</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__
+        preview <span class="token operator">=</span> _message_preview<span class="token punctuation">(</span>message<span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  </span><span class="token interpolation"><span class="token punctuation">&#123;</span>msg_id<span class="token punctuation">:</span><span class="token operator">&lt;</span><span class="token punctuation">&#123;</span>id_width<span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span></span><span class="token string"> | </span><span class="token interpolation"><span class="token punctuation">&#123;</span>msg_type<span class="token punctuation">:</span><span class="token operator">&lt;</span><span class="token punctuation">&#123;</span>type_width<span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span></span><span class="token string"> | </span><span class="token interpolation"><span class="token punctuation">&#123;</span>preview<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
 
-<span class="token comment"># 新 ID 会把消息追加到列表末尾。</span>
-messages <span class="token operator">=</span> add_messages<span class="token punctuation">(</span>
-    <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-    <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"推荐一种适合周末的活动。"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"user-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+<span class="token decorator annotation punctuation">@tool</span>
+<span class="token keyword">def</span> <span class="token function">load_user_name</span><span class="token punctuation">(</span>runtime<span class="token punctuation">:</span> ToolRuntime<span class="token punctuation">[</span>UserContext<span class="token punctuation">,</span> CustomState<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Command<span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""从 context 读取用户名，写入 AgentState。"""</span>
+    user_name <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context<span class="token punctuation">[</span><span class="token string">"user_name"</span><span class="token punctuation">]</span>
+    <span class="token keyword">return</span> Command<span class="token punctuation">(</span>
+        update<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+            <span class="token string">"user_name"</span><span class="token punctuation">:</span> user_name<span class="token punctuation">,</span>
+            <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
+                ToolMessage<span class="token punctuation">(</span>
+                    content<span class="token operator">=</span><span class="token string-interpolation"><span class="token string">f"已加载用户 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_name<span class="token punctuation">&#125;</span></span><span class="token string">。[后面测试删除]"</span></span><span class="token punctuation">,</span>
+                    tool_call_id<span class="token operator">=</span>runtime<span class="token punctuation">.</span>tool_call_id<span class="token punctuation">,</span>
+                <span class="token punctuation">)</span>
+            <span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token punctuation">&#125;</span>
+    <span class="token punctuation">)</span>
+
+
+<span class="token decorator annotation punctuation">@tool</span>
+<span class="token keyword">def</span> <span class="token function">greet_user</span><span class="token punctuation">(</span>runtime<span class="token punctuation">:</span> ToolRuntime<span class="token punctuation">[</span>UserContext<span class="token punctuation">,</span> CustomState<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""根据 state 中的用户名生成祝福语。"""</span>
+    user_name <span class="token operator">=</span> runtime<span class="token punctuation">.</span>state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"user_name"</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> user_name<span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token string">"请先调用 load_user_name。"</span>
+    <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"祝你使用顺利，</span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_name<span class="token punctuation">&#125;</span></span><span class="token string">！"</span></span>
+
+
+model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    http_async_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
+
+agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>model<span class="token punctuation">,</span>
+    tools<span class="token operator">=</span><span class="token punctuation">[</span>load_user_name<span class="token punctuation">,</span> greet_user<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    system_prompt<span class="token operator">=</span><span class="token string">"你是祝福助手。"</span><span class="token punctuation">,</span>
+    context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
+    state_schema<span class="token operator">=</span>CustomState<span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+
+
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 第 1 步：正常 LLM 交互 —— Agent 自动追加 messages（与 02 相同）</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+state <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+    <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请给当前用户送上一句祝福语。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+print_state<span class="token punctuation">(</span><span class="token string">"1. 首次 invoke 后（LLM + 工具自动追加 messages）"</span><span class="token punctuation">,</span> state<span class="token punctuation">)</span>
+
+<span class="token comment"># 找到第一条 ToolMessage 和最后一条 AIMessage，供后续修改 / 删除演示。</span>
+tool_message <span class="token operator">=</span> <span class="token builtin">next</span><span class="token punctuation">(</span>m <span class="token keyword">for</span> m <span class="token keyword">in</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span> <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>m<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">)</span>
+final_ai_message <span class="token operator">=</span> <span class="token builtin">next</span><span class="token punctuation">(</span>
+    m <span class="token keyword">for</span> m <span class="token keyword">in</span> <span class="token builtin">reversed</span><span class="token punctuation">(</span>state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>m<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span>
+<span class="token punctuation">)</span>
+
+messages <span class="token operator">=</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span>
+edit_log <span class="token operator">=</span> <span class="token builtin">list</span><span class="token punctuation">(</span>state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"edit_log"</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 第 2 步：追加 —— 新 ID 的消息会 append 到末尾</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
 messages <span class="token operator">=</span> add_messages<span class="token punctuation">(</span>
     messages<span class="token punctuation">,</span>
-    <span class="token punctuation">[</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"可以去公园散步。"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"ai-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"[系统备注] 已记录本次祝福。"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"note-append"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-print_messages<span class="token punctuation">(</span><span class="token string">"1. 追加两条消息"</span><span class="token punctuation">,</span> messages<span class="token punctuation">)</span>
+edit_log<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string">"追加 note-append"</span><span class="token punctuation">)</span>
+print_state<span class="token punctuation">(</span><span class="token string">"2. 追加一条 HumanMessage（新 ID）"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token operator">**</span>state<span class="token punctuation">,</span> <span class="token string">"messages"</span><span class="token punctuation">:</span> messages<span class="token punctuation">,</span> <span class="token string">"edit_log"</span><span class="token punctuation">:</span> edit_log<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 
-
-<span class="token comment"># 相同 ID 不会重复追加，而是替换原来的消息。</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 第 3 步：修改 —— 相同 ID 会替换原消息，而不是再追加一条</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
 messages <span class="token operator">=</span> add_messages<span class="token punctuation">(</span>
     messages<span class="token punctuation">,</span>
-    <span class="token punctuation">[</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"可以去公园散步，也可以参观博物馆。"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"ai-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">[</span>
+        AIMessage<span class="token punctuation">(</span>
+            content<span class="token operator">=</span>final_ai_message<span class="token punctuation">.</span>content <span class="token operator">+</span> <span class="token string">"（测试更新）"</span><span class="token punctuation">,</span>
+            <span class="token builtin">id</span><span class="token operator">=</span>final_ai_message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">,</span>
+        <span class="token punctuation">)</span>
+    <span class="token punctuation">]</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-print_messages<span class="token punctuation">(</span><span class="token string">"\n2. 使用相同 ID 更新 AI 消息"</span><span class="token punctuation">,</span> messages<span class="token punctuation">)</span>
+edit_log<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"修改 AIMessage id=</span><span class="token interpolation"><span class="token punctuation">&#123;</span>final_ai_message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+print_state<span class="token punctuation">(</span><span class="token string">"3. 用相同 ID 替换最终 AIMessage"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token operator">**</span>state<span class="token punctuation">,</span> <span class="token string">"messages"</span><span class="token punctuation">:</span> messages<span class="token punctuation">,</span> <span class="token string">"edit_log"</span><span class="token punctuation">:</span> edit_log<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 第 4 步：删除 —— RemoveMessage 按 ID 移除（不能 del messages[i]）</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+messages <span class="token operator">=</span> add_messages<span class="token punctuation">(</span>messages<span class="token punctuation">,</span> <span class="token punctuation">[</span>RemoveMessage<span class="token punctuation">(</span><span class="token builtin">id</span><span class="token operator">=</span>tool_message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+edit_log<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"删除 ToolMessage id=</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_message<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+print_state<span class="token punctuation">(</span><span class="token string">"4. 删除中间 ToolMessage"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token operator">**</span>state<span class="token punctuation">,</span> <span class="token string">"messages"</span><span class="token punctuation">:</span> messages<span class="token punctuation">,</span> <span class="token string">"edit_log"</span><span class="token punctuation">:</span> edit_log<span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 
-<span class="token comment"># 删除消息需要提交 RemoveMessage，而不是使用不存在的 Command(delete=...)。</span>
-messages <span class="token operator">=</span> add_messages<span class="token punctuation">(</span>messages<span class="token punctuation">,</span> <span class="token punctuation">[</span>RemoveMessage<span class="token punctuation">(</span><span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"user-1"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-print_messages<span class="token punctuation">(</span><span class="token string">"\n3. 删除指定的用户消息"</span><span class="token punctuation">,</span> messages<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 第 5 步：用修剪后的 state 再次 invoke，LLM 只能看到剩余 messages</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+state_after_edit <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+    <span class="token string">"messages"</span><span class="token punctuation">:</span> messages<span class="token punctuation">,</span>
+    <span class="token string">"user_name"</span><span class="token punctuation">:</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"user_name"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token string">"edit_log"</span><span class="token punctuation">:</span> edit_log<span class="token punctuation">,</span>
+<span class="token punctuation">&#125;</span>
+
+follow_up <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+    <span class="token punctuation">&#123;</span>
+        <span class="token operator">**</span>state_after_edit<span class="token punctuation">,</span>
+        <span class="token string">"messages"</span><span class="token punctuation">:</span> add_messages<span class="token punctuation">(</span>
+            messages<span class="token punctuation">,</span>
+            <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"刚才祝福的是哪个用户？"</span><span class="token punctuation">,</span> <span class="token builtin">id</span><span class="token operator">=</span><span class="token string">"user-followup"</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+        <span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+print_state<span class="token punctuation">(</span><span class="token string">"5. 携带修剪后的历史再次 invoke"</span><span class="token punctuation">,</span> follow_up<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>follow_up<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p08_agent_state/03_message_update_and_remove.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>真实输出如下：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">1. 追加两条消息
-  user-1 | HumanMessage | 推荐一种适合周末的活动。
-  ai-1 | AIMessage | 可以去公园散步。
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+<span class="token number">1</span>. 首次 invoke 后（LLM + 工具自动追加 messages）
+user_name: 小明
+edit_log:  <span class="token punctuation">[</span><span class="token punctuation">]</span>
+messages:
+  3fe5b0cd-bc1c-473a-bfd7-364f1b580194           <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 请给当前用户送上一句祝福语。
+  lc_run--019f9f22-ed2f-7f82-8033-7bc6c3234046-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> <span class="token punctuation">[</span>tool_calls: load_user_name, greet_user<span class="token punctuation">]</span>
+  abad69f4-27b1-4133-9205-1b05f4644a19           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 已加载用户 小明。<span class="token punctuation">[</span>后面测试删除<span class="token punctuation">]</span>
+  c57959ab-1feb-4f64-866f-36981281a5d9           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 请先调用 load_user_name。
+  lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 已加载用户 小明。祝你每天都有好心情！
 
-2. 使用相同 ID 更新 AI 消息
-  user-1 | HumanMessage | 推荐一种适合周末的活动。
-  ai-1 | AIMessage | 可以去公园散步，也可以参观博物馆。
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+<span class="token number">2</span>. 追加一条 HumanMessage（新 ID）
+user_name: 小明
+edit_log:  <span class="token punctuation">[</span><span class="token string">'追加 note-append'</span><span class="token punctuation">]</span>
+messages:
+  3fe5b0cd-bc1c-473a-bfd7-364f1b580194           <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 请给当前用户送上一句祝福语。
+  lc_run--019f9f22-ed2f-7f82-8033-7bc6c3234046-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> <span class="token punctuation">[</span>tool_calls: load_user_name, greet_user<span class="token punctuation">]</span>
+  abad69f4-27b1-4133-9205-1b05f4644a19           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 已加载用户 小明。<span class="token punctuation">[</span>后面测试删除<span class="token punctuation">]</span>
+  c57959ab-1feb-4f64-866f-36981281a5d9           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 请先调用 load_user_name。
+  lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 已加载用户 小明。祝你每天都有好心情！
+  note-append                                    <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> <span class="token punctuation">[</span>系统备注<span class="token punctuation">]</span> 已记录本次祝福。
 
-3. 删除指定的用户消息
-  ai-1 | AIMessage | 可以去公园散步，也可以参观博物馆。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+<span class="token number">3</span>. 用相同 ID 替换最终 AIMessage
+user_name: 小明
+edit_log:  <span class="token punctuation">[</span><span class="token string">'追加 note-append'</span>, <span class="token string">'修改 AIMessage id=lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0'</span><span class="token punctuation">]</span>
+messages:
+  3fe5b0cd-bc1c-473a-bfd7-364f1b580194           <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 请给当前用户送上一句祝福语。
+  lc_run--019f9f22-ed2f-7f82-8033-7bc6c3234046-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> <span class="token punctuation">[</span>tool_calls: load_user_name, greet_user<span class="token punctuation">]</span>
+  abad69f4-27b1-4133-9205-1b05f4644a19           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 已加载用户 小明。<span class="token punctuation">[</span>后面测试删除<span class="token punctuation">]</span>
+  c57959ab-1feb-4f64-866f-36981281a5d9           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 请先调用 load_user_name。
+  lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 已加载用户 小明。祝你每天都有好心情！（测试更新）
+  note-append                                    <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> <span class="token punctuation">[</span>系统备注<span class="token punctuation">]</span> 已记录本次祝福。
+
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+<span class="token number">4</span>. 删除中间 ToolMessage
+user_name: 小明
+edit_log:  <span class="token punctuation">[</span><span class="token string">'追加 note-append'</span>, <span class="token string">'修改 AIMessage id=lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0'</span>, <span class="token string">'删除 ToolMessage id=abad69f4-27b1-4133-9205-1b05f4644a19'</span><span class="token punctuation">]</span>
+messages:
+  3fe5b0cd-bc1c-473a-bfd7-364f1b580194           <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 请给当前用户送上一句祝福语。
+  lc_run--019f9f22-ed2f-7f82-8033-7bc6c3234046-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> <span class="token punctuation">[</span>tool_calls: load_user_name, greet_user<span class="token punctuation">]</span>
+  c57959ab-1feb-4f64-866f-36981281a5d9           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 请先调用 load_user_name。
+  lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 已加载用户 小明。祝你每天都有好心情！（测试更新）
+  note-append                                    <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> <span class="token punctuation">[</span>系统备注<span class="token punctuation">]</span> 已记录本次祝福。
+
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+<span class="token number">5</span>. 携带修剪后的历史再次 invoke
+user_name: 小明
+edit_log:  <span class="token punctuation">[</span><span class="token string">'追加 note-append'</span>, <span class="token string">'修改 AIMessage id=lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0'</span>, <span class="token string">'删除 ToolMessage id=abad69f4-27b1-4133-9205-1b05f4644a19'</span><span class="token punctuation">]</span>
+messages:
+  3fe5b0cd-bc1c-473a-bfd7-364f1b580194           <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 请给当前用户送上一句祝福语。
+  lc_run--019f9f22-ed2f-7f82-8033-7bc6c3234046-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> <span class="token punctuation">[</span>tool_calls: load_user_name, greet_user<span class="token punctuation">]</span>
+  c57959ab-1feb-4f64-866f-36981281a5d9           <span class="token operator">|</span> ToolMessage  <span class="token operator">|</span> 请先调用 load_user_name。
+  lc_run--019f9f22-f6b7-7bd1-9ed9-d6f6f781e001-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 已加载用户 小明。祝你每天都有好心情！（测试更新）
+  note-append                                    <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> <span class="token punctuation">[</span>系统备注<span class="token punctuation">]</span> 已记录本次祝福。
+  user-followup                                  <span class="token operator">|</span> HumanMessage <span class="token operator">|</span> 刚才祝福的是哪个用户？
+  lc_run--019f9f22-fa5f-7db0-b9d0-6ef457a9c7bb-0 <span class="token operator">|</span> AIMessage    <span class="token operator">|</span> 刚才祝福的用户是小明。
+
+最终回答：刚才祝福的用户是小明。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>需要注意，当前 Command 构造函数没有 delete 参数。删除消息不是把 update 改成 delete，而是向 messages 提交一个带目标 ID 的 RemoveMessage，再由 add_messages 完成删除。</p>
-<h2 id="10-AgentState-与记忆存储的边界"><a href="#10-AgentState-与记忆存储的边界" class="headerlink" title="10. AgentState 与记忆存储的边界"></a><strong>10. AgentState 与记忆存储的边界</strong></h2><p>State 描述 Agent 当前拥有哪些数据，以及节点更新数据时应该怎样合并。它解决的是运行过程中的数据传递问题。</p>
+<h2 id="6-AgentState-与记忆存储的边界"><a href="#6-AgentState-与记忆存储的边界" class="headerlink" title="6. AgentState 与记忆存储的边界"></a>6. AgentState 与记忆存储的边界</h2><p>State 描述 Agent 当前拥有哪些数据，以及节点更新数据时应该怎样合并。它解决的是运行过程中的数据传递问题。</p>
 <p>但是下面这段代码连续执行两次时：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token builtin">input</span><span class="token punctuation">,</span> context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token builtin">input</span><span class="token punctuation">,</span> context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小红"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
@@ -1177,92 +1393,9 @@ agent<span class="token punctuation">.</span>invoke<span class="token punctuatio
 <li>Store 如何保存跨 Thread 使用的长期数据。</li>
 </ul>
 <p>这些能力建立在 State 之上，但不属于 AgentState Schema 本身。</p>
-<h2 id="11-常见问题"><a href="#11-常见问题" class="headerlink" title="11. 常见问题"></a><strong>11. 常见问题</strong></h2><h3 id="11-1-使用了旧的-AgentState-导入路径"><a href="#11-1-使用了旧的-AgentState-导入路径" class="headerlink" title="11.1 使用了旧的 AgentState 导入路径"></a><strong>11.1 使用了旧的 AgentState 导入路径</strong></h3><p>当前代码应使用：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> AgentState<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>不要继续把 langgraph.prebuilt.chat_agent_executor.AgentState 作为新代码入口。</p>
-<h3 id="11-2-定义了字段却没有注册-state-schema"><a href="#11-2-定义了字段却没有注册-state-schema" class="headerlink" title="11.2 定义了字段却没有注册 state_schema"></a><strong>11.2 定义了字段却没有注册 state_schema</strong></h3><p>自定义 State 必须传给 create_agent()：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
-    model<span class="token operator">=</span>model<span class="token punctuation">,</span>
-    tools<span class="token operator">=</span>tools<span class="token punctuation">,</span>
-    state_schema<span class="token operator">=</span>CustomState<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h3 id="11-3-普通返回值没有更新自定义-State"><a href="#11-3-普通返回值没有更新自定义-State" class="headerlink" title="11.3 普通返回值没有更新自定义 State"></a><strong>11.3 普通返回值没有更新自定义 State</strong></h3><p>下面的返回值只是工具结果：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>需要更新 AgentState 时，应返回：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> Command<span class="token punctuation">(</span>update<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>如果这是模型发起的 Tool Call，还需要同时提供匹配调用 ID 的 ToolMessage。</p>
-<h3 id="11-4-Tool-调用顺序不符合预期"><a href="#11-4-Tool-调用顺序不符合预期" class="headerlink" title="11.4 Tool 调用顺序不符合预期"></a><strong>11.4 Tool 调用顺序不符合预期</strong></h3><p>Agent 会自己决定调用哪个 Tool。Tool 名称、Docstring 和系统提示词必须清楚描述前置条件。</p>
-<p>本例的 greet_user 还检查了 user_name 是否存在。即使模型提前调用它，也会收到“先调用 load_user_name”的明确结果，而不是出现未处理异常。</p>
-<h3 id="11-5-把-Context-和-State-混在一起"><a href="#11-5-把-Context-和-State-混在一起" class="headerlink" title="11.5 把 Context 和 State 混在一起"></a><strong>11.5 把 Context 和 State 混在一起</strong></h3><ul>
-<li>调用开始前已经确定、运行期间不应该修改的数据放在 Context。</li>
-<li>Agent 执行过程中生成或变化的数据放在 State。</li>
-<li>thread_id、标签、回调和递归限制等执行参数放在 Config。</li>
-</ul>
-<h3 id="11-6-认为-State-会自动跨调用保存"><a href="#11-6-认为-State-会自动跨调用保存" class="headerlink" title="11.6 认为 State 会自动跨调用保存"></a><strong>11.6 认为 State 会自动跨调用保存</strong></h3><p>没有 Checkpointer 时，State 只服务于当前运行。需要重启恢复或多轮记忆时，必须显式配置持久化组件。</p>
-<h3 id="11-7-本地请求受到代理影响"><a href="#11-7-本地请求受到代理影响" class="headerlink" title="11.7 本地请求受到代理影响"></a><strong>11.7 本地请求受到代理影响</strong></h3><p>先检查模型服务：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>示例中的 httpx.Client(trust_env&#x3D;False) 用于避免系统代理或 VPN 转发本机请求。</p>
-<h2 id="12-小结"><a href="#12-小结" class="headerlink" title="12. 小结"></a><strong>12. 小结</strong></h2><p>默认 AgentState 已经负责管理 Agent 的消息历史。用户消息、工具调用、工具结果和最终回答都会依次进入 messages，add_messages 负责合并这些更新。</p>
+<h2 id="7-小结"><a href="#7-小结" class="headerlink" title="7. 小结"></a><strong>7. 小结</strong></h2><p>默认 AgentState 已经负责管理 Agent 的消息历史。用户消息、工具调用、工具结果和最终回答都会依次进入 messages，add_messages 负责合并这些更新。</p>
 <p>业务需要额外的运行状态时，可以继承 AgentState 增加字段，再通过 state_schema 注册。Tool 使用 ToolRuntime.state 读取状态，使用 Command(update&#x3D;…) 修改状态。</p>
 <p>本次实测中，Qwen3 依次调用两个 Tool，将 Context 中的用户名写入 CustomState，再从 State 读取用户名生成祝福。小明和小红两次调用的状态完全隔离。</p>
-<table>
-<thead>
-<tr>
-<th align="left">对象或机制</th>
-<th align="left">保存内容</th>
-<th align="left">读取方式</th>
-<th align="left">更新方式</th>
-<th align="left">是否自动持久化</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">Runtime Context</td>
-<td align="left">用户身份、租户和权限等静态业务数据</td>
-<td align="left">runtime.context</td>
-<td align="left">由调用方在运行开始时传入</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">AgentState.messages</td>
-<td align="left">用户、模型和工具消息</td>
-<td align="left">runtime.state[“messages”]</td>
-<td align="left">节点更新或 Command(update&#x3D;…)，由 add_messages 合并</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">自定义 State 字段</td>
-<td align="left">Agent 执行过程中产生的动态数据</td>
-<td align="left">runtime.state[“字段名”]</td>
-<td align="left">Command(update&#x3D;{…})</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">ToolMessage</td>
-<td align="left">某次工具调用的执行结果</td>
-<td align="left">state[“messages”]</td>
-<td align="left">使用匹配的 tool_call_id 写入 messages</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">RemoveMessage</td>
-<td align="left">指定要删除的消息 ID</td>
-<td align="left">由 add_messages 处理</td>
-<td align="left">作为 messages 更新提交</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">Checkpointer</td>
-<td align="left">同一 Thread 的 State Checkpoint</td>
-<td align="left">后续记忆文章介绍</td>
-<td align="left">Graph 执行时保存</td>
-<td align="left">是，需要显式配置</td>
-</tr>
-</tbody></table>
 
                 
             </div>
@@ -1946,7 +2079,7 @@ agent<span class="token punctuation">.</span>invoke<span class="token punctuatio
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

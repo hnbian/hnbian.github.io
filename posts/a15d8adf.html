@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    2k
+                    2.1k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    7 分
+                    8 分
                 </div>
                 
 
@@ -824,9 +824,11 @@ python langgraph/p12_async_tool_execution/01_sequential_vs_concurrent.py<span ar
     <span class="token triple-quoted-string string">"""读取最后一条 AIMessage，并发执行其中的所有工具请求。"""</span>
 
     <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> tools<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span>BaseTool<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+        <span class="token comment"># 先建立“工具名 → 工具对象”的字典，执行时便可按名称查找。</span>
         self<span class="token punctuation">.</span>tools_by_name <span class="token operator">=</span> <span class="token punctuation">&#123;</span>current_tool<span class="token punctuation">.</span>name<span class="token punctuation">:</span> current_tool <span class="token keyword">for</span> current_tool <span class="token keyword">in</span> tools<span class="token punctuation">&#125;</span>
 
     <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">__call__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> state<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Any<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">list</span><span class="token punctuation">[</span>ToolMessage<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+        <span class="token comment"># 第 1 步：读取并检查最后一条消息。</span>
         messages <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"messages"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
         <span class="token keyword">if</span> <span class="token keyword">not</span> messages <span class="token keyword">or</span> <span class="token keyword">not</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>messages<span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
             <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"最后一条消息必须是 AIMessage"</span><span class="token punctuation">)</span>
@@ -835,11 +837,13 @@ python langgraph/p12_async_tool_execution/01_sequential_vs_concurrent.py<span ar
         <span class="token keyword">if</span> <span class="token keyword">not</span> tool_calls<span class="token punctuation">:</span>
             <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"AIMessage 中没有工具调用"</span><span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 2 步：定义“执行一个工具调用”的异步函数。</span>
         <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">invoke_one</span><span class="token punctuation">(</span>tool_call<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Any<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> ToolMessage<span class="token punctuation">:</span>
             tool_name <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
             <span class="token keyword">if</span> tool_name <span class="token keyword">not</span> <span class="token keyword">in</span> self<span class="token punctuation">.</span>tools_by_name<span class="token punctuation">:</span>
                 <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"未注册的工具：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
+            <span class="token comment"># ainvoke() 执行真正的异步工具。</span>
             result <span class="token operator">=</span> <span class="token keyword">await</span> self<span class="token punctuation">.</span>tools_by_name<span class="token punctuation">[</span>tool_name<span class="token punctuation">]</span><span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
             <span class="token keyword">return</span> ToolMessage<span class="token punctuation">(</span>
                 content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">,</span>
@@ -847,8 +851,9 @@ python langgraph/p12_async_tool_execution/01_sequential_vs_concurrent.py<span ar
                 tool_call_id<span class="token operator">=</span>tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
             <span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 3 步：多个 Tool Call 互不依赖，因此可以同时执行。</span>
         outputs <span class="token operator">=</span> <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>gather<span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">(</span>invoke_one<span class="token punctuation">(</span>call<span class="token punctuation">)</span> <span class="token keyword">for</span> call <span class="token keyword">in</span> tool_calls<span class="token punctuation">)</span><span class="token punctuation">)</span>
-        <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">(</span>outputs<span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+        <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">(</span>outputs<span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行完整脚本：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p12_async_tool_execution/02_custom_async_tool_node.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
@@ -863,16 +868,18 @@ lookup_attraction call-attraction 杭州：西湖
 <h2 id="4-使用内置-ToolNode"><a href="#4-使用内置-ToolNode" class="headerlink" title="4. 使用内置 ToolNode"></a><strong>4. 使用内置 ToolNode</strong></h2><p>LangGraph 已经提供 <a target="_blank" rel="noopener" href="https://reference.langchain.com/python/langgraph.prebuilt/tool_node/ToolNode">ToolNode</a>。它会读取 Tool Call、并行执行互不依赖的工具，并把普通工具结果转换成 ToolMessage。错误处理可以配置，但不能简单理解为所有异常都会被自动吞掉。</p>
 <p><img src="https://images.hnbian.cn/new/n-f0240abb118e9e5fc98a0d01d3ad36fc.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="自定义工具节点与内置 ToolNode"></p>
 <p>在下面的状态输入方式中，<code>ToolNode</code> 放进 <code>StateGraph</code> 后，由 LangGraph Runtime 提供执行配置：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 第 1 步：把 ToolNode 放入最小图中，由 LangGraph Runtime 提供执行配置。</span>
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> ToolNode<span class="token punctuation">(</span><span class="token punctuation">[</span>lookup_weather<span class="token punctuation">,</span> lookup_attraction<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"tools"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
 graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：把包含 Tool Call 的 AIMessage 交给图。</span>
 result <span class="token operator">=</span> <span class="token keyword">await</span> graph<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>ai_message<span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 <span class="token keyword">for</span> message <span class="token keyword">in</span> result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>name<span class="token punctuation">,</span> message<span class="token punctuation">.</span>tool_call_id<span class="token punctuation">,</span> message<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>name<span class="token punctuation">,</span> message<span class="token punctuation">.</span>tool_call_id<span class="token punctuation">,</span> message<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>如果只传入消息字典，直接对这个版本的 ToolNode 调用 ainvoke()，会出现：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">ValueError: Missing required config key 'N/A' for 'tools'.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
@@ -888,11 +895,12 @@ lookup_attraction call-attraction 杭州：西湖<span aria-hidden="true" class=
 </ul>
 <p>因此，ToolNode 提供的是可配置的错误处理机制，而不是无条件忽略所有工具异常。</p>
 <h2 id="5-使用-tools-condition-路由"><a href="#5-使用-tools-condition-路由" class="headerlink" title="5. 使用 tools_condition 路由"></a><strong>5. 使用 tools_condition 路由</strong></h2><p>执行工具之前还需要判断最后一条模型消息是否包含 Tool Call。tools_condition 已经实现了这段判断：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">route_with_tool <span class="token operator">=</span> tools_condition<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>message_with_tool<span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># tools_condition 只检查 State 中的最后一条消息。</span>
+route_with_tool <span class="token operator">=</span> tools_condition<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>message_with_tool<span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 route_without_tool <span class="token operator">=</span> tools_condition<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>message_without_tool<span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"包含工具调用："</span><span class="token punctuation">,</span> route_with_tool<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"不包含工具调用："</span><span class="token punctuation">,</span> route_without_tool<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"不包含工具调用："</span><span class="token punctuation">,</span> route_without_tool<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>真实输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">包含工具调用： tools
@@ -1397,12 +1405,12 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
                         <span class="chip bg-color">qwen</span>
                     </a>
                     
-                    <a href="/tags/workflow/">
-                        <span class="chip bg-color">workflow</span>
-                    </a>
-                    
                     <a href="/tags/mcp/">
                         <span class="chip bg-color">mcp</span>
+                    </a>
+                    
+                    <a href="/tags/workflow/">
+                        <span class="chip bg-color">workflow</span>
                     </a>
                     
                 </div>
@@ -1645,7 +1653,7 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    5.8k
+                    6.9k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    23 分
+                    28 分
                 </div>
                 
 
@@ -758,8 +758,7 @@
                  data-article-path="/posts/e3b5aeab.html">
                 <p>前面创建天气 Agent 时，模型能够判断什么时候查询天气，并把城市名称交给 get_weather()。这个过程看起来像是模型执行了 Python 函数，实际并不是这样。</p>
 <p>大模型只负责理解问题、选择工具并生成参数。真正查找工具、调用 Python 函数、处理返回值的仍然是应用程序。LangChain 的 Tool 负责在两者之间建立一份清晰的接口约定。</p>
-<p>本篇不使用 Agent 自动循环，而是从普通 Python 函数开始，逐步介绍 Tool 的定义方式，最后使用本地 Qwen3 手动完成一次完整的工具调用。</p>
-<p>LangChain 可以从三类对象创建本地 Tool：Python 函数或协程、LangChain Runnable、继承 BaseTool 的自定义类。后面出现的 Pydantic、Annotated 和 Docstring 负责描述参数，StructuredTool.from_function() 负责包装函数，它们都不是额外的第四类来源。</p>
+<p>本篇不使用 Agent 自动循环，而是先简要介绍实现本地 Tool 的三种方式，再分别通过完整代码重点讲解每一种方式，最后使用本地 Qwen3 手动完成一次完整的工具调用。</p>
 <h2 id="1-为什么模型需要工具"><a href="#1-为什么模型需要工具" class="headerlink" title="1. 为什么模型需要工具"></a><strong>1. 为什么模型需要工具</strong></h2><p>大模型擅长理解和生成文本，但只依靠模型自身，仍然无法稳定完成下面这些工作：</p>
 <ul>
 <li>查询实时天气、库存或订单状态。</li>
@@ -805,17 +804,18 @@
 </tr>
 </tbody></table>
 <p>return_direct 不会改变普通 tool.invoke() 的返回方式。它主要供 Agent 执行器判断工具运行后是否还要继续调用模型。</p>
-<p>下图从左到右分成三层：原始能力、转换方式和统一的 Tool 对象。无论从哪一类对象创建，最终都需要提供名称、用途、参数 Schema 和可执行实现。</p>
-<p><img src="https://images.hnbian.cn/new/n-68a6453960826257ea8c3195e5b4de4d.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地 Tool 的三类创建来源"></p>
-<p>三类来源的使用重点不同：</p>
+<h2 id="3-实现本地-Tool-的三种方式"><a href="#3-实现本地-Tool-的三种方式" class="headerlink" title="3. 实现本地 Tool 的三种方式"></a><strong>3. 实现本地 Tool 的三种方式</strong></h2><p>LangChain 中的本地 Tool 可以通过下面三种方式实现：</p>
 <ol>
-<li><strong>Python 函数或协程</strong>：最常用。可以直接交给 Agent，也可以使用 @tool 或 StructuredTool.from_function() 明确生成 Tool。</li>
-<li><strong>Runnable</strong>：已有 Runnable 调用链时，可以使用 as_tool() 复用现有逻辑。</li>
-<li><strong>BaseTool 子类</strong>：适合封装客户端、连接、配置或复杂生命周期。</li>
+<li><strong>包装 Python 函数或协程</strong>：使用 @tool 或 StructuredTool.from_function() 把现有函数包装成 Tool。这是最常用的方式，适合无状态或逻辑清晰的功能。</li>
+<li><strong>把 Runnable 转换成 Tool</strong>：已有 Runnable 调用链时，使用 as_tool() 直接复用现有逻辑。</li>
+<li><strong>继承 BaseTool 自定义实现</strong>：自己声明工具元数据、参数模型和执行方法，适合封装客户端、连接、配置、状态或复杂生命周期。</li>
 </ol>
-<p>Pydantic、Annotated 和 Docstring 只是在补充 args_schema，不是新的工具来源。发送给模型的 JSON Schema 也只是 Tool 的可见说明；真正可执行的函数或协程仍然保留在应用程序中。</p>
-<p>MCP 是后续独立的工具接入方式，不属于本篇讨论的本地 Tool 创建方式。</p>
-<h2 id="3-第一类：使用-tool-包装-Python-函数"><a href="#3-第一类：使用-tool-包装-Python-函数" class="headerlink" title="3. 第一类：使用 @tool 包装 Python 函数"></a><strong>3. 第一类：使用 @tool 包装 Python 函数</strong></h2><p>@tool 是最简单、最常用的定义方式。它会读取函数名、类型注解和说明，创建一个 LangChain Tool。</p>
+<p>下图从左到右分成三层：原始能力、实现方式和统一的 Tool 对象。无论使用哪种方式，最终的 Tool 都需要提供名称、用途、参数 Schema 和可执行实现。</p>
+<p><img src="https://images.hnbian.cn/new/n-1de43be5cb58889cf45cc226d80342ee.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="实现本地 Tool 的三种方式"></p>
+<p>Pydantic、Annotated 和 Docstring 用来补充 args_schema，JSON Schema 是发送给模型的工具说明，它们都不是新的 Tool 实现方式。真正可执行的函数或协程仍然保留在应用程序中。</p>
+<p>MCP 是后续独立的工具接入方式，不属于本篇讨论的三种本地 Tool 实现方式。下面开始分别介绍具体实现。</p>
+<h2 id="4-包装-Python-函数或协程实现-Tool"><a href="#4-包装-Python-函数或协程实现-Tool" class="headerlink" title="4. 包装 Python 函数或协程实现 Tool"></a><strong>4. 包装 Python 函数或协程实现 Tool</strong></h2><p>Python 函数或协程是实现本地 Tool 最直接、最常用的方式。简单场景可以使用 @tool 装饰器自动生成名称、说明和参数 Schema；需要分别指定同步与异步实现时，可以使用 StructuredTool.from_function()。</p>
+<h3 id="4-1-使用-tool-包装-Python-函数"><a href="#4-1-使用-tool-包装-Python-函数" class="headerlink" title="4.1 使用 @tool 包装 Python 函数"></a><strong>4.1 使用 @tool 包装 Python 函数</strong></h3><p>@tool 会读取函数名、类型注解和说明，创建一个可以统一调用的 LangChain Tool。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;01_tool_basics.py 的完整代码如下：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""对比普通 Python 函数与 LangChain Tool，并查看工具的核心属性。"""</span>
 
@@ -874,10 +874,9 @@ tool_message <span class="token operator">=</span> add_numbers<span class="token
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 <span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
+python langgraph/p05_local_tools/01_tool_basics.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
-python langgraph/p05_local_tools/01_tool_basics.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>实际输出中的关键内容如下：</p>
+<p>输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">普通函数类型： function
 普通函数具有 invoke： False
 工具类型： StructuredTool
@@ -892,7 +891,7 @@ ToolMessage 名称： add_numbers
 ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>普通函数没有 invoke()。经过 @tool 包装后，得到的是 StructuredTool 对象，并且自动拥有参数 Schema。</p>
-<h3 id="3-1-模型实际看到的-JSON-Schema"><a href="#3-1-模型实际看到的-JSON-Schema" class="headerlink" title="3.1 模型实际看到的 JSON Schema"></a><strong>3.1 模型实际看到的 JSON Schema</strong></h3><p>convert_to_openai_tool() 可以把 Tool 转换成 OpenAI 兼容模型能够接收的格式。上面的代码实际生成：</p>
+<h3 id="4-2-模型实际看到的-JSON-Schema"><a href="#4-2-模型实际看到的-JSON-Schema" class="headerlink" title="4.2 模型实际看到的 JSON Schema"></a><strong>4.2 模型实际看到的 JSON Schema</strong></h3><p>convert_to_openai_tool() 可以把 Tool 转换成 OpenAI 兼容模型能够接收的格式。上面的代码实际生成：</p>
 <pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
   <span class="token property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
   <span class="token property">"function"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
@@ -917,7 +916,7 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这份结构告诉模型：工具名是 add_numbers，需要两个整数参数，并且两个参数都是必填项。它没有把函数源码或执行权限交给模型。</p>
-<h3 id="3-2-两种-invoke-输入的区别"><a href="#3-2-两种-invoke-输入的区别" class="headerlink" title="3.2 两种 invoke() 输入的区别"></a><strong>3.2 两种 invoke() 输入的区别</strong></h3><p>传入普通参数字典时：</p>
+<h3 id="4-3-两种-invoke-输入的区别"><a href="#4-3-两种-invoke-输入的区别" class="headerlink" title="4.3 两种 invoke() 输入的区别"></a><strong>4.3 两种 invoke() 输入的区别</strong></h3><p>传入普通参数字典时：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">add_numbers<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">5</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>返回函数的原始结果 8。</p>
@@ -932,7 +931,7 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
 <span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>返回 ToolMessage。它除了保存结果，还保留 tool_call_id，使模型能够知道这个结果对应哪一次工具请求。后面的 Qwen3 示例会使用这种调用方式。</p>
-<h2 id="4-为函数工具使用-Pydantic-参数-Schema"><a href="#4-为函数工具使用-Pydantic-参数-Schema" class="headerlink" title="4. 为函数工具使用 Pydantic 参数 Schema"></a><strong>4. 为函数工具使用 Pydantic 参数 Schema</strong></h2><p>简单函数可以依靠类型注解自动生成 Schema。当参数较多、需要枚举值或希望提供更清楚的字段说明时，可以显式定义 Pydantic 模型。</p>
+<h3 id="4-4-使用-Pydantic-定义参数-Schema"><a href="#4-4-使用-Pydantic-定义参数-Schema" class="headerlink" title="4.4 使用 Pydantic 定义参数 Schema"></a><strong>4.4 使用 Pydantic 定义参数 Schema</strong></h3><p>简单函数可以依靠类型注解自动生成 Schema。当参数较多、需要枚举值或希望提供更清楚的字段说明时，可以显式定义 Pydantic 模型。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;02_pydantic_args_schema.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 Pydantic 描述工具参数，并验证必填字段和枚举值。"""</span>
 
@@ -941,7 +940,6 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
 
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field<span class="token punctuation">,</span> ValidationError
-
 
 <span class="token keyword">class</span> <span class="token class-name">CalculatorInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""计算器工具的输入参数。"""</span>
@@ -952,18 +950,18 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
         description<span class="token operator">=</span><span class="token string">"运算类型：加、减、乘、除"</span>
     <span class="token punctuation">)</span>
 
-
 <span class="token decorator annotation punctuation">@tool</span><span class="token punctuation">(</span>args_schema<span class="token operator">=</span>CalculatorInput<span class="token punctuation">)</span>
 <span class="token keyword">def</span> <span class="token function">calculator</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> operation<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""根据指定运算类型计算两个数字。"""</span>
 
+    <span class="token comment"># 逐个判断四种允许的运算。Pydantic 会提前拒绝其他字符串。</span>
     <span class="token keyword">if</span> operation <span class="token operator">==</span> <span class="token string">"add"</span><span class="token punctuation">:</span>
         result <span class="token operator">=</span> a <span class="token operator">+</span> b
     <span class="token keyword">elif</span> operation <span class="token operator">==</span> <span class="token string">"subtract"</span><span class="token punctuation">:</span>
         result <span class="token operator">=</span> a <span class="token operator">-</span> b
     <span class="token keyword">elif</span> operation <span class="token operator">==</span> <span class="token string">"multiply"</span><span class="token punctuation">:</span>
         result <span class="token operator">=</span> a <span class="token operator">*</span> b
-    <span class="token keyword">else</span><span class="token punctuation">:</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>  <span class="token comment"># operation 只能是 divide。</span>
         <span class="token keyword">if</span> b <span class="token operator">==</span> <span class="token number">0</span><span class="token punctuation">:</span>
             <span class="token keyword">return</span> <span class="token string">"除数不能为 0"</span>
         result <span class="token operator">=</span> a <span class="token operator">/</span> b
@@ -971,10 +969,12 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
     <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span>
 
 
+<span class="token comment"># 第 1 步：查看 Pydantic 为模型生成的 JSON Schema。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"参数 Schema："</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>calculator<span class="token punctuation">.</span>args_schema<span class="token punctuation">.</span>model_json_schema<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> indent<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"正确参数结果："</span><span class="token punctuation">,</span> calculator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">12</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token string">"operation"</span><span class="token punctuation">:</span> <span class="token string">"divide"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：传入不在 Literal 范围内的 operation，观察枚举校验错误。</span>
 <span class="token keyword">try</span><span class="token punctuation">:</span>
     calculator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">12</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token string">"operation"</span><span class="token punctuation">:</span> <span class="token string">"power"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 <span class="token keyword">except</span> ValidationError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
@@ -982,22 +982,25 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"枚举校验错误位置："</span><span class="token punctuation">,</span> first_error<span class="token punctuation">[</span><span class="token string">"loc"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"枚举校验错误类型："</span><span class="token punctuation">,</span> first_error<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 3 步：故意漏掉必填参数 b，观察缺少字段的错误。</span>
 <span class="token keyword">try</span><span class="token punctuation">:</span>
     calculator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">12</span><span class="token punctuation">,</span> <span class="token string">"operation"</span><span class="token punctuation">:</span> <span class="token string">"add"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 <span class="token keyword">except</span> ValidationError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
     first_error <span class="token operator">=</span> error<span class="token punctuation">.</span>errors<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"缺少参数错误位置："</span><span class="token punctuation">,</span> first_error<span class="token punctuation">[</span><span class="token string">"loc"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"缺少参数错误类型："</span><span class="token punctuation">,</span> first_error<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"缺少参数错误类型："</span><span class="token punctuation">,</span> first_error<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>实际输出：</p>
+<p>输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">正确参数结果： 3.0
+
 枚举校验错误位置： ('operation',)
 枚举校验错误类型： literal_error
+
 缺少参数错误位置： ('b',)
-缺少参数错误类型： missing<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+缺少参数错误类型： missing<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>Literal 把 operation 限制为四个固定值。模型能够在 Schema 中看到这些候选值，应用执行工具前也会进行真实校验。Schema 不能保证模型永远生成正确参数，但可以阻止错误参数直接进入函数。</p>
-<h2 id="5-使用-Annotated-和-Docstring-补充函数参数说明"><a href="#5-使用-Annotated-和-Docstring-补充函数参数说明" class="headerlink" title="5. 使用 Annotated 和 Docstring 补充函数参数说明"></a><strong>5. 使用 Annotated 和 Docstring 补充函数参数说明</strong></h2><p>除了 Pydantic，还可以使用 Annotated 或 Google 风格 Docstring 为参数增加说明。</p>
+<h3 id="4-5-使用-Annotated-和-Docstring-补充参数说明"><a href="#4-5-使用-Annotated-和-Docstring-补充参数说明" class="headerlink" title="4.5 使用 Annotated 和 Docstring 补充参数说明"></a><strong>4.5 使用 Annotated 和 Docstring 补充参数说明</strong></h3><p>除了 Pydantic，还可以使用 Annotated 或 Google 风格 Docstring 为参数增加说明。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;03_annotated_and_docstring.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""演示 Annotated 参数说明和 Google 风格 Docstring 解析。"""</span>
 
@@ -1029,16 +1032,18 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>title<span class="token punctuation">&#125;</span></span><span class="token interpolation"><span class="token punctuation">&#123;</span>name<span class="token punctuation">&#125;</span></span><span class="token string">，你好！"</span></span>
 
 
+<span class="token comment"># 第 1 步：Annotated 中的说明会进入工具参数 Schema。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Annotated 参数 Schema："</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>add_integers<span class="token punctuation">.</span>args_schema<span class="token punctuation">.</span>model_json_schema<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> indent<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Annotated 工具结果："</span><span class="token punctuation">,</span> add_integers<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">6</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：parse_docstring=True 会读取 Args 部分的参数说明。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Docstring 参数 Schema："</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>greet<span class="token punctuation">.</span>args_schema<span class="token punctuation">.</span>model_json_schema<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> indent<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Docstring 工具结果："</span><span class="token punctuation">,</span> greet<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 3 步：演示 Docstring 参数名写错时的校验错误。</span>
 <span class="token keyword">try</span><span class="token punctuation">:</span>
-
     <span class="token decorator annotation punctuation">@tool</span><span class="token punctuation">(</span>parse_docstring<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
     <span class="token keyword">def</span> <span class="token function">invalid_greet</span><span class="token punctuation">(</span>name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
         <span class="token triple-quoted-string string">"""生成问候语。
@@ -1047,11 +1052,11 @@ ToolMessage 调用 ID： call_demo<span aria-hidden="true" class="line-numbers-r
             username: 被问候人的姓名。
         """</span>
 
-        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"你好，</span><span class="token interpolation"><span class="token punctuation">&#123;</span>name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"你好，</span><span class="token interpolation"><span class="token punctuation">&#123;</span>name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span> <span class="token comment"># 这里故意写错参数名，观察错误信息。</span>
 
 <span class="token keyword">except</span> ValueError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"无效 Docstring 错误类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"无效 Docstring 错误："</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"无效 Docstring 错误："</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>实际输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">Annotated 工具结果： 10
@@ -1060,13 +1065,13 @@ Docstring 工具结果： 朋友小明，你好！
 无效 Docstring 错误： Arg username in docstring not found in function signature.<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>启用 parse_docstring&#x3D;True 后，Args: 中的参数名称必须和函数签名一致。示例故意把 name 写成 username，工具在创建阶段就抛出了 ValueError，而不是等到模型调用时才失败。</p>
-<p>这些写法都属于第一类工具来源，只是参数说明方式不同，可以按复杂程度选择：</p>
+<p>这些写法都属于第一种实现方式，只是参数说明方式不同，可以按复杂程度选择：</p>
 <ul>
 <li>参数很少时，使用类型注解和 Annotated。</li>
 <li>已经有规范 Google 风格 Docstring 时，使用 parse_docstring&#x3D;True。</li>
 <li>需要枚举、默认值、字段约束和独立复用时，使用 Pydantic。</li>
 </ul>
-<h2 id="6-使用-StructuredTool-包装函数和异步协程"><a href="#6-使用-StructuredTool-包装函数和异步协程" class="headerlink" title="6. 使用 StructuredTool 包装函数和异步协程"></a><strong>6. 使用 StructuredTool 包装函数和异步协程</strong></h2><p>@tool 适合直接装饰函数。如果需要显式指定同步函数、异步协程、名称和描述，可以使用 StructuredTool.from_function()。它仍然属于“从 Python 函数或协程创建工具”，不是新的来源类别。</p>
+<h3 id="4-6-使用-StructuredTool-包装函数和异步协程"><a href="#4-6-使用-StructuredTool-包装函数和异步协程" class="headerlink" title="4.6 使用 StructuredTool 包装函数和异步协程"></a><strong>4.6 使用 StructuredTool 包装函数和异步协程</strong></h3><p>@tool 适合直接装饰函数。如果需要显式指定同步函数、异步协程、名称和描述，可以使用 StructuredTool.from_function()。这仍然属于包装 Python 函数或协程的实现方式。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;04_structured_tool.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 StructuredTool 为同一个工具配置同步函数和异步协程。"""</span>
 
@@ -1074,21 +1079,18 @@ Docstring 工具结果： 朋友小明，你好！
 
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> StructuredTool
 
-
 <span class="token keyword">def</span> <span class="token function">add_sync</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""同步计算两个数字之和。"""</span>
 
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"同步结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>a <span class="token operator">+</span> b<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
 
-
 <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">add_async</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""异步计算两个数字之和。"""</span>
-
     <span class="token comment"># sleep(0) 主动让出一次执行权，用于演示真实协程。</span>
     <span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"异步结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>a <span class="token operator">+</span> b<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
 
-
+<span class="token comment"># 第 1 步：把同步函数和异步函数注册为同一个工具。</span>
 calculator_tool <span class="token operator">=</span> StructuredTool<span class="token punctuation">.</span>from_function<span class="token punctuation">(</span>
     func<span class="token operator">=</span>add_sync<span class="token punctuation">,</span>
     coroutine<span class="token operator">=</span>add_async<span class="token punctuation">,</span>
@@ -1096,9 +1098,10 @@ calculator_tool <span class="token operator">=</span> StructuredTool<span class=
     description<span class="token operator">=</span><span class="token string">"计算两个数字之和。"</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：invoke() 走同步函数，ainvoke() 走异步函数。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>calculator_tool<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"同步调用："</span><span class="token punctuation">,</span> calculator_tool<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"异步调用："</span><span class="token punctuation">,</span> asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>calculator_tool<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"异步调用："</span><span class="token punctuation">,</span> asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>calculator_tool<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"a"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"b"</span><span class="token punctuation">:</span> <span class="token number">3</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>实际输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">工具类型： StructuredTool
@@ -1106,7 +1109,7 @@ calculator_tool <span class="token operator">=</span> StructuredTool<span class=
 异步调用： 异步结果：5.0<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>invoke() 调用同步函数，ainvoke() 调用异步协程。对于网络请求、数据库访问等 I&#x2F;O 操作，可以提供真正的异步实现，避免在异步程序中阻塞事件循环。</p>
-<h2 id="7-第二类：把-Runnable-转换成-Tool"><a href="#7-第二类：把-Runnable-转换成-Tool" class="headerlink" title="7. 第二类：把 Runnable 转换成 Tool"></a><strong>7. 第二类：把 Runnable 转换成 Tool</strong></h2><p>如果已有一段 Runnable 逻辑，不必再复制成新函数，可以使用 as_tool() 转换。</p>
+<h2 id="5-把-Runnable-转换成-Tool"><a href="#5-把-Runnable-转换成-Tool" class="headerlink" title="5. 把 Runnable 转换成 Tool"></a><strong>5. 把 Runnable 转换成 Tool</strong></h2><p>如果已有一段 Runnable 逻辑，不必再复制成新函数，可以使用 as_tool() 转换。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;05_runnable_as_tool.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""把一个简单 Runnable 转换为 LangChain Tool。"""</span>
 
@@ -1147,7 +1150,7 @@ greeting_tool <span class="token operator">=</span> greeting_runnable<span class
 调用结果： 小明，欢迎使用 LangChain！<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>Beta 表示 API 仍处于测试状态，不表示不能使用。用于长期维护的项目时，应在升级依赖后重新测试。</p>
-<h2 id="8-第三类：继承-BaseTool-创建复杂工具"><a href="#8-第三类：继承-BaseTool-创建复杂工具" class="headerlink" title="8. 第三类：继承 BaseTool 创建复杂工具"></a><strong>8. 第三类：继承 BaseTool 创建复杂工具</strong></h2><p>BaseTool 是工具的基础抽象。继承它需要自己声明名称、描述、参数模型，并实现 _run()。</p>
+<h2 id="6-继承-BaseTool-自定义-Tool"><a href="#6-继承-BaseTool-自定义-Tool" class="headerlink" title="6. 继承 BaseTool 自定义 Tool"></a><strong>6. 继承 BaseTool 自定义 Tool</strong></h2><p>BaseTool 是工具的基础抽象。继承它需要自己声明名称、描述、参数模型，并实现 _run()。</p>
 <p>langgraph&#x2F;p05_local_tools&#x2F;06_base_tool.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""继承 BaseTool，创建一个只查询本地固定书单的工具。"""</span>
 
@@ -1167,7 +1170,6 @@ BOOKS <span class="token operator">=</span> <span class="token punctuation">[</s
 
     keyword<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"书名中需要包含的关键词"</span><span class="token punctuation">)</span>
 
-
 <span class="token keyword">class</span> <span class="token class-name">LocalBookSearchTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""在内存中的固定书单里搜索书名。"""</span>
 
@@ -1178,16 +1180,24 @@ BOOKS <span class="token operator">=</span> <span class="token punctuation">[</s
     <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> keyword<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
         <span class="token triple-quoted-string string">"""执行同步书名搜索。"""</span>
 
-        matches <span class="token operator">=</span> <span class="token punctuation">[</span>book <span class="token keyword">for</span> book <span class="token keyword">in</span> BOOKS <span class="token keyword">if</span> keyword <span class="token keyword">in</span> book<span class="token punctuation">]</span>
-        <span class="token keyword">return</span> <span class="token string">"、"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>matches<span class="token punctuation">)</span> <span class="token keyword">if</span> matches <span class="token keyword">else</span> <span class="token string">"没有找到匹配的书籍"</span>
+        <span class="token comment"># 使用普通 for 循环，清楚展示“逐本检查并保存匹配项”的过程。</span>
+        matches <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+        <span class="token keyword">for</span> book <span class="token keyword">in</span> BOOKS<span class="token punctuation">:</span>
+            <span class="token keyword">if</span> keyword <span class="token keyword">in</span> book<span class="token punctuation">:</span>
+                matches<span class="token punctuation">.</span>append<span class="token punctuation">(</span>book<span class="token punctuation">)</span>
+
+        <span class="token keyword">if</span> <span class="token keyword">not</span> matches<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string">"没有找到匹配的书籍"</span>
+        <span class="token keyword">return</span> <span class="token string">"、"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>matches<span class="token punctuation">)</span>
 
 
+<span class="token comment"># 创建实例后，便可以像其他 LangChain Tool 一样调用 invoke()。</span>
 book_search <span class="token operator">=</span> LocalBookSearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>book_search<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具名称："</span><span class="token punctuation">,</span> book_search<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"搜索‘杭州’："</span><span class="token punctuation">,</span> book_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"keyword"</span><span class="token punctuation">:</span> <span class="token string">"杭州"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"搜索‘音乐’："</span><span class="token punctuation">,</span> book_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"keyword"</span><span class="token punctuation">:</span> <span class="token string">"音乐"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"搜索‘音乐’："</span><span class="token punctuation">,</span> book_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"keyword"</span><span class="token punctuation">:</span> <span class="token string">"音乐"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>实际输出：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">工具类型： LocalBookSearchTool
@@ -1196,8 +1206,8 @@ book_search <span class="token operator">=</span> LocalBookSearchTool<span class
 搜索‘音乐’： 没有找到匹配的书籍<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这个示例只查询内存中的固定书单，不访问网络。对于简单、无状态的函数，继承 BaseTool 会显得过重；当工具需要持有客户端、连接池、配置或复杂生命周期时，这种方式更容易组织代码。</p>
-<h2 id="9-使用本地-Qwen3-完成工具调用"><a href="#9-使用本地-Qwen3-完成工具调用" class="headerlink" title="9. 使用本地 Qwen3 完成工具调用"></a><strong>9. 使用本地 Qwen3 完成工具调用</strong></h2><p>前面的示例都是应用直接执行 Tool。接下来把计算器 Schema 绑定到本地 Qwen3，让模型自己决定工具名称和参数。</p>
-<h3 id="9-1-启动本地模型服务"><a href="#9-1-启动本地模型服务" class="headerlink" title="9.1 启动本地模型服务"></a><strong>9.1 启动本地模型服务</strong></h3><p>在 llm_learning 根目录使用 LangGraph 系列 3 创建的模型服务环境启动 MLX-LM：</p>
+<h2 id="7-使用本地-Qwen3-完成工具调用"><a href="#7-使用本地-Qwen3-完成工具调用" class="headerlink" title="7. 使用本地 Qwen3 完成工具调用"></a><strong>7. 使用本地 Qwen3 完成工具调用</strong></h2><p>前面的示例都是应用直接执行 Tool。接下来把计算器 Schema 绑定到本地 Qwen3，让模型自己决定工具名称和参数。</p>
+<h3 id="7-1-启动本地模型服务"><a href="#7-1-启动本地模型服务" class="headerlink" title="7.1 启动本地模型服务"></a><strong>7.1 启动本地模型服务</strong></h3><p>在 llm_learning 根目录使用 LangGraph 系列 3 创建的模型服务环境启动 MLX-LM：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 <span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
 
@@ -1212,7 +1222,7 @@ book_search <span class="token operator">=</span> LocalBookSearchTool<span class
   http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>确认返回模型列表后再运行代码。否则连接失败、502 或模型加载错误容易被误判成 Tool 的问题。</p>
-<h3 id="9-2-完整代码"><a href="#9-2-完整代码" class="headerlink" title="9.2 完整代码"></a><strong>9.2 完整代码</strong></h3><p>langgraph&#x2F;p05_local_tools&#x2F;07_bind_tools_with_qwen3.py：</p>
+<h3 id="7-2-完整代码"><a href="#7-2-完整代码" class="headerlink" title="7.2 完整代码"></a><strong>7.2 完整代码</strong></h3><p>langgraph&#x2F;p05_local_tools&#x2F;07_bind_tools_with_qwen3.py：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""把本地计算器绑定到 Qwen3，并手动完成一次工具调用循环。"""</span>
 
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
@@ -1250,40 +1260,44 @@ book_search <span class="token operator">=</span> LocalBookSearchTool<span class
         http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
     <span class="token punctuation">)</span>
 
-    model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span>
-    tools_by_name <span class="token operator">=</span> <span class="token punctuation">&#123;</span>calculator<span class="token punctuation">.</span>name<span class="token punctuation">:</span> calculator<span class="token punctuation">&#125;</span>
+    <span class="token comment"># 工具列表；新增工具时只需 append，执行阶段按 name 自动分发。</span>
+    tools <span class="token operator">=</span> <span class="token punctuation">[</span>calculator<span class="token punctuation">]</span>
+    tools_by_name <span class="token operator">=</span> <span class="token punctuation">&#123;</span>current_tool<span class="token punctuation">.</span>name<span class="token punctuation">:</span> current_tool <span class="token keyword">for</span> current_tool <span class="token keyword">in</span> tools<span class="token punctuation">&#125;</span>
+
+    <span class="token comment"># 第 1 步：把工具的名称、说明和参数 Schema 发送给模型。</span>
+    model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span>tools<span class="token punctuation">)</span>
     messages <span class="token operator">=</span> <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"请使用计算器工具计算 18 乘以 7。"</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
 
-    <span class="token comment"># 第一次调用只让模型生成工具调用请求。</span>
-    ai_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
-    messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span>ai_message<span class="token punctuation">)</span>
+    resp <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"resp: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>resp<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-    <span class="token keyword">if</span> <span class="token keyword">not</span> ai_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-        <span class="token keyword">raise</span> RuntimeError<span class="token punctuation">(</span><span class="token string">"Qwen3 没有生成工具调用"</span><span class="token punctuation">)</span>
+    tool_call <span class="token operator">=</span> resp<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"tool_call: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-    <span class="token keyword">for</span> index<span class="token punctuation">,</span> tool_call <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>ai_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">,</span> start<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型选择的工具："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型生成的参数："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token comment"># 按 tool_call["name"] 查找工具。</span>
+    tool_result <span class="token operator">=</span> tools_by_name<span class="token punctuation">[</span>tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"tool_result: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_result<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token comment"># 当前 MLX-LM 返回的 tool call id 可能是 None。</span>
+    <span class="token comment"># 给调用补一个明确 ID，使 ToolMessage 能与模型请求一一对应。</span>
+    tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token string">"local_tool_call"</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"tool_call_id: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call_id<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-        selected_tool <span class="token operator">=</span> tools_by_name<span class="token punctuation">[</span>tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
-        tool_result <span class="token operator">=</span> selected_tool<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token operator">=</span> tool_call_id
 
-        <span class="token comment"># 当前 MLX-LM 返回的 tool call id 可能是 None。</span>
-        <span class="token comment"># 给这次调用补一个明确 ID，再创建与模型请求对应的 ToolMessage。</span>
-        tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token string-interpolation"><span class="token string">f"local_tool_call_</span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
-        tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token operator">=</span> tool_call_id
-        tool_message <span class="token operator">=</span> ToolMessage<span class="token punctuation">(</span>
-            content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>tool_result<span class="token punctuation">)</span><span class="token punctuation">,</span>
-            tool_call_id<span class="token operator">=</span>tool_call_id<span class="token punctuation">,</span>
-            name<span class="token operator">=</span>tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-        <span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具消息类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>tool_message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
-        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具执行结果："</span><span class="token punctuation">,</span> tool_message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
-        messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span>tool_message<span class="token punctuation">)</span>
+    tool_message <span class="token operator">=</span> ToolMessage<span class="token punctuation">(</span>
+        content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>tool_result<span class="token punctuation">)</span><span class="token punctuation">,</span>
+        tool_call_id<span class="token operator">=</span>tool_call_id<span class="token punctuation">,</span>
+        name<span class="token operator">=</span>tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具消息类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>tool_message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具执行结果："</span><span class="token punctuation">,</span> tool_message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+    messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span>tool_message<span class="token punctuation">)</span>
 
-    <span class="token comment"># 第二次调用把 ToolMessage 交给模型，由模型组织最终回答。</span>
+    <span class="token comment"># 第 3 步：把工具结果交回模型，由模型组织最终回答。</span>
     final_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Qwen3 最终回答："</span><span class="token punctuation">,</span> final_message<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> final_message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
@@ -1292,23 +1306,24 @@ python langgraph/p05_local_tools/07_bind_tools_with_qwen3.py<span aria-hidden="t
 <p>一次真实运行结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">模型选择的工具： calculator
 模型生成的参数： &#123;'a': 18, 'b': 7, 'operation': 'multiply'&#125;
+tool_call_id: 123a4b70-2931-4042-be1a-e1501af95154
 工具消息类型： ToolMessage
 工具执行结果： 126.0
-Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>模型回答可能有轻微措辞变化，但工具名称、参数结构和计算结果应保持正确。</p>
 <p>下图按照真实消息顺序展开这次调用。第一次模型请求只得到 tool_calls，中间由应用执行计算器；第二次模型请求必须同时包含用户消息、原始 AIMessage 和匹配调用 ID 的 ToolMessage。</p>
 <p><img src="https://images.hnbian.cn/new/n-b22ee2e65dc72bd09cab061e4168f2a7.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="本地 Qwen3 手动工具调用时序图"></p>
-<h2 id="10-手动工具调用循环是怎样工作的"><a href="#10-手动工具调用循环是怎样工作的" class="headerlink" title="10. 手动工具调用循环是怎样工作的"></a><strong>10. 手动工具调用循环是怎样工作的</strong></h2><p>这段代码包含两个模型调用，中间夹着一次本地函数调用。</p>
-<h3 id="10-1-bind-tools-只绑定工具说明"><a href="#10-1-bind-tools-只绑定工具说明" class="headerlink" title="10.1 bind_tools() 只绑定工具说明"></a><strong>10.1 bind_tools() 只绑定工具说明</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h2 id="8-手动工具调用循环是怎样工作的"><a href="#8-手动工具调用循环是怎样工作的" class="headerlink" title="8. 手动工具调用循环是怎样工作的"></a><strong>8. 手动工具调用循环是怎样工作的</strong></h2><p>这段代码包含两个模型调用，中间夹着一次本地函数调用。</p>
+<h3 id="8-1-bind-tools-只绑定工具说明"><a href="#8-1-bind-tools-只绑定工具说明" class="headerlink" title="8.1 bind_tools() 只绑定工具说明"></a><strong>8.1 bind_tools() 只绑定工具说明</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>bind_tools() 把计算器的 JSON Schema 附加到模型请求中。它不会提前执行工具，也不会给模型 Python 运行权限。</p>
-<h3 id="10-2-第一次模型调用生成-tool-calls"><a href="#10-2-第一次模型调用生成-tool-calls" class="headerlink" title="10.2 第一次模型调用生成 tool_calls"></a><strong>10.2 第一次模型调用生成 tool_calls</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">ai_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h3 id="8-2-第一次模型调用生成-tool-calls"><a href="#8-2-第一次模型调用生成-tool-calls" class="headerlink" title="8.2 第一次模型调用生成 tool_calls"></a><strong>8.2 第一次模型调用生成 tool_calls</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">ai_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>Qwen3 返回 AIMessage，其中的 tool_calls 包含工具名称、参数和调用 ID。此时还没有计算出结果。</p>
-<h3 id="10-3-应用程序执行本地工具"><a href="#10-3-应用程序执行本地工具" class="headerlink" title="10.3 应用程序执行本地工具"></a><strong>10.3 应用程序执行本地工具</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">selected_tool <span class="token operator">=</span> tools_by_name<span class="token punctuation">[</span>tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
-tool_result <span class="token operator">=</span> selected_tool<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token string">"local_tool_call_1"</span>
+<h3 id="8-3-应用程序执行本地工具"><a href="#8-3-应用程序执行本地工具" class="headerlink" title="8.3 应用程序执行本地工具"></a><strong>8.3 应用程序执行本地工具</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment">#calculator，所以可以直接执行它，不需要额外的工具分发表。</span>
+tool_result <span class="token operator">=</span> calculator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token string">"local_tool_call"</span>
 tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token operator">=</span> tool_call_id
 tool_message <span class="token operator">=</span> ToolMessage<span class="token punctuation">(</span>
     content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>tool_result<span class="token punctuation">)</span><span class="token punctuation">,</span>
@@ -1318,7 +1333,7 @@ tool_message <span class="token operator">=</span> ToolMessage<span class="token
 
 <p>应用根据工具名找到 <code>calculator</code>，使用 <code>args</code> 执行 Python 函数，再把结果封装为 <code>ToolMessage</code>。本次 MLX-LM 返回的调用 ID 可能是 <code>None</code>，因此代码先补充本地 ID，确保发回模型的工具结果可以与原工具调用对应。这一步才真正计算了 18 × 7。</p>
 <p>实际项目还应检查模型返回的工具名是否在允许列表中，并对可能产生副作用的工具增加权限、超时和人工确认。</p>
-<h3 id="10-4-第二次模型调用组织最终回答"><a href="#10-4-第二次模型调用组织最终回答" class="headerlink" title="10.4 第二次模型调用组织最终回答"></a><strong>10.4 第二次模型调用组织最终回答</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">final_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h3 id="8-4-第二次模型调用组织最终回答"><a href="#8-4-第二次模型调用组织最终回答" class="headerlink" title="8.4 第二次模型调用组织最终回答"></a><strong>8.4 第二次模型调用组织最终回答</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">final_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>消息列表中已经包含：</p>
 <ol>
@@ -1327,12 +1342,12 @@ tool_message <span class="token operator">=</span> ToolMessage<span class="token
 <li>应用返回的 ToolMessage。</li>
 </ol>
 <p>Qwen3 根据工具结果生成用户能够直接阅读的最终回答。这就是一次最小但完整的工具调用循环。Agent 会自动完成类似循环，而本篇手动展开是为了看清每一步的职责。</p>
-<h2 id="11-Qwen3-工具调用的基础检查"><a href="#11-Qwen3-工具调用的基础检查" class="headerlink" title="11. Qwen3 工具调用的基础检查"></a><strong>11. Qwen3 工具调用的基础检查</strong></h2><p>工具定义正确，并不代表任意模型服务都能正确返回 tool_calls。排查时应按下面的顺序进行。</p>
-<h3 id="11-1-先检查模型服务"><a href="#11-1-先检查模型服务" class="headerlink" title="11.1 先检查模型服务"></a><strong>11.1 先检查模型服务</strong></h3><pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
+<h2 id="9-Qwen3-工具调用的基础检查"><a href="#9-Qwen3-工具调用的基础检查" class="headerlink" title="9. Qwen3 工具调用的基础检查"></a><strong>9. Qwen3 工具调用的基础检查</strong></h2><p>工具定义正确，并不代表任意模型服务都能正确返回 tool_calls。排查时应按下面的顺序进行。</p>
+<h3 id="9-1-先检查模型服务"><a href="#9-1-先检查模型服务" class="headerlink" title="9.1 先检查模型服务"></a><strong>9.1 先检查模型服务</strong></h3><pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
   http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>模型服务没有启动时，先解决端口、模型路径和虚拟环境问题，不要先修改工具代码。</p>
-<h3 id="11-2-检查模型是否真的返回-tool-calls"><a href="#11-2-检查模型是否真的返回-tool-calls" class="headerlink" title="11.2 检查模型是否真的返回 tool_calls"></a><strong>11.2 检查模型是否真的返回 tool_calls</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">print</span><span class="token punctuation">(</span>ai_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h3 id="9-2-检查模型是否真的返回-tool-calls"><a href="#9-2-检查模型是否真的返回-tool-calls" class="headerlink" title="9.2 检查模型是否真的返回 tool_calls"></a><strong>9.2 检查模型是否真的返回 tool_calls</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">print</span><span class="token punctuation">(</span>ai_message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>如果列表为空，常见原因包括：</p>
 <ul>
@@ -1342,23 +1357,218 @@ tool_message <span class="token operator">=</span> ToolMessage<span class="token
 <li>提示词没有明确要求使用工具。</li>
 </ul>
 <p>本篇使用的本地 Qwen3 和 MLX-LM 服务已经真实返回标准 tool_calls，不需要切换到其他推理框架。</p>
-<h3 id="11-3-先使用非流式调用排查"><a href="#11-3-先使用非流式调用排查" class="headerlink" title="11.3 先使用非流式调用排查"></a><strong>11.3 先使用非流式调用排查</strong></h3><p>工具调用可能被分散到多个流式消息块中。初次调试时使用普通 invoke() 更容易观察完整的 AIMessage.tool_calls。确认非流式调用正确后，再处理 AIMessageChunk、消息块合并和推理服务解析器；这些内容放在下一篇完整展开。</p>
-<h3 id="11-4-本机请求避免经过代理"><a href="#11-4-本机请求避免经过代理" class="headerlink" title="11.4 本机请求避免经过代理"></a><strong>11.4 本机请求避免经过代理</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h3 id="9-3-先使用非流式调用排查"><a href="#9-3-先使用非流式调用排查" class="headerlink" title="9.3 先使用非流式调用排查"></a><strong>9.3 先使用非流式调用排查</strong></h3><p>工具调用可能被分散到多个流式消息块中。初次调试时使用普通 invoke() 更容易观察完整的 AIMessage.tool_calls。确认非流式调用正确后，再处理 AIMessageChunk、消息块合并和推理服务解析器；这些内容放在下一篇完整展开。</p>
+<h2 id="10-绑定多工具并动态调用"><a href="#10-绑定多工具并动态调用" class="headerlink" title="10. 绑定多工具并动态调用"></a>10. 绑定多工具并动态调用</h2><p>代码:</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""定义多个 BaseTool 子类，让 Qwen3 根据问题自动选择并调用合适工具。
 
-<p>这可以避免 VPN 或系统代理把 127.0.0.1 请求转发出去。它只影响 HTTP 客户端，不影响 Tool 的定义和执行。</p>
-<h2 id="12-常见错误"><a href="#12-常见错误" class="headerlink" title="12. 常见错误"></a><strong>12. 常见错误</strong></h2><h3 id="12-1-工具名称含糊或重复"><a href="#12-1-工具名称含糊或重复" class="headerlink" title="12.1 工具名称含糊或重复"></a><strong>12.1 工具名称含糊或重复</strong></h3><p>工具名应简短、稳定并能区分用途。多个工具使用相同名称时，应用无法可靠分发调用。</p>
-<h3 id="12-2-description-只重复工具名"><a href="#12-2-description-只重复工具名" class="headerlink" title="12.2 description 只重复工具名"></a><strong>12.2 description 只重复工具名</strong></h3><p>描述应说明工具适合解决什么问题。模型主要依靠名称、描述和参数 Schema 选择工具，模糊描述会直接影响选择结果。</p>
-<h3 id="12-3-参数缺少类型和说明"><a href="#12-3-参数缺少类型和说明" class="headerlink" title="12.3 参数缺少类型和说明"></a><strong>12.3 参数缺少类型和说明</strong></h3><p>没有类型约束时，模型更容易传入错误格式。复杂参数优先使用 Pydantic，枚举值使用 Literal。</p>
-<h3 id="12-4-直接信任模型生成的工具名和参数"><a href="#12-4-直接信任模型生成的工具名和参数" class="headerlink" title="12.4 直接信任模型生成的工具名和参数"></a><strong>12.4 直接信任模型生成的工具名和参数</strong></h3><p>模型输出必须视为外部输入。应用需要检查工具白名单，并让 Pydantic 完成参数校验。写文件、发消息、删除数据等工具还需要权限和人工确认。</p>
-<h3 id="12-5-忘记把-AIMessage-和-ToolMessage-放回消息列表"><a href="#12-5-忘记把-AIMessage-和-ToolMessage-放回消息列表" class="headerlink" title="12.5 忘记把 AIMessage 和 ToolMessage 放回消息列表"></a><strong>12.5 忘记把 AIMessage 和 ToolMessage 放回消息列表</strong></h3><p>第二次调用前必须保留模型原始工具请求，并追加与调用 ID 对应的 ToolMessage。只把字符串结果发送给模型，会破坏标准工具调用上下文。</p>
-<h3 id="12-6-误以为-bind-tools-会自动执行工具"><a href="#12-6-误以为-bind-tools-会自动执行工具" class="headerlink" title="12.6 误以为 bind_tools() 会自动执行工具"></a><strong>12.6 误以为 bind_tools() 会自动执行工具</strong></h3><p>bind_tools() 只向模型提供工具 Schema。自动循环需要 Agent 或自己编写分发、执行和回传逻辑。</p>
-<h2 id="13-小结"><a href="#13-小结" class="headerlink" title="13. 小结"></a><strong>13. 小结</strong></h2><p>Tool 是模型和应用能力之间的结构化接口。模型依据 Schema 选择工具和生成参数，应用程序负责校验、执行和回传结果。</p>
-<p>LangChain 创建本地 Tool 的来源可以归纳为三类：Python 函数或协程、Runnable、BaseTool 子类。对于大多数简单函数，直接交给 Agent 或使用 @tool 已经足够；需要明确同步和异步实现时使用 StructuredTool.from_function()；已有 Runnable 可以通过 as_tool() 转换；需要封装状态或复杂生命周期时再继承 BaseTool。</p>
+与 07 的区别：
+  07 只有 1 个 calculator，手动完成单轮工具循环；
+  08 有 3 个工具，按 tool_call["name"] 动态分发，并测试 3 个不同问题。
+
+运行前需启动本地 Qwen3（18080 端口），与 07 相同。
+"""</span>
+
+<span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
+
+<span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage<span class="token punctuation">,</span> HumanMessage<span class="token punctuation">,</span> ToolMessage
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> BaseTool
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
+
+
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 工具 1：计算器</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token keyword">class</span> <span class="token class-name">CalculatorInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""计算器输入。"""</span>
+
+    a<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第一个数字"</span><span class="token punctuation">)</span>
+    b<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第二个数字"</span><span class="token punctuation">)</span>
+    operation<span class="token punctuation">:</span> Literal<span class="token punctuation">[</span><span class="token string">"add"</span><span class="token punctuation">,</span> <span class="token string">"multiply"</span><span class="token punctuation">]</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>
+        description<span class="token operator">=</span><span class="token string">"运算类型：add 加法，multiply 乘法"</span>
+    <span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">CalculatorTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""对两个数字做加法或乘法。"""</span>
+
+    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"calculator"</span>
+    description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"对两个数字做加法或乘法，返回字符串形式的结果。"</span>
+    args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> CalculatorInput
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> operation<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> operation <span class="token operator">==</span> <span class="token string">"add"</span><span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">+</span> b<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">*</span> b<span class="token punctuation">)</span>
+
+
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 工具 2：模拟天气查询</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token keyword">class</span> <span class="token class-name">WeatherInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""天气查询输入。"""</span>
+
+    city<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"要查询的城市名称，例如杭州、北京"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">WeatherTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""查询指定城市的模拟天气（本地固定数据，不访问真实 API）。"""</span>
+
+    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"get_weather"</span>
+    description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"查询指定城市今天的天气和气温。"</span>
+    args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> WeatherInput
+
+    _WEATHER_DATA <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
+        <span class="token string">"杭州"</span><span class="token punctuation">:</span> <span class="token string">"晴朗，28 摄氏度"</span><span class="token punctuation">,</span>
+        <span class="token string">"北京"</span><span class="token punctuation">:</span> <span class="token string">"多云，22 摄氏度"</span><span class="token punctuation">,</span>
+        <span class="token string">"上海"</span><span class="token punctuation">:</span> <span class="token string">"小雨，19 摄氏度"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">&#125;</span>
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token keyword">for</span> known_city<span class="token punctuation">,</span> weather <span class="token keyword">in</span> self<span class="token punctuation">.</span>_WEATHER_DATA<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">if</span> known_city <span class="token keyword">in</span> city<span class="token punctuation">:</span>
+                <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>known_city<span class="token punctuation">&#125;</span></span><span class="token string">今天</span><span class="token interpolation"><span class="token punctuation">&#123;</span>weather<span class="token punctuation">&#125;</span></span><span class="token string">。"</span></span>
+        <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"暂无 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string"> 的天气数据，目前支持：杭州、北京、上海。"</span></span>
+
+
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token comment"># 工具 3：本地书单搜索</span>
+<span class="token comment"># ---------------------------------------------------------------------------</span>
+<span class="token keyword">class</span> <span class="token class-name">BookSearchInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""书单搜索输入。"""</span>
+
+    keyword<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"书名中需要包含的关键词"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">BookSearchTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""在本地固定书单中按关键词搜索书名。"""</span>
+
+    name<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"search_books"</span>
+    description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"根据关键词在本地书单中查找匹配的书名。"</span>
+    args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> BookSearchInput
+
+    _BOOKS <span class="token operator">=</span> <span class="token punctuation">[</span>
+        <span class="token string">"Python 编程入门"</span><span class="token punctuation">,</span>
+        <span class="token string">"杭州旅行指南"</span><span class="token punctuation">,</span>
+        <span class="token string">"LangGraph 实战教程"</span><span class="token punctuation">,</span>
+    <span class="token punctuation">]</span>
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> keyword<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        matches <span class="token operator">=</span> <span class="token punctuation">[</span>book <span class="token keyword">for</span> book <span class="token keyword">in</span> self<span class="token punctuation">.</span>_BOOKS <span class="token keyword">if</span> keyword <span class="token keyword">in</span> book<span class="token punctuation">]</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> matches<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string">"没有找到匹配的书籍"</span>
+        <span class="token keyword">return</span> <span class="token string">"、"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>matches<span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">run_tool_loop</span><span class="token punctuation">(</span>
+    model_with_tools<span class="token punctuation">,</span>
+    tools_by_name<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">,</span>
+    question<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""执行一轮完整的工具调用循环：模型决策 → 执行工具 → 生成最终回答。"""</span>
+    messages<span class="token punctuation">:</span> <span class="token builtin">list</span> <span class="token operator">=</span> <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span>question<span class="token punctuation">)</span><span class="token punctuation">]</span>
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token string">'='</span> <span class="token operator">*</span> <span class="token number">60</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"用户问题：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>question<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+    <span class="token comment"># 第 1 步：模型决定调用哪个（或哪些）工具。</span>
+    response<span class="token punctuation">:</span> AIMessage <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型文本回复：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>response<span class="token punctuation">.</span>content<span class="token conversion-option punctuation">!r</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具调用请求：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>response<span class="token punctuation">.</span>tool_calls<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+    <span class="token keyword">if</span> <span class="token keyword">not</span> response<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"（模型未调用任何工具，直接回答）"</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span>
+
+    <span class="token comment"># 第 2 步：按 name 动态分发，支持一次返回多个 tool_calls。</span>
+    messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span>response<span class="token punctuation">)</span>
+    <span class="token keyword">for</span> index<span class="token punctuation">,</span> tool_call <span class="token keyword">in</span> <span class="token builtin">enumerate</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>tool_calls<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        tool_name <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
+        tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span> <span class="token keyword">or</span> <span class="token string-interpolation"><span class="token string">f"local_tool_call_</span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n  → 执行工具 [</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_name<span class="token punctuation">&#125;</span></span><span class="token string">]，参数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">[</span><span class="token string">'args'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+        tool_result <span class="token operator">=</span> tools_by_name<span class="token punctuation">[</span>tool_name<span class="token punctuation">]</span><span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  → 工具返回：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_result<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+        messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span>
+            ToolMessage<span class="token punctuation">(</span>
+                content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>tool_result<span class="token punctuation">)</span><span class="token punctuation">,</span>
+                tool_call_id<span class="token operator">=</span>tool_call_id<span class="token punctuation">,</span>
+                name<span class="token operator">=</span>tool_name<span class="token punctuation">,</span>
+            <span class="token punctuation">)</span>
+        <span class="token punctuation">)</span>
+
+    <span class="token comment"># 第 3 步：把工具结果交回模型，组织自然语言回答。</span>
+    final_message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>final_message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+
+
+<span class="token comment"># --- 初始化模型与工具 ---</span>
+tools <span class="token operator">=</span> <span class="token punctuation">[</span>CalculatorTool<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> WeatherTool<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> BookSearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
+tools_by_name <span class="token operator">=</span> <span class="token punctuation">&#123;</span>current_tool<span class="token punctuation">.</span>name<span class="token punctuation">:</span> current_tool <span class="token keyword">for</span> current_tool <span class="token keyword">in</span> tools<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
+    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+        model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
+        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
+    model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span>tools<span class="token punctuation">)</span>
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"已注册工具："</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>tool<span class="token punctuation">.</span>name <span class="token keyword">for</span> tool <span class="token keyword">in</span> tools<span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+    <span class="token comment"># 三个问题分别应触发不同工具，便于观察模型的选择行为。</span>
+    run_tool_loop<span class="token punctuation">(</span>model_with_tools<span class="token punctuation">,</span> tools_by_name<span class="token punctuation">,</span> <span class="token string">"请用计算器算 12 乘以 9。"</span><span class="token punctuation">)</span>
+    run_tool_loop<span class="token punctuation">(</span>model_with_tools<span class="token punctuation">,</span> tools_by_name<span class="token punctuation">,</span> <span class="token string">"杭州今天天气怎么样？"</span><span class="token punctuation">)</span>
+    run_tool_loop<span class="token punctuation">(</span>model_with_tools<span class="token punctuation">,</span> tools_by_name<span class="token punctuation">,</span> <span class="token string">"帮我找书名里包含 Python 的书。"</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>结果:</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">已注册工具： <span class="token punctuation">[</span><span class="token string">'calculator'</span>, <span class="token string">'get_weather'</span>, <span class="token string">'search_books'</span><span class="token punctuation">]</span>
+
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+用户问题：请用计算器算 <span class="token number">12</span> 乘以 <span class="token number">9</span>。
+模型文本回复：<span class="token string">''</span>
+工具调用请求：<span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">'name'</span><span class="token builtin class-name">:</span> <span class="token string">'calculator'</span>, <span class="token string">'args'</span><span class="token builtin class-name">:</span> <span class="token punctuation">&#123;</span><span class="token string">'a'</span><span class="token builtin class-name">:</span> <span class="token number">12</span>, <span class="token string">'b'</span><span class="token builtin class-name">:</span> <span class="token number">9</span>, <span class="token string">'operation'</span><span class="token builtin class-name">:</span> <span class="token string">'multiply'</span><span class="token punctuation">&#125;</span>, <span class="token string">'id'</span><span class="token builtin class-name">:</span> <span class="token string">'4570aac7-8644-40d6-b16b-47eca0d5ed3d'</span>, <span class="token string">'type'</span><span class="token builtin class-name">:</span> <span class="token string">'tool_call'</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+
+  → 执行工具 <span class="token punctuation">[</span>calculator<span class="token punctuation">]</span>，参数：<span class="token punctuation">&#123;</span><span class="token string">'a'</span><span class="token builtin class-name">:</span> <span class="token number">12</span>, <span class="token string">'b'</span><span class="token builtin class-name">:</span> <span class="token number">9</span>, <span class="token string">'operation'</span><span class="token builtin class-name">:</span> <span class="token string">'multiply'</span><span class="token punctuation">&#125;</span>
+  → 工具返回：108.0
+
+最终回答：12 乘以 <span class="token number">9</span> 的结果是 <span class="token number">108.0</span>。
+
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+用户问题：杭州今天天气怎么样？
+模型文本回复：<span class="token string">''</span>
+工具调用请求：<span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">'name'</span><span class="token builtin class-name">:</span> <span class="token string">'get_weather'</span>, <span class="token string">'args'</span><span class="token builtin class-name">:</span> <span class="token punctuation">&#123;</span><span class="token string">'city'</span><span class="token builtin class-name">:</span> <span class="token string">'杭州'</span><span class="token punctuation">&#125;</span>, <span class="token string">'id'</span><span class="token builtin class-name">:</span> <span class="token string">'01efc72b-9f05-4e67-b0c8-cacc2728afa3'</span>, <span class="token string">'type'</span><span class="token builtin class-name">:</span> <span class="token string">'tool_call'</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+
+  → 执行工具 <span class="token punctuation">[</span>get_weather<span class="token punctuation">]</span>，参数：<span class="token punctuation">&#123;</span><span class="token string">'city'</span><span class="token builtin class-name">:</span> <span class="token string">'杭州'</span><span class="token punctuation">&#125;</span>
+  → 工具返回：杭州今天晴朗，28 摄氏度。
+
+最终回答：杭州今天的天气晴朗，气温为28摄氏度。
+
+<span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span><span class="token operator">==</span>
+用户问题：帮我找书名里包含 Python 的书。
+模型文本回复：<span class="token string">''</span>
+工具调用请求：<span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">'name'</span><span class="token builtin class-name">:</span> <span class="token string">'search_books'</span>, <span class="token string">'args'</span><span class="token builtin class-name">:</span> <span class="token punctuation">&#123;</span><span class="token string">'keyword'</span><span class="token builtin class-name">:</span> <span class="token string">'Python'</span><span class="token punctuation">&#125;</span>, <span class="token string">'id'</span><span class="token builtin class-name">:</span> <span class="token string">'c46594d1-fb78-4ae0-b71f-9da8d3c730c0'</span>, <span class="token string">'type'</span><span class="token builtin class-name">:</span> <span class="token string">'tool_call'</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span>
+
+  → 执行工具 <span class="token punctuation">[</span>search_books<span class="token punctuation">]</span>，参数：<span class="token punctuation">&#123;</span><span class="token string">'keyword'</span><span class="token builtin class-name">:</span> <span class="token string">'Python'</span><span class="token punctuation">&#125;</span>
+  → 工具返回：Python 编程入门
+
+最终回答：找到一本包含 <span class="token string">"Python"</span> 的书：《Python 编程入门》。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+
+
+<h2 id="11-小结"><a href="#11-小结" class="headerlink" title="11. 小结"></a><strong>11. 小结</strong></h2><p>Tool 是模型和应用能力之间的结构化接口。模型依据 Schema 选择工具和生成参数，应用程序负责校验、执行和回传结果。</p>
+<p>LangChain 实现本地 Tool 主要有三种方式：包装 Python 函数或协程、把 Runnable 转换成 Tool、继承 BaseTool 自定义实现。对于大多数简单函数，使用 @tool 已经足够；需要明确同步和异步实现时使用 StructuredTool.from_function()；已有 Runnable 可以通过 as_tool() 转换；需要封装状态或复杂生命周期时再继承 BaseTool。</p>
 <p>本篇最后的 Qwen3 示例没有依赖 Agent，手动展示了 AIMessage.tool_calls -&gt; Tool 执行 -&gt; ToolMessage -&gt; 最终 AIMessage 的完整过程。理解这个循环后，再使用 Agent 自动执行工具时，每一层的职责会更清楚。</p>
 <table>
 <thead>
 <tr>
-<th align="left">Tool 来源</th>
+<th align="left">实现方式</th>
 <th align="left">具体写法</th>
 <th align="left">参数 Schema</th>
 <th align="left">适用场景</th>
@@ -1387,7 +1597,7 @@ tool_message <span class="token operator">=</span> ToolMessage<span class="token
 <td align="left">本地书单查询成功</td>
 </tr>
 </tbody></table>
-<p>ChatOpenAI.bind_tools() 不负责创建新的 Tool 来源，它把已经创建好的 Tool Schema 交给模型。本地 Qwen3 实测能够生成正确参数，并完成 18 × 7 &#x3D; 126 的手动调用循环。</p>
+<p>ChatOpenAI.bind_tools() 不负责实现 Tool，它把已经创建好的 Tool Schema 交给模型。本地 Qwen3 实测能够生成正确参数，并完成 18 × 7 &#x3D; 126 的手动调用循环。</p>
 <p>参考文档：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/tools">LangChain Tools</a>、<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/models">Models and tool calling</a>、<a target="_blank" rel="noopener" href="https://reference.langchain.com/python/langchain-core/tools">langchain-core tools API</a>。</p>
 <p>下一篇将继续处理流式工具调用：观察 AIMessageChunk 和 ToolCallChunk，说明推理服务工具解析器的作用，并使用 BaseTool 调用真实互联网接口。</p>
 
@@ -2073,7 +2283,7 @@ tool_message <span class="token operator">=</span> ToolMessage<span class="token
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    5.5k
+                    5.8k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    22 分
+                    24 分
                 </div>
                 
 
@@ -769,7 +769,7 @@
 </ol>
 <p>下图将这条链路拆成客户端请求、推理服务处理和客户端消息合并三层。这样可以看到，工具调用解析器与 AIMessageChunk 合并发生在不同位置，解决的也不是同一个问题。</p>
 <p><img src="https://images.hnbian.cn/new/n-273beac5952cda3acc0f977e0a475be5.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="流式工具调用的解析与消息合并链路"></p>
-<p>推理服务解析器负责把模型生成的 Token 转换成接口中的 delta.tool_calls；LangChain 再把流式响应转换成 AIMessageChunk。最后执行 gathered + chunk 的是客户端代码，它把多个 Chunk 累加成完整的 tool_calls。因此，“服务端解析”和“客户端合并”不能视为同一个步骤。</p>
+<p>推理服务解析器负责把模型生成的 Token 转换成接口中的 delta.tool_calls；LangChain 再把流式响应转换成 AIMessageChunk。LangGraph Server 可以把这些 Chunk 转发给 messages-tuple 订阅者，同时把合并后的完整 AIMessage 写入 Graph 状态。因此，“服务端解析”“流式事件”和“状态中的完整消息”不能视为同一个步骤。</p>
 <p>这几层中任意一层不匹配，都可能出现下面的现象：</p>
 <ul>
 <li>模型把工具调用当作普通文字输出。</li>
@@ -778,17 +778,81 @@
 <li>LangChain 收到内容，却没有得到 tool_calls。</li>
 </ul>
 <p>因此，工具调用失败时不能只检查 Python 函数。还要检查模型、Chat Template、推理服务版本和工具解析器是否互相兼容。</p>
-<h2 id="2-准备两个-Python-环境"><a href="#2-准备两个-Python-环境" class="headerlink" title="2. 准备两个 Python 环境"></a><strong>2. 准备两个 Python 环境</strong></h2><p>客户端代码继续使用 LangGraph 系列 2 创建的 .venv_langgraph。模型服务复用 LangGraph 系列 3 创建的 .venv_tool_server，并按本篇锁文件刷新间接依赖，避免改变前面已经使用的主环境。</p>
+<h2 id="2-创建并启动-LangGraph-项目"><a href="#2-创建并启动-LangGraph-项目" class="headerlink" title="2. 创建并启动 LangGraph 项目"></a><strong>2. 创建并启动 LangGraph 项目</strong></h2><p>本篇不再把示例写成直接执行的 Python 脚本，而是把四个示例分别导出为 Graph，再由 LangGraph Server 加载。运行时通过 Studio 或 LangGraph API 提交消息，Python 文件本身只负责定义 Agent。</p>
+<p>客户端继续使用 LangGraph 系列 2 创建的 .venv_langgraph。模型服务复用 LangGraph 系列 3 创建的 .venv_tool_server，两个环境分别管理，避免模型推理依赖影响 Agent 项目。</p>
 <h3 id="2-1-客户端环境"><a href="#2-1-客户端环境" class="headerlink" title="2.1 客户端环境"></a><strong>2.1 客户端环境</strong></h3><p>在 llm_learning 根目录执行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
 
 <span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
-python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
-  <span class="token parameter variable">-r</span> langgraph/p06_streaming_and_online_tools/requirements.txt
-python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+uv pip <span class="token function">install</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-r</span> langgraph/p06_streaming_and_online_tools/requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>客户端依赖由 <code>requirements.txt</code> 统一管理。</p>
-<h3 id="2-2-模型服务环境"><a href="#2-2-模型服务环境" class="headerlink" title="2.2 模型服务环境"></a><strong>2.2 模型服务环境</strong></h3><p>如果没有按 LangGraph 系列 3 创建模型服务环境，先创建 Python 3.12 虚拟环境；已经存在则直接激活：</p>
+<p>客户端依赖由 requirements.txt 和 pyproject.toml 统一声明。</p>
+<h3 id="2-2-注册四个-Agent"><a href="#2-2-注册四个-Agent" class="headerlink" title="2.2 注册四个 Agent"></a><strong>2.2 注册四个 Agent</strong></h3><p>p06_streaming_and_online_tools 目录现在是一个独立 LangGraph 项目：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">p06_streaming_and_online_tools/
+├── 01_stream_tool_call_chunks.py
+├── 02_stream_agent_tool_loop.py
+├── 03_city_search_base_tool.py
+├── 04_agent_with_city_search.py
+├── .env.example
+├── langgraph.json
+├── pyproject.toml
+└── requirements.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>四个 Python 文件都导出名为 graph 的编译图。langgraph.json 使用不同的 Agent ID 注册这些入口：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"$schema"</span><span class="token operator">:</span> <span class="token string">"https://langgra.ph/schema.json"</span><span class="token punctuation">,</span>
+  <span class="token property">"dependencies"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"."</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"graphs"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
+    <span class="token property">"stream_tool_call_agent"</span><span class="token operator">:</span> <span class="token string">"./01_stream_tool_call_chunks.py:graph"</span><span class="token punctuation">,</span>
+    <span class="token property">"calculator_agent"</span><span class="token operator">:</span> <span class="token string">"./02_stream_agent_tool_loop.py:graph"</span><span class="token punctuation">,</span>
+    <span class="token property">"city_search_tool_agent"</span><span class="token operator">:</span> <span class="token string">"./03_city_search_base_tool.py:graph"</span><span class="token punctuation">,</span>
+    <span class="token property">"city_search_agent"</span><span class="token operator">:</span> <span class="token string">"./04_agent_with_city_search.py:graph"</span>
+  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+  <span class="token property">"env"</span><span class="token operator">:</span> <span class="token string">".env"</span><span class="token punctuation">,</span>
+  <span class="token property">"python_version"</span><span class="token operator">:</span> <span class="token string">"3.12"</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>四个 Agent 的职责如下：</p>
+<table>
+<thead>
+<tr>
+<th align="left">Agent ID</th>
+<th align="left">用途</th>
+<th align="left">是否依赖本地 Qwen3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">stream_tool_call_agent</td>
+<td align="left">只生成工具调用，观察流式参数片段</td>
+<td align="left">是</td>
+</tr>
+<tr>
+<td align="left">calculator_agent</td>
+<td align="left">自动完成计算器工具循环</td>
+<td align="left">是</td>
+</tr>
+<tr>
+<td align="left">city_search_tool_agent</td>
+<td align="left">直接执行 BaseTool，隔离测试 Open-Meteo</td>
+<td align="left">否</td>
+</tr>
+<tr>
+<td align="left">city_search_agent</td>
+<td align="left">让 Qwen3 选择并执行城市查询工具</td>
+<td align="left">是</td>
+</tr>
+</tbody></table>
+<p>模型地址通过环境变量提供。第一次运行时复制示例文件：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> langgraph/p06_streaming_and_online_tools
+<span class="token function">cp</span> .env.example .env<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+
+<p>.env.example 的内容如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">QWEN_MODEL=Qwen3-14B-AWQ-4bit-MLX
+QWEN_BASE_URL=http://127.0.0.1:18080/v1
+QWEN_API_KEY=not-needed<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="2-3-模型服务环境"><a href="#2-3-模型服务环境" class="headerlink" title="2.3 模型服务环境"></a><strong>2.3 模型服务环境</strong></h3><p>如果没有按 LangGraph 系列 3 创建模型服务环境，先创建 Python 3.12 虚拟环境；已经存在则直接激活：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python3.12 <span class="token parameter variable">-m</span> venv <span class="token punctuation">\</span>
   <span class="token parameter variable">--prompt</span> llm_learning_tool_server <span class="token punctuation">\</span>
   .venv_tool_server
@@ -801,15 +865,7 @@ python <span class="token parameter variable">-m</span> pip <span class="token f
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">uv pip <span class="token function">sync</span> <span class="token punctuation">\</span>
   langgraph/p06_streaming_and_online_tools/requirements-server-lock.txt<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>安装并检查环境：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token parameter variable">-m</span> pip <span class="token function">install</span> <span class="token punctuation">\</span>
-  <span class="token parameter variable">-r</span> langgraph/p06_streaming_and_online_tools/requirements-server-lock.txt
-python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-
-<p>实际检查结果：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="2-3-启动-Qwen3-服务"><a href="#2-3-启动-Qwen3-服务" class="headerlink" title="2.3 启动 Qwen3 服务"></a><strong>2.3 启动 Qwen3 服务</strong></h3><p>确保当前目录是 llm_learning，并且根目录下的 model 指向已经下载的 Qwen3 模型：</p>
+<h3 id="2-4-启动-Qwen3-服务"><a href="#2-4-启动-Qwen3-服务" class="headerlink" title="2.4 启动 Qwen3 服务"></a><strong>2.4 启动 Qwen3 服务</strong></h3><p>确保当前目录是 llm_learning，并且根目录下的 model 指向已经下载的 Qwen3 模型：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
 
 <span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
@@ -823,20 +879,22 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
   http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>&#x2F;v1&#x2F;models 返回模型列表后，再运行后面的脚本。这样可以先排除服务未启动、端口错误和模型路径错误。</p>
-<h2 id="3-invoke-与-stream-的区别"><a href="#3-invoke-与-stream-的区别" class="headerlink" title="3. invoke() 与 stream() 的区别"></a><strong>3. invoke() 与 stream() 的区别</strong></h2><p>invoke() 等待模型完成整次生成，然后返回一个完整消息：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">message <span class="token operator">=</span> model_with_tools<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>  <span class="token comment"># AIMessage</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>&#x2F;v1&#x2F;models 返回模型列表后，再启动 LangGraph Server。这样可以先排除服务未启动、端口错误和模型路径错误。</p>
+<h3 id="2-5-启动-LangGraph-Server"><a href="#2-5-启动-LangGraph-Server" class="headerlink" title="2.5 启动 LangGraph Server"></a><strong>2.5 启动 LangGraph Server</strong></h3><p>另开终端，进入本篇项目目录启动开发服务器：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning/langgraph/p06_streaming_and_online_tools
+<span class="token builtin class-name">source</span> <span class="token punctuation">..</span>/<span class="token punctuation">..</span>/.venv_langgraph/bin/activate
+langgraph dev<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
-<p>工具调用已经整理在：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">.</span>tool_calls<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>stream() 返回一个迭代器，每次产生一小块消息：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">for</span> chunk <span class="token keyword">in</span> model_with_tools<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>messages<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token builtin">type</span><span class="token punctuation">(</span>chunk<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>  <span class="token comment"># AIMessageChunk</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>工具调用的流式片段位于：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">chunk<span class="token punctuation">.</span>tool_call_chunks<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>LangGraph Server 默认监听 127.0.0.1:2024。启动日志中应出现四条 importing graph 记录，随后可以在 Studio 中选择 Agent，也可以向 &#x2F;runs&#x2F;stream 提交无状态运行。</p>
+<h2 id="3-values-与-messages-tuple-流模式"><a href="#3-values-与-messages-tuple-流模式" class="headerlink" title="3. values 与 messages-tuple 流模式"></a><strong>3. values 与 messages-tuple 流模式</strong></h2><p>直接调用本地 Graph 时，invoke() 会等待整张图执行完成，返回包含完整消息的最终状态；通过 LangGraph API 提交时，stream_mode 决定客户端观察哪一层输出。</p>
+<ul>
+<li>values 返回每一步完成后的完整 Graph 状态，最终 AIMessage 中的 tool_calls 已经是完整工具调用。</li>
+<li>messages-tuple 返回模型和工具节点产生的消息流，每个事件包含消息块与执行元数据，适合观察 AIMessageChunk、ToolCallChunk 和 ToolMessage。</li>
+</ul>
+<p>通过 API 请求时可以同时指定两种模式：</p>
+<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
+  <span class="token property">"stream_mode"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"messages-tuple"</span><span class="token punctuation">,</span> <span class="token string">"values"</span><span class="token punctuation">]</span>
+<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>这里有四个容易混淆的对象：</p>
 <table>
@@ -848,32 +906,33 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 </thead>
 <tbody><tr>
 <td align="left">AIMessage</td>
-<td align="left">一次非流式模型调用的完整消息</td>
+<td align="left">Graph 状态中保存的完整模型消息</td>
 </tr>
 <tr>
 <td align="left">AIMessageChunk</td>
-<td align="left">流式模型调用返回的一块消息</td>
+<td align="left">messages-tuple 流返回的一块模型消息</td>
 </tr>
 <tr>
 <td align="left">tool_calls</td>
-<td align="left">已经解析完成的工具调用列表</td>
+<td align="left">完整 AIMessage 中已经解析完成的工具调用列表</td>
 </tr>
 <tr>
 <td align="left">tool_call_chunks</td>
-<td align="left">流式返回的工具名称或参数片段</td>
+<td align="left">AIMessageChunk 中的工具名称或参数片段</td>
 </tr>
 </tbody></table>
-<p>工具参数可能一次完整返回，也可能被拆成多个字符串片段。应用不能假设每个 Chunk 都包含合法、完整的 JSON。</p>
-<h2 id="4-观察-Qwen3-的-ToolCallChunk"><a href="#4-观察-Qwen3-的-ToolCallChunk" class="headerlink" title="4. 观察 Qwen3 的 ToolCallChunk"></a><strong>4. 观察 Qwen3 的 ToolCallChunk</strong></h2><p>第一个脚本把计算器绑定到本地 Qwen3，打印每个工具调用块，再使用 + 合并全部 AIMessageChunk。</p>
+<p>工具参数可能一次完整返回，也可能被拆成多个字符串片段。流式客户端不能假设每个 Chunk 都包含合法、完整的 JSON；需要完整参数时，应读取最终状态中的 tool_calls，或在客户端合并所有 AIMessageChunk。</p>
+<h2 id="4-观察-Qwen3-的-ToolCallChunk"><a href="#4-观察-Qwen3-的-ToolCallChunk" class="headerlink" title="4. 观察 Qwen3 的 ToolCallChunk"></a><strong>4. 观察 Qwen3 的 ToolCallChunk</strong></h2><p>第一个 Agent 只调用一次绑定了计算器的模型，不执行工具。这样既能从 messages-tuple 事件观察 tool_call_chunks，也能从 values 事件读取完整的 tool_calls。</p>
 <p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;01_stream_tool_call_chunks.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""观察 Qwen3 流式返回的工具调用块，并把消息块合并成完整工具调用。"""</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""只生成工具调用请求的 LangGraph Agent，用于观察流式 tool_call_chunks。"""</span>
 
+<span class="token keyword">import</span> os
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
 
 <span class="token keyword">import</span> httpx
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> HumanMessage
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> MessagesState<span class="token punctuation">,</span> StateGraph
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
 
 
@@ -884,83 +943,98 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
     b<span class="token punctuation">:</span> <span class="token builtin">float</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"第二个数字"</span><span class="token punctuation">)</span>
     operation<span class="token punctuation">:</span> Literal<span class="token punctuation">[</span><span class="token string">"multiply"</span><span class="token punctuation">]</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"运算类型，只能是 multiply"</span><span class="token punctuation">)</span>
 
-
 <span class="token decorator annotation punctuation">@tool</span><span class="token punctuation">(</span>args_schema<span class="token operator">=</span>CalculatorInput<span class="token punctuation">)</span>
 <span class="token keyword">def</span> <span class="token function">calculator</span><span class="token punctuation">(</span>a<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> b<span class="token punctuation">:</span> <span class="token builtin">float</span><span class="token punctuation">,</span> operation<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""计算两个数字的乘积。"""</span>
 
     <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">*</span> b<span class="token punctuation">)</span>
 
+<span class="token comment"># LangGraph Server 会长期持有 Graph，因此模型客户端也在模块加载时创建。</span>
+model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_MODEL"</span><span class="token punctuation">,</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_BASE_URL"</span><span class="token punctuation">,</span> <span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_API_KEY"</span><span class="token punctuation">,</span> <span class="token string">"not-needed"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+    <span class="token comment"># 同步和异步客户端都禁用系统代理，确保本机模型请求直连。</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    http_async_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
+model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span>
 
-<span class="token comment"># trust_env=False 避免系统代理或 VPN 转发本机请求。</span>
-<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
-    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-        model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
-        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
-        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
-        max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
-        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
-    <span class="token punctuation">)</span>
-    model_with_tools <span class="token operator">=</span> model<span class="token punctuation">.</span>bind_tools<span class="token punctuation">(</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">)</span>
 
-    gathered<span class="token punctuation">:</span> AIMessageChunk <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span>
-    chunk_number <span class="token operator">=</span> <span class="token number">0</span>
+<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">call_model</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> MessagesState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">list</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""调用一次模型，让模型生成工具名称和参数，但不执行工具。"""</span>
 
-    <span class="token comment"># stream() 返回 AIMessageChunk；工具参数可能被拆成一个或多个块。</span>
-    <span class="token keyword">for</span> chunk <span class="token keyword">in</span> model_with_tools<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-        <span class="token punctuation">[</span>HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"请使用计算器工具计算 18 乘以 7。"</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
-    <span class="token punctuation">)</span><span class="token punctuation">:</span>
-        gathered <span class="token operator">=</span> chunk <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">else</span> gathered <span class="token operator">+</span> chunk
+    response <span class="token operator">=</span> <span class="token keyword">await</span> model_with_tools<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span>state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>response<span class="token punctuation">]</span><span class="token punctuation">&#125;</span>
 
-        <span class="token keyword">for</span> tool_chunk <span class="token keyword">in</span> chunk<span class="token punctuation">.</span>tool_call_chunks<span class="token punctuation">:</span>
-            chunk_number <span class="token operator">+=</span> <span class="token number">1</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具调用块 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>chunk_number<span class="token punctuation">&#125;</span></span><span class="token string">："</span></span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"  工具名："</span><span class="token punctuation">,</span> tool_chunk<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"name"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"  参数片段："</span><span class="token punctuation">,</span> tool_chunk<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"args"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token comment"># 这个 Graph 故意只包含模型节点。</span>
+<span class="token comment"># 通过 LangGraph API 使用 messages-tuple 流模式提交时，可以观察工具参数分块；</span>
+<span class="token comment"># 最终状态中的 AIMessage.tool_calls 则保存合并后的完整工具调用。</span>
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"call_model"</span><span class="token punctuation">,</span> call_model<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"call_model"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"call_model"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-    <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">or</span> <span class="token keyword">not</span> gathered<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-        <span class="token keyword">raise</span> RuntimeError<span class="token punctuation">(</span><span class="token string">"Qwen3 没有生成完整的工具调用"</span><span class="token punctuation">)</span>
+<p>代码不再写死用户问题，也不在模块导入时开始执行。LangGraph Server 加载 graph 后，使用下面的请求提交消息：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> --no-buffer <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+  <span class="token parameter variable">--url</span> http://127.0.0.1:2024/runs/stream <span class="token punctuation">\</span>
+  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--data</span> <span class="token string">'&#123;
+    "assistant_id": "stream_tool_call_agent",
+    "input": &#123;
+      "messages": [
+        &#123;
+          "role": "user",
+          "content": "请使用计算器工具计算 18 乘以 7。"
+        &#125;
+      ]
+    &#125;,
+    "stream_mode": ["messages-tuple", "values"]
+  &#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-    <span class="token comment"># 消息块相加后，LangChain 会把参数片段解析为完整字典。</span>
-    complete_call <span class="token operator">=</span> gathered<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"合并后的工具名："</span><span class="token punctuation">,</span> complete_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"合并后的参数："</span><span class="token punctuation">,</span> complete_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>本机实际流中的关键字段如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">messages 事件：
+tool_call_chunks = [
+  &#123;
+    "name": "calculator",
+    "args": "&#123;\"a\": 18, \"b\": 7, \"operation\": \"multiply\"&#125;",
+    "index": 0,
+    "type": "tool_call_chunk"
+  &#125;
+]
 
-<p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
-python <span class="token punctuation">\</span>
-  langgraph/p06_streaming_and_online_tools/01_stream_tool_call_chunks.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+最终 values 事件：
+tool_calls = [
+  &#123;
+    "name": "calculator",
+    "args": &#123;"a": 18, "b": 7, "operation": "multiply"&#125;,
+    "type": "tool_call"
+  &#125;
+]<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>本机实际输出：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">工具调用块 1：
-  工具名： calculator
-  参数片段： &#123;"a": 18, "b": 7, "operation": "multiply"&#125;
-合并后的工具名： calculator
-合并后的参数： &#123;'a': 18, 'b': 7, 'operation': 'multiply'&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>这次 MLX-LM 在一个 Chunk 中返回了完整工具名称和 JSON 参数，但代码仍然执行了消息合并。更换模型、推理服务或网络传输方式后，参数可能被拆成多个 Chunk，不能根据这一次结果删掉合并逻辑。</p>
-<h3 id="4-1-为什么使用-chunk-相加"><a href="#4-1-为什么使用-chunk-相加" class="headerlink" title="4.1 为什么使用 chunk 相加"></a><strong>4.1 为什么使用 chunk 相加</strong></h3><p>下面这行代码不是字符串拼接：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">gathered <span class="token operator">=</span> chunk <span class="token keyword">if</span> gathered <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">else</span> gathered <span class="token operator">+</span> chunk<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>AIMessageChunk.<strong>add</strong>() 会合并文本、工具调用片段和其他消息字段。合并完成后，gathered.tool_calls 才是适合应用继续处理的完整工具调用。</p>
-<p>如果直接对某个中间 Chunk 的 args 调用 json.loads()，参数恰好被拆开时就会产生 JSON 解析错误。</p>
-<h2 id="5-使用-Agent-自动完成流式工具循环"><a href="#5-使用-Agent-自动完成流式工具循环" class="headerlink" title="5. 使用 Agent 自动完成流式工具循环"></a><strong>5. 使用 Agent 自动完成流式工具循环</strong></h2><p>上一个脚本只观察模型生成的工具调用，没有执行工具。create_agent() 会自动完成下面的循环：</p>
+<p>这次 MLX-LM 在一个 Chunk 中返回了完整工具名称和 JSON 参数。更换模型、推理服务或网络传输方式后，参数仍可能被拆成多个 Chunk，客户端不能把这一次输出当作固定规律。</p>
+<p><img src="https://images.hnbian.cn/new/n-db950e66c3c1c261415d5a6ac7a59eb1.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="调用计算器工具"></p>
+<h3 id="4-1-Graph-状态与流式事件的区别"><a href="#4-1-Graph-状态与流式事件的区别" class="headerlink" title="4.1 Graph 状态与流式事件的区别"></a><strong>4.1 Graph 状态与流式事件的区别</strong></h3><p>call_model() 使用 ainvoke() 返回完整 AIMessage，因此写入 MessagesState 的是已经合并好的 tool_calls。与此同时，LangGraph Server 可以通过模型回调把生成过程中的 AIMessageChunk 发送给 messages-tuple 订阅者。</p>
+<p>因此，观察生成过程时读取 messages-tuple 中的 tool_call_chunks；真正执行工具或保存运行状态时读取完整 AIMessage.tool_calls。不要对中间 args 片段立即调用 json.loads()。</p>
+<h2 id="5-使用-Agent-自动完成流式工具循环"><a href="#5-使用-Agent-自动完成流式工具循环" class="headerlink" title="5. 使用 Agent 自动完成流式工具循环"></a><strong>5. 使用 Agent 自动完成流式工具循环</strong></h2><p>上一个 Graph 只观察模型生成的工具调用，没有执行工具。create_agent() 会自动完成下面的循环：</p>
 <ol>
 <li>调用模型并获得工具请求。</li>
 <li>根据工具名执行对应 Tool。</li>
 <li>生成与调用 ID 对应的 ToolMessage。</li>
 <li>再次调用模型生成最终回答。</li>
 </ol>
-<p>第二个脚本使用 stream_mode&#x3D;”messages” 观察整个过程。</p>
+<p>第二个文件只定义 Agent，不再在文件内部调用 stream()。提交和流式订阅由 LangGraph Server 负责。</p>
 <p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;02_stream_agent_tool_loop.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 LangGraph Agent 流式观察工具请求、工具结果和最终回答。"""</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""可由 LangGraph Server 提交运行的计算器 Agent。"""</span>
 
+<span class="token keyword">import</span> os
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
 
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> ToolMessage
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> tool
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
@@ -981,67 +1055,66 @@ python <span class="token punctuation">\</span>
     <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>a <span class="token operator">*</span> b<span class="token punctuation">)</span>
 
 
-<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
-    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-        model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
-        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
-        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
-        max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
-        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
-    <span class="token punctuation">)</span>
-    agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
-        model<span class="token operator">=</span>model<span class="token punctuation">,</span>
-        tools<span class="token operator">=</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">,</span>
-        system_prompt<span class="token operator">=</span><span class="token string">"需要计算时必须使用计算器工具，然后用中文简洁回答。"</span><span class="token punctuation">,</span>
-    <span class="token punctuation">)</span>
+model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_MODEL"</span><span class="token punctuation">,</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_BASE_URL"</span><span class="token punctuation">,</span> <span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_API_KEY"</span><span class="token punctuation">,</span> <span class="token string">"not-needed"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">128</span><span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    http_async_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
 
-    tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
-    final_answer <span class="token operator">=</span> <span class="token string">""</span>
 
-    <span class="token comment"># messages 模式每次返回“消息块 + 执行元数据”。</span>
-    <span class="token keyword">for</span> message<span class="token punctuation">,</span> metadata <span class="token keyword">in</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-        <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请计算 18 乘以 7。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-        stream_mode<span class="token operator">=</span><span class="token string">"messages"</span><span class="token punctuation">,</span>
-    <span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-            tool_call <span class="token operator">=</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型选择的工具："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型生成的参数："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
-            tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具执行结果："</span><span class="token punctuation">,</span> message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
-        <span class="token keyword">elif</span> tool_finished <span class="token keyword">and</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>content<span class="token punctuation">:</span>
-            <span class="token comment"># 工具执行完成后收到的内容，才是最终自然语言回答。</span>
-            text <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
-            final_answer <span class="token operator">+=</span> text
+<span class="token comment"># create_agent() 返回编译后的 LangGraph，可直接注册到 langgraph.json。</span>
+<span class="token comment"># 提交运行后，Graph 会自动完成“模型请求工具 → 执行工具 → 模型回答”的循环。</span>
+graph <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>model<span class="token punctuation">,</span>
+    tools<span class="token operator">=</span><span class="token punctuation">[</span>calculator<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    system_prompt<span class="token operator">=</span><span class="token string">"需要计算时必须使用计算器工具，然后用中文简洁回答。"</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Qwen3 最终回答："</span><span class="token punctuation">,</span> final_answer<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>向 calculator_agent 提交同样的问题：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> --no-buffer <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+  <span class="token parameter variable">--url</span> http://127.0.0.1:2024/runs/stream <span class="token punctuation">\</span>
+  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--data</span> <span class="token string">'&#123;
+    "assistant_id": "calculator_agent",
+    "input": &#123;
+      "messages": [
+        &#123;
+          "role": "user",
+          "content": "请计算 18 乘以 7。"
+        &#125;
+      ]
+    &#125;,
+    "stream_mode": "messages-tuple"
+  &#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
-  langgraph/p06_streaming_and_online_tools/02_stream_agent_tool_loop.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>本机实际流中的关键消息依次为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">AIMessageChunk.tool_call_chunks：
+calculator(&#123;"a": 18, "b": 7, "operation": "multiply"&#125;)
 
-<p>本机实际输出：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">模型选择的工具： calculator
-模型生成的参数： &#123;'a': 18, 'b': 7, 'operation': 'multiply'&#125;
-工具执行结果： 126.0
-Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+ToolMessage.content：
+126.0
 
-<h3 id="5-1-messages-模式返回什么"><a href="#5-1-messages-模式返回什么" class="headerlink" title="5.1 messages 模式返回什么"></a><strong>5.1 messages 模式返回什么</strong></h3><p>agent.stream(…, stream_mode&#x3D;”messages”) 每次返回两个值：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">,</span> metadata<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+最终 AIMessageChunk.content：
+18 乘以 7 的结果是 126。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<h3 id="5-1-messages-tuple-模式返回什么"><a href="#5-1-messages-tuple-模式返回什么" class="headerlink" title="5.1 messages-tuple 模式返回什么"></a><strong>5.1 messages-tuple 模式返回什么</strong></h3><p>通过 Python SDK 订阅时，每个 messages 事件包含两个值：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <ul>
-<li>message 是 AIMessageChunk、ToolMessage 等消息对象。</li>
+<li>message 是序列化后的 AIMessageChunk、ToolMessage 等消息。</li>
 <li>metadata 描述这条消息来自 Graph 的哪个执行步骤。</li>
 </ul>
-<p>本篇只根据消息类型识别工具调用、工具结果和最终回答，不打印整段元数据。完整元数据通常包含运行 ID 等动态字段，直接输出既不利于阅读，也不适合作为稳定的文章结果。</p>
+<p>curl 会把这两个值作为 SSE data 输出。完整元数据通常包含运行 ID、Graph 节点名等动态字段，文章只保留与工具调用相关的关键内容。</p>
 <h3 id="5-2-工具流和文本流不是同一件事"><a href="#5-2-工具流和文本流不是同一件事" class="headerlink" title="5.2 工具流和文本流不是同一件事"></a><strong>5.2 工具流和文本流不是同一件事</strong></h3><p>流式 Agent 中至少存在两类输出：</p>
 <ol>
 <li><strong>工具调用结构流</strong>：模型逐步生成工具名称和参数。</li>
 <li><strong>自然语言 Token 流</strong>：工具执行完成后，模型逐步生成最终回答。</li>
 </ol>
-<p>工具调用不是最终答案。应用必须等待工具执行，得到 ToolMessage，再让模型根据结果回答用户。</p>
+<p>工具调用不是最终答案。create_agent() 构建的 Graph 会等待工具执行，得到 ToolMessage，再让模型根据结果回答用户；远程客户端只负责提交和消费运行流。</p>
 <h2 id="6-推理服务为什么需要工具调用解析器"><a href="#6-推理服务为什么需要工具调用解析器" class="headerlink" title="6. 推理服务为什么需要工具调用解析器"></a><strong>6. 推理服务为什么需要工具调用解析器</strong></h2><p>模型最终生成的仍然是 Token。推理服务需要识别其中的工具名称、参数和调用边界，再把它们转换成 OpenAI 兼容接口的结构。</p>
 <p>以流式响应为例，接口通常在 delta 中逐步返回内容。LangChain 收到后再转换成 ToolCallChunk。因此，解析器位于推理服务层，不属于 Tool，也不是 LangChain 中的 BaseTool。</p>
 <h3 id="6-1-vLLM-中的两个参数"><a href="#6-1-vLLM-中的两个参数" class="headerlink" title="6.1 vLLM 中的两个参数"></a><strong>6.1 vLLM 中的两个参数</strong></h3><p>vLLM 的自动工具调用通常涉及：</p>
@@ -1065,20 +1138,20 @@ Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" cl
 <p>这些参数属于 SGLang GPU 服务的兼容配置，不是本文 M1 Max 的启动命令。本篇真实运行使用的是 MLX-LM，不能把上面的命令写成 Apple Silicon 实测结果。</p>
 <p>也不能把特定服务版本中的解析问题概括成“Qwen3 不支持工具调用”。本篇已经使用 Qwen3、MLX-LM 和 LangChain 真实获得 ToolCallChunk、ToolMessage 和最终回答。</p>
 <h2 id="7-使用-BaseTool-调用真实城市接口"><a href="#7-使用-BaseTool-调用真实城市接口" class="headerlink" title="7. 使用 BaseTool 调用真实城市接口"></a><strong>7. 使用 BaseTool 调用真实城市接口</strong></h2><p>前面的计算器只处理本地数字。下面定义一个 CitySearchTool，调用 Open-Meteo Geocoding API 查询城市所属国家、省级行政区、经纬度和时区。</p>
-<p>这个接口不需要 API Key。示例只查询位置资料，不查询实时天气，输出不会随着天气变化。</p>
+<p>这个接口不需要 API Key。示例只查询位置资料，不查询实时天气，输出不会随着天气变化。为了让 BaseTool 测试也通过 LangGraph 提交，本节再用单节点 StateGraph 包装工具；它不依赖 Qwen3。</p>
 <p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;03_city_search_base_tool.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""继承 BaseTool，通过 Open-Meteo 公共接口查询真实城市信息。"""</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""直接执行 BaseTool 的 LangGraph Agent，不依赖本地大模型。"""</span>
 
 <span class="token keyword">import</span> httpx
+<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessage
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> BaseTool
+<span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> MessagesState<span class="token punctuation">,</span> StateGraph
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
-
 
 <span class="token keyword">class</span> <span class="token class-name">CitySearchInput</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""城市查询工具的输入参数。"""</span>
 
     city<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"需要查询的城市中文名或英文名"</span><span class="token punctuation">)</span>
-
 
 <span class="token keyword">class</span> <span class="token class-name">CitySearchTool</span><span class="token punctuation">(</span>BaseTool<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""调用 Open-Meteo Geocoding API 的城市查询工具。"""</span>
@@ -1087,9 +1160,26 @@ Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" cl
     description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"查询城市所属国家、省级行政区、经纬度和时区"</span>
     args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> CitySearchInput
 
-    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""发送 HTTP 请求，并把第一条匹配结果整理为稳定文本。"""</span>
+    <span class="token decorator annotation punctuation">@staticmethod</span>
+    <span class="token keyword">def</span> <span class="token function">_format_result</span><span class="token punctuation">(</span>city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> payload<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""把接口响应整理为稳定文本。"""</span>
 
+        results <span class="token operator">=</span> payload<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span>
+            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""同步查询城市信息。"""</span>
         <span class="token keyword">try</span><span class="token punctuation">:</span>
             <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
                 response <span class="token operator">=</span> client<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
@@ -1105,46 +1195,80 @@ Qwen3 最终回答： 18 乘以 7 的结果是 126。<span aria-hidden="true" cl
         <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
             <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
 
-        results <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
-            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_format_result<span class="token punctuation">(</span>city<span class="token punctuation">,</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
-        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-        <span class="token keyword">return</span> <span class="token punctuation">(</span>
-            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
-        <span class="token punctuation">)</span>
+    <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">_arun</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""异步查询城市信息，供 LangGraph Server 调用。"""</span>
+
+        <span class="token keyword">try</span><span class="token punctuation">:</span>
+            <span class="token keyword">async</span> <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
+                response <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
+                    <span class="token string">"https://geocoding-api.open-meteo.com/v1/search"</span><span class="token punctuation">,</span>
+                    params<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+                        <span class="token string">"name"</span><span class="token punctuation">:</span> city<span class="token punctuation">,</span>
+                        <span class="token string">"count"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+                        <span class="token string">"language"</span><span class="token punctuation">:</span> <span class="token string">"zh"</span><span class="token punctuation">,</span>
+                        <span class="token string">"format"</span><span class="token punctuation">:</span> <span class="token string">"json"</span><span class="token punctuation">,</span>
+                    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token punctuation">)</span>
+                response<span class="token punctuation">.</span>raise_for_status<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_format_result<span class="token punctuation">(</span>city<span class="token punctuation">,</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
 
 city_search <span class="token operator">=</span> CitySearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"查询杭州："</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>city_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"杭州"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"\n查询不存在的城市："</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>city_search<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"不存在的城市xyz12345"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">call_city_search</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> MessagesState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">list</span><span class="token punctuation">[</span>AIMessage<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""把最后一条用户消息作为城市名，直接执行 BaseTool。"""</span>
 
-<p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
-  langgraph/p06_streaming_and_online_tools/03_city_search_base_tool.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+    <span class="token keyword">if</span> <span class="token keyword">not</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+        <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"必须提交一条包含城市名的用户消息"</span><span class="token punctuation">)</span>
 
-<p>本机实际输出：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">查询杭州：
-城市：杭州
+    content <span class="token operator">=</span> state<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content
+    <span class="token keyword">if</span> <span class="token keyword">not</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>content<span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token keyword">not</span> content<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"最后一条消息必须是非空城市名称"</span><span class="token punctuation">)</span>
+
+    result <span class="token operator">=</span> <span class="token keyword">await</span> city_search<span class="token punctuation">.</span>ainvoke<span class="token punctuation">(</span><span class="token punctuation">&#123;</span><span class="token string">"city"</span><span class="token punctuation">:</span> content<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>AIMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span>
+
+
+<span class="token comment"># 这个 Agent 用于隔离测试 BaseTool：输入消息只写城市名，例如“杭州”。</span>
+builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>MessagesState<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"city_search"</span><span class="token punctuation">,</span> call_city_search<span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"city_search"</span><span class="token punctuation">)</span>
+builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"city_search"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
+graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>提交时，最后一条用户消息只填写城市名：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> --no-buffer <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+  <span class="token parameter variable">--url</span> http://127.0.0.1:2024/runs/stream <span class="token punctuation">\</span>
+  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--data</span> <span class="token string">'&#123;
+    "assistant_id": "city_search_tool_agent",
+    "input": &#123;
+      "messages": [
+        &#123;
+          "role": "user",
+          "content": "杭州"
+        &#125;
+      ]
+    &#125;,
+    "stream_mode": "values"
+  &#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>最终 values 事件中的 AIMessage 内容如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">城市：深圳
 国家：中国
-省级行政区：浙江
-纬度：30.29365
-经度：120.16142
-时区：Asia/Shanghai
+省级行政区：广东
+纬度：22.54554
+经度：114.0683
+时区：Asia/Shanghai<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-查询不存在的城市：
-没有找到城市：不存在的城市xyz12345<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h3 id="7-1-为什么工具内部仍然要处理异常"><a href="#7-1-为什么工具内部仍然要处理异常" class="headerlink" title="7.1 为什么工具内部仍然要处理异常"></a><strong>7.1 为什么工具内部仍然要处理异常</strong></h3><p>模型不会替应用处理网络超时、HTTP 错误和空结果。联网 Tool 至少需要考虑：</p>
+<p><img src="https://images.hnbian.cn/new/n-b9f73fc02ab81f016731fd2cb61ab082.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="调用CitySearchTool"></p>
+<h3 id="7-1-为什么工具内部仍然要处理异常"><a href="#7-1-为什么工具内部仍然要处理异常" class="headerlink" title="7.1 为什么工具内部仍然要处理异常"></a><strong>7.1 为什么工具内部仍然要处理异常</strong></h3><p>Graph 也不会替应用处理网络超时、HTTP 错误和空结果。联网 Tool 至少需要考虑：</p>
 <ul>
 <li>设置合理的请求超时。</li>
 <li>对非 2xx 响应调用 raise_for_status()。</li>
@@ -1152,17 +1276,19 @@ city_search <span class="token operator">=</span> CitySearchTool<span class="tok
 <li>检查接口是否返回结果。</li>
 <li>把错误整理成 Agent 可以继续处理的文本。</li>
 </ul>
+<p>LangGraph Server 通过异步接口运行，所以 CitySearchTool 同时实现 _run() 和 _arun()。异步路径使用 httpx.AsyncClient，不会用同步网络请求阻塞服务器事件循环。</p>
 <p>示例使用 trust_env&#x3D;False，避免系统代理或 VPN 影响 HTTP 客户端。本机 Qwen3 请求使用它是为了确保 127.0.0.1 不经过代理；Open-Meteo 请求使用它则表示本示例明确不读取环境代理配置。</p>
 <h2 id="8-将联网工具交给-Qwen3-Agent"><a href="#8-将联网工具交给-Qwen3-Agent" class="headerlink" title="8. 将联网工具交给 Qwen3 Agent"></a><strong>8. 将联网工具交给 Qwen3 Agent</strong></h2><p>最后把 CitySearchTool 交给 Agent。模型负责理解问题和生成 city&#x3D;”杭州”，Agent 负责执行工具，工具负责访问 Open-Meteo，模型再把结果整理成中文回答。</p>
 <p>下图按照真实调用顺序展示两次模型请求。Open-Meteo 的 JSON 响应会先返回 CitySearchTool，Tool 整理成字符串后交给 Agent，再由 Agent 创建与工具调用 ID 匹配的 ToolMessage。</p>
 <p><img src="https://images.hnbian.cn/new/n-6e8d9c336b186cee9b9aeba74a05a4f0.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="联网工具的 Agent 调用时序图"></p>
 <p>Open-Meteo 不认识 LangChain 消息，也不会直接生成 ToolMessage。这个消息对象属于 Agent 工具循环，用来把本地 Tool 的执行结果交回模型。</p>
 <p>langgraph&#x2F;p06_streaming_and_online_tools&#x2F;04_agent_with_city_search.py：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""把真实联网城市查询工具交给本地 Qwen3 Agent 自动选择和执行。"""</span>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""可由 LangGraph Server 提交运行的联网城市查询 Agent。"""</span>
+
+<span class="token keyword">import</span> os
 
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> AIMessageChunk<span class="token punctuation">,</span> ToolMessage
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>tools <span class="token keyword">import</span> BaseTool
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
@@ -1181,8 +1307,26 @@ city_search <span class="token operator">=</span> CitySearchTool<span class="tok
     description<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> <span class="token string">"查询城市所属国家、省级行政区、经纬度和时区"</span>
     args_schema<span class="token punctuation">:</span> <span class="token builtin">type</span><span class="token punctuation">[</span>BaseModel<span class="token punctuation">]</span> <span class="token operator">=</span> CitySearchInput
 
+    <span class="token decorator annotation punctuation">@staticmethod</span>
+    <span class="token keyword">def</span> <span class="token function">_format_result</span><span class="token punctuation">(</span>city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> payload<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""把接口响应整理为适合模型继续处理的文本。"""</span>
+
+        results <span class="token operator">=</span> payload<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+        <span class="token keyword">return</span> <span class="token punctuation">(</span>
+            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
+            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token punctuation">)</span>
+
     <span class="token keyword">def</span> <span class="token function">_run</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""查询城市，并返回适合模型继续处理的文本。"""</span>
+        <span class="token triple-quoted-string string">"""同步查询城市信息。"""</span>
 
         <span class="token keyword">try</span><span class="token punctuation">:</span>
             <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
@@ -1199,179 +1343,96 @@ city_search <span class="token operator">=</span> CitySearchTool<span class="tok
         <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
             <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
 
-        results <span class="token operator">=</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"results"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">if</span> <span class="token keyword">not</span> results<span class="token punctuation">:</span>
-            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"没有找到城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_format_result<span class="token punctuation">(</span>city<span class="token punctuation">,</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
-        city_info <span class="token operator">=</span> results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-        <span class="token keyword">return</span> <span class="token punctuation">(</span>
-            <span class="token string-interpolation"><span class="token string">f"城市：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'name'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"国家：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'country'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"省级行政区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'admin1'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"纬度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'latitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"经度：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'longitude'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span>
-            <span class="token string-interpolation"><span class="token string">f"时区：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>city_info<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'timezone'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
-        <span class="token punctuation">)</span>
+    <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">_arun</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> city<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""异步查询城市信息，避免阻塞 Agent 运行循环。"""</span>
+
+        <span class="token keyword">try</span><span class="token punctuation">:</span>
+            <span class="token keyword">async</span> <span class="token keyword">with</span> httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> timeout<span class="token operator">=</span><span class="token number">15.0</span><span class="token punctuation">)</span> <span class="token keyword">as</span> client<span class="token punctuation">:</span>
+                response <span class="token operator">=</span> <span class="token keyword">await</span> client<span class="token punctuation">.</span>get<span class="token punctuation">(</span>
+                    <span class="token string">"https://geocoding-api.open-meteo.com/v1/search"</span><span class="token punctuation">,</span>
+                    params<span class="token operator">=</span><span class="token punctuation">&#123;</span>
+                        <span class="token string">"name"</span><span class="token punctuation">:</span> city<span class="token punctuation">,</span>
+                        <span class="token string">"count"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+                        <span class="token string">"language"</span><span class="token punctuation">:</span> <span class="token string">"zh"</span><span class="token punctuation">,</span>
+                        <span class="token string">"format"</span><span class="token punctuation">:</span> <span class="token string">"json"</span><span class="token punctuation">,</span>
+                    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+                <span class="token punctuation">)</span>
+                response<span class="token punctuation">.</span>raise_for_status<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">except</span> httpx<span class="token punctuation">.</span>HTTPError <span class="token keyword">as</span> error<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"城市信息查询失败：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>error<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
+
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_format_result<span class="token punctuation">(</span>city<span class="token punctuation">,</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
 
 
 city_search <span class="token operator">=</span> CitySearchTool<span class="token punctuation">(</span><span class="token punctuation">)</span>
+model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_MODEL"</span><span class="token punctuation">,</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_BASE_URL"</span><span class="token punctuation">,</span> <span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span>os<span class="token punctuation">.</span>getenv<span class="token punctuation">(</span><span class="token string">"QWEN_API_KEY"</span><span class="token punctuation">,</span> <span class="token string">"not-needed"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+    http_async_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>AsyncClient<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
 
-<span class="token keyword">with</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span> <span class="token keyword">as</span> http_client<span class="token punctuation">:</span>
-    model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-        model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-        base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
-        api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
-        temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
-        max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-        http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
-    <span class="token punctuation">)</span>
-    agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
-        model<span class="token operator">=</span>model<span class="token punctuation">,</span>
-        tools<span class="token operator">=</span><span class="token punctuation">[</span>city_search<span class="token punctuation">]</span><span class="token punctuation">,</span>
-        system_prompt<span class="token operator">=</span><span class="token string">"涉及城市信息时必须使用城市查询工具，然后根据工具结果用中文回答。"</span><span class="token punctuation">,</span>
-    <span class="token punctuation">)</span>
 
-    tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
-    final_answer <span class="token operator">=</span> <span class="token string">""</span>
+graph <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
+    model<span class="token operator">=</span>model<span class="token punctuation">,</span>
+    tools<span class="token operator">=</span><span class="token punctuation">[</span>city_search<span class="token punctuation">]</span><span class="token punctuation">,</span>
+    system_prompt<span class="token operator">=</span><span class="token string">"涉及城市信息时必须使用城市查询工具，然后根据工具结果用中文回答。"</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-    <span class="token keyword">for</span> message<span class="token punctuation">,</span> metadata <span class="token keyword">in</span> agent<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-        <span class="token punctuation">&#123;</span>
-            <span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
-                <span class="token punctuation">&#123;</span>
-                    <span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-                    <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"请查询杭州属于哪个省级行政区，并给出经纬度和时区。"</span><span class="token punctuation">,</span>
-                <span class="token punctuation">&#125;</span>
-            <span class="token punctuation">]</span>
-        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-        stream_mode<span class="token operator">=</span><span class="token string">"messages"</span><span class="token punctuation">,</span>
-    <span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
-            tool_call <span class="token operator">=</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型选择的工具："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"模型生成的参数："</span><span class="token punctuation">,</span> tool_call<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-        <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
-            tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"工具返回的信息："</span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
-        <span class="token keyword">elif</span> tool_finished <span class="token keyword">and</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessageChunk<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>content<span class="token punctuation">:</span>
-            final_answer <span class="token operator">+=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>message<span class="token punctuation">.</span>content<span class="token punctuation">)</span>
+<p>向 city_search_agent 提交自然语言问题：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> --no-buffer <span class="token parameter variable">--request</span> POST <span class="token punctuation">\</span>
+  <span class="token parameter variable">--url</span> http://127.0.0.1:2024/runs/stream <span class="token punctuation">\</span>
+  <span class="token parameter variable">--header</span> <span class="token string">'Content-Type: application/json'</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">--data</span> <span class="token string">'&#123;
+    "assistant_id": "city_search_agent",
+    "input": &#123;
+      "messages": [
+        &#123;
+          "role": "user",
+          "content": "请查询杭州所属的省级行政区、经纬度和时区。"
+        &#125;
+      ]
+    &#125;,
+    "stream_mode": "messages-tuple"
+  &#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Qwen3 最终回答："</span><span class="token punctuation">,</span> final_answer<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>本机实际流中的关键消息如下：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">AIMessageChunk.tool_call_chunks：
+city_search(&#123;"city": "杭州"&#125;)
 
-<p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
-  langgraph/p06_streaming_and_online_tools/04_agent_with_city_search.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>本机一次实际输出如下：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">模型选择的工具： city_search
-模型生成的参数： &#123;'city': '杭州'&#125;
-工具返回的信息：
+ToolMessage.content：
 城市：杭州
 国家：中国
 省级行政区：浙江
 纬度：30.29365
 经度：120.16142
 时区：Asia/Shanghai
-Qwen3 最终回答： 杭州属于中国的浙江省，其经纬度为纬度30.29365，经度120.16142，时区为Asia/Shanghai。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+最终 AIMessageChunk.content：
+杭州所属的省级行政区是浙江，经纬度为纬度30.29365，
+经度120.16142，时区为Asia/Shanghai。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>模型回答的具体措辞可能变化，但工具名称、参数结构、城市接口返回字段和消息执行顺序应保持一致。</p>
+<p><img src="https://images.hnbian.cn/new/n-51b241bb25592ac91a697488aac3d9e5.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="调用城市检索工具"></p>
 <h3 id="8-1-谁真正访问了互联网"><a href="#8-1-谁真正访问了互联网" class="headerlink" title="8.1 谁真正访问了互联网"></a><strong>8.1 谁真正访问了互联网</strong></h3><p>这条调用链中各组件的职责如下：</p>
 <ol>
 <li>Qwen3 选择 city_search 并生成城市参数。</li>
 <li>LangGraph Agent 根据工具名执行 CitySearchTool。</li>
-<li>CitySearchTool._run() 使用 httpx 请求 Open-Meteo。</li>
+<li>LangGraph Server 通过 CitySearchTool._arun() 和 httpx.AsyncClient 请求 Open-Meteo。</li>
 <li>Agent 把返回值包装成 ToolMessage。</li>
 <li>Qwen3 根据 ToolMessage 生成最终回答。</li>
 </ol>
 <p>模型没有直接获得任意互联网访问权限。网络地址、超时、错误处理和返回字段都由 Tool 代码控制。</p>
-<h2 id="9-常见问题"><a href="#9-常见问题" class="headerlink" title="9. 常见问题"></a><strong>9. 常见问题</strong></h2><h3 id="9-1-连接本地模型时报-502-或连接失败"><a href="#9-1-连接本地模型时报-502-或连接失败" class="headerlink" title="9.1 连接本地模型时报 502 或连接失败"></a><strong>9.1 连接本地模型时报 502 或连接失败</strong></h3><p>先检查模型服务：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token parameter variable">--fail</span> <span class="token parameter variable">--silent</span> <span class="token punctuation">\</span>
-  http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>如果健康接口失败，检查虚拟环境、model 路径和 18080 端口。不要先修改 LangChain Tool。</p>
-<h3 id="9-2-模型没有返回-tool-calls"><a href="#9-2-模型没有返回-tool-calls" class="headerlink" title="9.2 模型没有返回 tool_calls"></a><strong>9.2 模型没有返回 tool_calls</strong></h3><p>依次检查：</p>
-<ul>
-<li>Tool 名称、描述和参数 Schema 是否清楚。</li>
-<li>提示词是否真的需要使用工具。</li>
-<li>模型与 Chat Template 是否支持工具调用。</li>
-<li>推理服务是否启用了正确的工具解析器。</li>
-<li>先用 invoke() 验证非流式调用，再检查 stream()。</li>
-</ul>
-<h3 id="9-3-参数-JSON-解析失败"><a href="#9-3-参数-JSON-解析失败" class="headerlink" title="9.3 参数 JSON 解析失败"></a><strong>9.3 参数 JSON 解析失败</strong></h3><p>不要假设单个 ToolCallChunk 包含完整 JSON。先合并所有 AIMessageChunk，再从合并结果的 tool_calls 读取参数。</p>
-<h3 id="9-4-ToolMessage-与工具调用不匹配"><a href="#9-4-ToolMessage-与工具调用不匹配" class="headerlink" title="9.4 ToolMessage 与工具调用不匹配"></a><strong>9.4 ToolMessage 与工具调用不匹配</strong></h3><p>每个工具结果都必须保留对应的 tool_call_id。使用 Agent 时会自动处理；手写工具循环时，应该把完整 tool_call 传给 Tool：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">tool_message <span class="token operator">=</span> selected_tool<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>tool_call<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="9-5-只看到工具调用，看不到最终回答"><a href="#9-5-只看到工具调用，看不到最终回答" class="headerlink" title="9.5 只看到工具调用，看不到最终回答"></a><strong>9.5 只看到工具调用，看不到最终回答</strong></h3><p>工具执行后还需要把 ToolMessage 交回模型。Agent 会自动发起第二次模型调用；手动循环则需要自己追加消息并再次调用模型。</p>
-<h3 id="9-6-外部接口超时或没有结果"><a href="#9-6-外部接口超时或没有结果" class="headerlink" title="9.6 外部接口超时或没有结果"></a><strong>9.6 外部接口超时或没有结果</strong></h3><p>联网 Tool 必须设置超时、捕获 httpx.HTTPError 并处理空列表。不要让一次网络失败直接中断整个 Agent。</p>
-<h3 id="9-7-VPN-或代理影响本机请求"><a href="#9-7-VPN-或代理影响本机请求" class="headerlink" title="9.7 VPN 或代理影响本机请求"></a><strong>9.7 VPN 或代理影响本机请求</strong></h3><p>本机 OpenAI 兼容接口可以使用：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>命令行健康检查可以使用：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>这两种方式都能避免环境代理转发 127.0.0.1 请求。</p>
-<h2 id="10-小结"><a href="#10-小结" class="headerlink" title="10. 小结"></a><strong>10. 小结</strong></h2><p>Tool 定义解决的是“应用有哪些能力、参数是什么”；Chat Template 和推理服务解析器解决的是“模型如何表达工具调用、接口如何识别它”；LangChain 与 LangGraph 负责把结构转换成消息，并组织工具执行循环。</p>
-<p>非流式调用返回完整 AIMessage.tool_calls。流式调用返回 AIMessageChunk，工具名称和参数可能位于多个 ToolCallChunk 中，因此必须正确合并消息块。Agent 的 messages 流还可以同时观察工具请求、ToolMessage 和最终自然语言 Token。</p>
-<p>联网 Tool 本质上仍然是受应用控制的 Python 代码。模型只选择工具和生成参数，真实 HTTP 请求由 BaseTool 执行。本篇已经完成从本地计算器到真实城市接口的完整验证，也补齐了 Qwen3 工具解析和流式调用这一部分内容。</p>
+<h2 id="9-小结"><a href="#9-小结" class="headerlink" title="9. 小结"></a><strong>9. 小结</strong></h2><p>Tool 定义解决的是“应用有哪些能力、参数是什么”；Chat Template 和推理服务解析器解决的是“模型如何表达工具调用、接口如何识别它”；LangChain 与 LangGraph 负责把结构转换成消息，并组织工具执行循环。</p>
+<p>本篇把四个示例都注册成了 LangGraph Agent。Python 文件只定义 graph，LangGraph Server 负责加载项目，Studio 或 &#x2F;runs&#x2F;stream 负责提交输入。values 适合读取完整 Graph 状态，messages-tuple 可以同时观察工具请求、ToolMessage 和最终自然语言 Token。</p>
+<p>流式工具名称和参数可能位于多个 ToolCallChunk 中，不能直接把任意中间片段当作完整 JSON。需要执行工具时读取状态中的 AIMessage.tool_calls；需要展示生成过程时订阅 messages-tuple。</p>
+<p>联网 Tool 本质上仍然是受应用控制的 Python 代码。模型只选择工具和生成参数，真实 HTTP 请求由 BaseTool 执行。CitySearchTool 同时提供同步和异步实现，使直接调用与 LangGraph Server 运行都能复用同一套工具逻辑。</p>
 <p>到这里，从 Python 函数、Runnable 和 BaseTool 创建本地工具，到非流式调用、流式工具调用、推理服务解析器和联网工具，这组内容已经完整闭环。下一篇开始介绍智能体运行时上下文，区分 configurable 与项目使用的 Runtime Context。</p>
-<table>
-<thead>
-<tr>
-<th align="left">要点</th>
-<th align="left">关键对象或方法</th>
-<th align="left">作用</th>
-<th align="left">本篇实测结果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">非流式工具调用</td>
-<td align="left">invoke()、AIMessage.tool_calls</td>
-<td align="left">一次得到完整工具调用</td>
-<td align="left">作为流式排错基准</td>
-</tr>
-<tr>
-<td align="left">流式工具调用</td>
-<td align="left">stream()、AIMessageChunk</td>
-<td align="left">分块接收模型输出</td>
-<td align="left">本地 Qwen3 正常返回消息块</td>
-</tr>
-<tr>
-<td align="left">工具调用片段</td>
-<td align="left">ToolCallChunk</td>
-<td align="left">保存流式工具名和参数片段</td>
-<td align="left">本次在一个 Chunk 中返回完整参数</td>
-</tr>
-<tr>
-<td align="left">消息合并</td>
-<td align="left">gathered + chunk</td>
-<td align="left">合并文本和工具调用片段</td>
-<td align="left">合并后得到标准 tool_calls 字典</td>
-</tr>
-<tr>
-<td align="left">Agent 消息流</td>
-<td align="left">stream_mode&#x3D;”messages”</td>
-<td align="left">观察工具请求、工具结果和最终 Token</td>
-<td align="left">依次得到 calculator、126.0 和最终回答</td>
-</tr>
-<tr>
-<td align="left">工具解析器</td>
-<td align="left">推理服务参数</td>
-<td align="left">把模型输出转换成 API 工具结构</td>
-<td align="left">MLX-LM 主线运行成功；vLLM&#x2F;SGLang 作为兼容说明</td>
-</tr>
-<tr>
-<td align="left">联网 BaseTool</td>
-<td align="left">CitySearchTool._run()</td>
-<td align="left">受控调用外部 HTTP 接口</td>
-<td align="left">Open-Meteo 返回杭州位置资料</td>
-</tr>
-<tr>
-<td align="left">联网 Agent</td>
-<td align="left">create_agent()</td>
-<td align="left">自动选择、执行工具并组织回答</td>
-<td align="left">Qwen3 选择 city_search 并完成中文回答</td>
-</tr>
-</tbody></table>
 
                 
             </div>
@@ -2055,7 +2116,7 @@ Qwen3 最终回答： 杭州属于中国的浙江省，其经纬度为纬度30.2
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    4.3k
+                    3.8k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    17 分
+                    15 分
                 </div>
                 
 
@@ -758,7 +758,7 @@
                  data-article-path="/posts/7ab4d35b.html">
                 <p>上一篇已经使用 langgraph dev 启动天气 Agent，并在 Studio 中看到了模型调用工具的完整过程。但 Studio 主要用于开发和调试，真正开发 Web 页面、后端服务或命令行工具时，程序还需要通过 API 调用 Agent。</p>
 <p>本篇继续使用已经创建好的 weather_agent，分别通过 Python 异步 SDK、Python 同步 SDK、JavaScript SDK 和 curl 调用同一个 Agent Server。重点不是再写一个 Agent，而是理解客户端如何发起 Run，以及服务端怎样把执行过程持续返回给客户端。</p>
-<h2 id="1-先分清两个本地接口"><a href="#1-先分清两个本地接口" class="headerlink" title="1. 先分清两个本地接口"></a><strong>1. 先分清两个本地接口</strong></h2><p>本例同时运行两个 HTTP 服务，它们不能混用：</p>
+<h2 id="1-本地接口说明"><a href="#1-本地接口说明" class="headerlink" title="1. 本地接口说明"></a><strong>1. 本地接口说明</strong></h2><p>本例同时运行两个 HTTP 服务，它们不能混用：</p>
 <table>
 <thead>
 <tr>
@@ -879,15 +879,16 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 
 <span class="token keyword">from</span> langgraph_sdk <span class="token keyword">import</span> get_client
 
-
 <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""连接本地 Agent Server，并以流式方式读取执行结果。"""</span>
 
+    <span class="token comment"># 第 1 步：创建异步 SDK 客户端。</span>
     <span class="token comment"># 这里连接的是 LangGraph Agent Server，不是 18080 端口的模型服务。</span>
     client <span class="token operator">=</span> get_client<span class="token punctuation">(</span>url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:2024"</span><span class="token punctuation">)</span>
     tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
     answer_started <span class="token operator">=</span> <span class="token boolean">False</span>
 
+    <span class="token comment"># 第 2 步：发送问题，并逐块读取服务端返回的事件。</span>
     <span class="token keyword">async</span> <span class="token keyword">for</span> chunk <span class="token keyword">in</span> client<span class="token punctuation">.</span>runs<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
         <span class="token boolean">None</span><span class="token punctuation">,</span>  <span class="token comment"># 不指定可复用的 thread_id，本次使用临时运行。</span>
         <span class="token string">"weather_agent"</span><span class="token punctuation">,</span>  <span class="token comment"># 对应 langgraph.json 中注册的 Graph 名称。</span>
@@ -907,21 +908,25 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
             <span class="token keyword">continue</span>
 
         <span class="token comment"># messages-tuple 的第一项是消息块，第二项是执行元数据。</span>
-        message<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
+        <span class="token comment"># 本例只关心消息，所以用下划线变量忽略元数据。</span>
+        message<span class="token punctuation">,</span> _metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
         message_type <span class="token operator">=</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span>
 
         <span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"tool_calls"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token comment"># 模型还没有执行工具，这里只是提出了工具调用请求。</span>
             <span class="token keyword">for</span> tool_call <span class="token keyword">in</span> message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
                 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具调用：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">(</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_call<span class="token punctuation">[</span><span class="token string">'args'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">)"</span></span><span class="token punctuation">)</span>
             <span class="token keyword">continue</span>
 
         <span class="token keyword">if</span> message_type <span class="token operator">==</span> <span class="token string">"tool"</span><span class="token punctuation">:</span>
+            <span class="token comment"># type=tool 表示工具已经执行完成。</span>
             tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
             <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>message<span class="token punctuation">[</span><span class="token string">'content'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
             <span class="token keyword">continue</span>
 
         content <span class="token operator">=</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
         <span class="token keyword">if</span> message_type <span class="token operator">==</span> <span class="token string">"AIMessageChunk"</span> <span class="token keyword">and</span> tool_finished <span class="token keyword">and</span> content<span class="token punctuation">:</span>
+            <span class="token comment"># 工具完成后出现的 AI 文本块，才属于最终自然语言回答。</span>
             <span class="token keyword">if</span> <span class="token keyword">not</span> answer_started<span class="token punctuation">:</span>
                 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"最终回答："</span><span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
                 answer_started <span class="token operator">=</span> <span class="token boolean">True</span>
@@ -930,12 +935,12 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 
 
+<span class="token comment"># 只有直接运行当前文件时才启动异步 main()。</span>
 <span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-    asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>main<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>main<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
-  langgraph/p04_agent_api_client/01_call_agent_async.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p04_agent_api_client/01_call_agent_async.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>一次真实运行结果如下。动态 Run ID 和消息元数据没有打印：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">运行事件：Agent Run 已创建
@@ -945,39 +950,20 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 
 <p>这段输出证明客户端接收到的并不只有最终答案。工具调用和工具结果同样属于 Agent 的执行过程。</p>
 <p>天气数据来自本地模拟函数，不是实时天气接口。模型每次生成的措辞可能略有不同，但工具名、工具结果和事件结构应保持一致。</p>
-<h2 id="6-messages-tuple-中有什么"><a href="#6-messages-tuple-中有什么" class="headerlink" title="6. messages-tuple 中有什么"></a><strong>6. messages-tuple 中有什么</strong></h2><p>&#x2F;runs&#x2F;stream 在 HTTP 层返回 SSE 文本。Python SDK 收到这些文本后，会把每组 event: 和 data: 解析成 chunk 对象，因此 SDK 返回的每个 chunk 至少包含两个重要字段：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">chunk<span class="token punctuation">.</span>event
-chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>当事件类型为 messages 时，chunk.data 才是一个二元结构：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<ul>
-<li>message：当前消息或消息块，例如工具调用、ToolMessage、AIMessageChunk。</li>
-<li>metadata：当前消息来自哪个节点、处于哪一步等执行信息。</li>
-</ul>
-<p><img src="https://images.hnbian.cn/new/n-7654664be62d2a2c2bbb1a68a04cb47c.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="messages-tuple 与 SSE 事件结构"></p>
-<p>图的上半部分是原始 SSE 传输格式，中间是 SDK 解析后的对象，下半部分是本例重新实测得到的事件顺序。metadata 控制事件不使用 [message, metadata] 结构；只有 messages 事件的 data 才能拆成这两个部分。</p>
-<p>本例读取了消息附带的 metadata，但没有完整打印。原因不是它没有作用，而是其中包含 Run ID、节点执行信息等动态字段。示例输出只保留判断执行过程需要的稳定内容，更容易看清工具调用链。</p>
-<p>事件顺序可以概括为：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">metadata
-→ AIMessageChunk，包含 get_weather 工具调用
-→ ToolMessage，包含天气工具结果
-→ AIMessageChunk，逐段生成最终回答<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h2 id="7-使用-Python-同步-SDK"><a href="#7-使用-Python-同步-SDK" class="headerlink" title="7. 使用 Python 同步 SDK"></a><strong>7. 使用 Python 同步 SDK</strong></h2><p>同步客户端使用 get_sync_client()。它不需要 asyncio 和 async for，更适合简单脚本或暂时没有异步运行环境的程序。</p>
+<h2 id="6-使用-Python-同步-SDK"><a href="#6-使用-Python-同步-SDK" class="headerlink" title="6. 使用 Python 同步 SDK"></a><strong>6. 使用 Python 同步 SDK</strong></h2><p>同步客户端使用 get_sync_client()。它不需要 asyncio 和 async for，更适合简单脚本或暂时没有异步运行环境的程序。</p>
 <p>langgraph&#x2F;p04_agent_api_client&#x2F;02_call_agent_sync.py 的完整代码如下：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 Python 同步 SDK 调用天气 Agent，并流式输出最终回答。"""</span>
 
 <span class="token keyword">from</span> langgraph_sdk <span class="token keyword">import</span> get_sync_client
 
-
+<span class="token comment"># 第 1 步：创建同步客户端。</span>
 <span class="token comment"># 同步客户端会阻塞当前线程，但服务端返回的内容仍然可以流式读取。</span>
 client <span class="token operator">=</span> get_sync_client<span class="token punctuation">(</span>url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:2024"</span><span class="token punctuation">)</span>
 tool_finished <span class="token operator">=</span> <span class="token boolean">False</span>
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"LangGraph Agent 回答："</span><span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：发送问题，并用普通 for 循环读取流式事件。</span>
 <span class="token keyword">for</span> chunk <span class="token keyword">in</span> client<span class="token punctuation">.</span>runs<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
     <span class="token boolean">None</span><span class="token punctuation">,</span>  <span class="token comment"># 本例不保存可复用的会话线程。</span>
     <span class="token string">"weather_agent"</span><span class="token punctuation">,</span>
@@ -992,9 +978,11 @@ tool_finished <span class="token operator">=</span> <span class="token boolean">
         <span class="token keyword">continue</span>
 
     <span class="token comment"># messages-tuple 返回 [message_chunk, metadata]。</span>
-    message<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
+    <span class="token comment"># 本例不使用执行元数据，因此变量名以 _ 开头。</span>
+    message<span class="token punctuation">,</span> _metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
 
     <span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"tool"</span><span class="token punctuation">:</span>
+        <span class="token comment"># 工具完成后，后续 AIMessageChunk 才是最终回答。</span>
         tool_finished <span class="token operator">=</span> <span class="token boolean">True</span>
         <span class="token keyword">continue</span>
 
@@ -1002,24 +990,17 @@ tool_finished <span class="token operator">=</span> <span class="token boolean">
     <span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"AIMessageChunk"</span> <span class="token keyword">and</span> tool_finished <span class="token keyword">and</span> content<span class="token punctuation">:</span>
         <span class="token keyword">print</span><span class="token punctuation">(</span>content<span class="token punctuation">,</span> end<span class="token operator">=</span><span class="token string">""</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
 
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token comment"># 流式输出使用 end=""，最后补一个换行。</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python <span class="token punctuation">\</span>
-  langgraph/p04_agent_api_client/02_call_agent_sync.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p04_agent_api_client/02_call_agent_sync.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>一次真实运行结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">LangGraph Agent 回答：北京今天的天气晴朗，气温是 28 摄氏度。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>这个脚本仍然使用流式接口，只是过滤掉了工具调用等中间消息，仅把工具执行后的最终 AI 消息逐段写到终端。</p>
-<h2 id="8-同步、异步和流式不是一回事"><a href="#8-同步、异步和流式不是一回事" class="headerlink" title="8. 同步、异步和流式不是一回事"></a><strong>8. 同步、异步和流式不是一回事</strong></h2><p>这三个概念经常被混在一起：</p>
-<ul>
-<li><strong>同步</strong>：调用期间当前线程等待结果，代码使用普通 for。</li>
-<li><strong>异步</strong>：等待网络数据时可以让出执行权，代码使用 async for。</li>
-<li><strong>流式</strong>：服务端不是等全部内容完成后一次返回，而是连续发送事件或消息块。</li>
-</ul>
-<p>因此，同步客户端同样可以接收流式结果；异步客户端也可以调用非流式接口。同步或异步描述客户端怎样等待，流式描述结果怎样返回。</p>
-<h2 id="9-使用-JavaScript-SDK"><a href="#9-使用-JavaScript-SDK" class="headerlink" title="9. 使用 JavaScript SDK"></a><strong>9. 使用 JavaScript SDK</strong></h2><p>Node.js 服务可以使用 @langchain&#x2F;langgraph-sdk 调用同一个 Agent Server。本例使用 process.stdout.write() 输出终端内容，因此是一段 Node.js 脚本，不是可以原样放进浏览器的代码。浏览器接入时还要处理 Agent Server 的跨域配置、认证方式和页面状态管理。</p>
+<h2 id="7-使用-JavaScript-SDK"><a href="#7-使用-JavaScript-SDK" class="headerlink" title="7. 使用 JavaScript SDK"></a><strong>7. 使用 JavaScript SDK</strong></h2><p>Node.js 服务可以使用 @langchain&#x2F;langgraph-sdk 调用同一个 Agent Server。本例使用 process.stdout.write() 输出终端内容，因此是一段 Node.js 脚本，不是可以原样放进浏览器的代码。浏览器接入时还要处理 Agent Server 的跨域配置、认证方式和页面状态管理。</p>
 <p>进入示例目录安装固定依赖：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning/<span class="token punctuation">\</span>
 langgraph/p04_agent_api_client
@@ -1089,7 +1070,7 @@ process<span class="token punctuation">.</span>stdout<span class="token punctuat
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">JavaScript SDK 回答：北京今天的天气晴朗，气温是 28 摄氏度。<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>Python 和 JavaScript 客户端并没有维护两套 Agent。它们使用不同语言封装相同的 Agent API，最终请求的都是 weather_agent。</p>
-<h2 id="10-使用-curl-调用-REST-API"><a href="#10-使用-curl-调用-REST-API" class="headerlink" title="10. 使用 curl 调用 REST API"></a><strong>10. 使用 curl 调用 REST API</strong></h2><p>SDK 最终仍然通过 HTTP 请求 Agent Server。使用 curl 可以直接看到请求地址、JSON 请求体和 SSE 响应方式，有助于理解 SDK 隐藏了哪些细节。</p>
+<h2 id="8-使用-curl-调用-REST-API"><a href="#8-使用-curl-调用-REST-API" class="headerlink" title="8. 使用 curl 调用 REST API"></a><strong>8. 使用 curl 调用 REST API</strong></h2><p>SDK 最终仍然通过 HTTP 请求 Agent Server。使用 curl 可以直接看到请求地址、JSON 请求体和 SSE 响应方式，有助于理解 SDK 隐藏了哪些细节。</p>
 <p>langgraph&#x2F;p04_agent_api_client&#x2F;04_call_agent_rest.sh 的完整代码如下：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token shebang important">#!/usr/bin/env bash</span>
 
@@ -1135,55 +1116,35 @@ event: messages
 data: [消息块, 执行元数据]<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这里的大括号内容是结构说明，不是伪造的运行值。真实 data 中会包含动态 UUID 和节点元数据，不适合写成固定结果。</p>
-<h2 id="11-SSE-中的-event-和-data"><a href="#11-SSE-中的-event-和-data" class="headerlink" title="11. SSE 中的 event 和 data"></a><strong>11. SSE 中的 event 和 data</strong></h2><p>&#x2F;runs&#x2F;stream 返回 text&#x2F;event-stream，也就是 Server-Sent Events，简称 SSE。服务端可以在一条 HTTP 连接上连续向客户端发送事件。Agent Server 将 Graph 的执行过程组织为 Run，并通过流式端点返回过程事件；Assistants、Threads、Runs 等接口边界可以参考 <a target="_blank" rel="noopener" href="https://docs.langchain.com/langsmith/agent-server">Agent Server 官方说明</a>。</p>
-<p>每组事件主要包含：</p>
-<ul>
-<li>event:：事件名称，例如 metadata 或 messages。</li>
-<li>data:：该事件携带的 JSON 数据。</li>
-<li>空行：表示一组 SSE 事件结束。</li>
-</ul>
-<p>Python 和 JavaScript SDK 已经把原始文本解析成对象，所以代码中可以直接读取：</p>
+<h2 id="9-messages-tuple-中有什么"><a href="#9-messages-tuple-中有什么" class="headerlink" title="9. messages-tuple 中有什么"></a><strong>9. messages-tuple 中有什么</strong></h2><p>&#x2F;runs&#x2F;stream 在 HTTP 层返回 SSE 文本。Python SDK 收到这些文本后，会把每组 event: 和 data: 解析成 chunk 对象，因此 SDK 返回的每个 chunk 至少包含两个重要字段：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">chunk<span class="token punctuation">.</span>event
 chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>curl 没有做这层封装，因此看到的是原始 event: 和 data: 文本。两者收到的是同一条执行事件流，只是表示方式不同。</p>
-<h2 id="12-如何识别工具调用和最终回答"><a href="#12-如何识别工具调用和最终回答" class="headerlink" title="12. 如何识别工具调用和最终回答"></a><strong>12. 如何识别工具调用和最终回答</strong></h2><p>messages-tuple 会返回多个消息块，不能把第一段 AI 内容直接当成最终回答。本例按照下面的顺序判断：</p>
-<ol>
-<li>消息包含 tool_calls：模型请求调用工具。</li>
-<li>消息类型是 tool：工具已经执行并返回结果。</li>
-<li>工具完成后出现非空 AIMessageChunk：这是最终回答的内容块。</li>
-</ol>
-<p>同步和 JavaScript 示例使用 toolFinished 标记，就是为了跳过工具执行前的模型消息，只输出工具完成后的回答。</p>
-<p>这种判断针对当前天气 Agent 的简单执行链。更复杂的 Agent 可能多次调用工具，或者包含多个节点，客户端需要根据产品需求决定展示哪些事件。</p>
-<h2 id="13-常见问题"><a href="#13-常见问题" class="headerlink" title="13. 常见问题"></a><strong>13. 常见问题</strong></h2><h3 id="13-1-连接错端口"><a href="#13-1-连接错端口" class="headerlink" title="13.1 连接错端口"></a><strong>13.1 连接错端口</strong></h3><p>客户端 SDK 应连接：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">http://127.0.0.1:2024<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>当事件类型为 messages 时，chunk.data 才是一个二元结构：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python">message<span class="token punctuation">,</span> _metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>18080&#x2F;v1 是模型接口，不提供 &#x2F;runs&#x2F;stream。</p>
-<h3 id="13-2-Agent-Server-正常，但调用时报-502"><a href="#13-2-Agent-Server-正常，但调用时报-502" class="headerlink" title="13.2 Agent Server 正常，但调用时报 502"></a><strong>13.2 Agent Server 正常，但调用时报 502</strong></h3><p>先检查模型服务：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> <span class="token punctuation">\</span>
-  http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<ul>
+<li>message：当前消息或消息块，例如工具调用、ToolMessage、AIMessageChunk。</li>
+<li>metadata：当前消息来自哪个节点、处于哪一步等执行信息。本例没有读取它，因此源码按 Python 惯例命名为 <code>_metadata</code>。</li>
+</ul>
+<p><img src="https://images.hnbian.cn/new/n-7654664be62d2a2c2bbb1a68a04cb47c.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="messages-tuple 与 SSE 事件结构"></p>
+<p>图的上半部分是原始 SSE 传输格式，中间是 SDK 解析后的对象，下半部分是本例重新实测得到的事件顺序。metadata 控制事件不使用 [message, metadata] 结构；只有 messages 事件的 data 才能拆成这两个部分。</p>
+<p>本例读取了消息附带的 metadata，但没有完整打印。原因不是它没有作用，而是其中包含 Run ID、节点执行信息等动态字段。示例输出只保留判断执行过程需要的稳定内容，更容易看清工具调用链。</p>
+<p>事件顺序可以概括为：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">metadata
+→ AIMessageChunk，包含 get_weather 工具调用
+→ ToolMessage，包含天气工具结果
+→ AIMessageChunk，逐段生成最终回答<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>Agent Server 可以在 Qwen3 没有启动时打开健康接口，但运行到模型节点时会失败。</p>
-<h3 id="13-3-assistant-id-写错"><a href="#13-3-assistant-id-写错" class="headerlink" title="13.3 assistant_id 写错"></a><strong>13.3 assistant_id 写错</strong></h3><p>本项目使用：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">weather_agent<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>它必须与 langgraph.json 的 graphs 键一致。不要直接照抄其他项目中的 agent。</p>
-<h3 id="13-4-stream-mode-拼写错误"><a href="#13-4-stream-mode-拼写错误" class="headerlink" title="13.4 stream_mode 拼写错误"></a><strong>13.4 stream_mode 拼写错误</strong></h3><p>Python 使用下划线参数名：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">stream_mode<span class="token operator">=</span><span class="token string">"messages-tuple"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>JavaScript 使用驼峰参数名：</p>
-<pre class="line-numbers language-javascript" data-language="javascript"><code class="language-javascript"><span class="token literal-property property">streamMode</span><span class="token operator">:</span> <span class="token string">"messages-tuple"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>REST JSON 使用：</p>
-<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token property">"stream_mode"</span><span class="token operator">:</span> <span class="token string">"messages-tuple"</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="13-5-把同步误认为非流式"><a href="#13-5-把同步误认为非流式" class="headerlink" title="13.5 把同步误认为非流式"></a><strong>13.5 把同步误认为非流式</strong></h3><p>get_sync_client() 只是同步等待，client.runs.stream() 仍然会逐段返回结果。是否流式由调用的接口和 stream_mode 决定。</p>
-<h3 id="13-6-VPN-或系统代理影响本机请求"><a href="#13-6-VPN-或系统代理影响本机请求" class="headerlink" title="13.6 VPN 或系统代理影响本机请求"></a><strong>13.6 VPN 或系统代理影响本机请求</strong></h3><p>curl 使用了：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>如果本机请求仍被代理软件接管，应先把 127.0.0.1 和 localhost 加入代理绕过列表，再检查两个健康接口。</p>
-<h3 id="13-7-输出中出现大量-UUID-和元数据"><a href="#13-7-输出中出现大量-UUID-和元数据" class="headerlink" title="13.7 输出中出现大量 UUID 和元数据"></a><strong>13.7 输出中出现大量 UUID 和元数据</strong></h3><p>直接 print(chunk) 会把 Run ID、节点信息和完整消息对象全部打印出来。排查底层问题时这些字段很有用，但观察调用流程时应按 chunk.event 和消息类型筛选，保留真正需要的内容。</p>
-<h2 id="14-总结"><a href="#14-总结" class="headerlink" title="14. 总结"></a><strong>14. 总结</strong></h2><p>Agent Server 将本地 Graph 变成了统一的 HTTP API。Python、JavaScript 和 curl 虽然写法不同，但都在做同一件事：向 weather_agent 提交消息，创建一次 Run，再通过 SSE 接收执行事件。</p>
+<h2 id="10-同步、异步和流式"><a href="#10-同步、异步和流式" class="headerlink" title="10. 同步、异步和流式"></a>10. 同步、异步和流式</h2><p>这三个概念经常被混在一起：</p>
+<ul>
+<li><strong>同步</strong>：调用期间当前线程等待结果，代码使用普通 for。</li>
+<li><strong>异步</strong>：等待网络数据时可以让出执行权，代码使用 async for。</li>
+<li><strong>流式</strong>：服务端不是等全部内容完成后一次返回，而是连续发送事件或消息块。</li>
+</ul>
+<p>因此，同步客户端同样可以接收流式结果；异步客户端也可以调用非流式接口。同步或异步描述客户端怎样等待，流式描述结果怎样返回。</p>
+<h2 id="11-总结"><a href="#11-总结" class="headerlink" title="11. 总结"></a><strong>11. 总结</strong></h2><p>Agent Server 将本地 Graph 变成了统一的 HTTP API。Python、JavaScript 和 curl 虽然写法不同，但都在做同一件事：向 weather_agent 提交消息，创建一次 Run，再通过 SSE 接收执行事件。</p>
 <p>Python SDK 适合 Python 后端和自动化脚本，JavaScript SDK 适合 Node.js 或前端相关项目，curl 适合验证接口和排查原始请求。实际开发时通常选择一种 SDK，出现问题时再用 curl 检查 HTTP 和 SSE 层。</p>
 <p>本篇仍然使用无状态运行，没有展开可复用 Thread、检查点和持久化。下一步理解这些能力时，需要继续区分 Run、Thread 和 Graph 状态，而不是把所有历史记录都放在客户端。</p>
 <table>
@@ -1682,9 +1643,9 @@ chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class=
                 <a href="/posts/825ee319.html">
                     <div class="card-image">
                         
-                        <img src="https://images.hnbian.cn/new/n-0ec19b53abea822464bb58a7e2f4aca2.jpg" class="responsive-img" alt="LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试">
+                        <img src="https://images.hnbian.cn/new/n-0ec19b53abea822464bb58a7e2f4aca2.jpg" class="responsive-img" alt="LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明">
                         
-                        <span class="card-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                        <span class="card-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     </div>
                 </a>
                 <div class="card-content article-content">
@@ -1908,7 +1869,7 @@ chunk<span class="token punctuation">.</span>data<span aria-hidden="true" class=
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

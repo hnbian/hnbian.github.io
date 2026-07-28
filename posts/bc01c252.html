@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    6.3k
+                    9.5k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    27 分
+                    39 分
                 </div>
                 
 
@@ -764,10 +764,15 @@
 <li>同一个用户怎样在不同会话中共享长期偏好。</li>
 </ul>
 <p>本文使用 LangGraph Checkpointer 保存短期记忆，使用 Store 保存长期记忆，并通过独立 PostgreSQL 容器验证重启恢复。这里不使用 Embedding、pgvector 或语义检索，长期记忆只是结构化数据的精确读写。</p>
-<h2 id="1-State、记忆与持久化不是一回事"><a href="#1-State、记忆与持久化不是一回事" class="headerlink" title="1. State、记忆与持久化不是一回事"></a><strong>1. State、记忆与持久化不是一回事</strong></h2><p>先把三个容易混淆的概念分开。</p>
-<p>AgentState 定义 Agent 当前有哪些状态。例如 messages 保存当前对话中的用户消息、工具调用和模型回答。它解决的是“运行时数据长什么样”。</p>
-<p>记忆表示 Agent 可以在后续运行中继续使用以前的信息。它解决的是“哪些过去的信息需要再次取出来”。</p>
-<p>持久化负责把这些信息保存到进程之外。它解决的是“程序或数据库重启后，数据是否还在”。</p>
+<h2 id="1-State、记忆与持久化的分别"><a href="#1-State、记忆与持久化的分别" class="headerlink" title="1. State、记忆与持久化的分别"></a>1. State、记忆与持久化的分别</h2><p>先把三个容易混淆的概念分开。</p>
+<ul>
+<li><p>AgentState 定义 Agent 当前有哪些状态。例如 messages 保存当前对话中的用户消息、工具调用和模型回答。它解决的是“运行时数据长什么样”。</p>
+</li>
+<li><p>记忆 表示 Agent 可以在后续运行中继续使用以前的信息。它解决的是“哪些过去的信息需要再次取出来”。</p>
+</li>
+<li><p>持久化 负责把这些信息保存到进程之外。它解决的是“程序或数据库重启后，数据是否还在”。</p>
+</li>
+</ul>
 <p>LangGraph 中的短期记忆通常以 Thread 为边界，通过 Checkpointer 保存 AgentState 的 checkpoint；长期记忆通常以用户或业务对象为边界，通过 Store 保存独立的 key-value 数据。</p>
 <h2 id="2-短期记忆与长期记忆"><a href="#2-短期记忆与长期记忆" class="headerlink" title="2. 短期记忆与长期记忆"></a><strong>2. 短期记忆与长期记忆</strong></h2><p>短期记忆主要服务于当前会话。它保存同一个 Thread 中的消息和状态，让 Agent 能够理解“我刚才说了什么”。</p>
 <p>长期记忆不应该被某一个 Thread 限制。例如用户在线程 A 中告诉 Agent 自己喜欢周末去西湖散步，之后新建线程 B，Agent 仍然可以读取这项偏好。</p>
@@ -848,8 +853,7 @@ python <span class="token parameter variable">-m</span> pip <span class="token f
   <span class="token parameter variable">-r</span> langgraph/p09_agent_memory/requirements-lock.txt
 python <span class="token parameter variable">-m</span> pip check<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>实测 pip check 输出：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 
 <h2 id="5-启动本地-Qwen3"><a href="#5-启动本地-Qwen3" class="headerlink" title="5. 启动本地 Qwen3"></a><strong>5. 启动本地 Qwen3</strong></h2><p>短期记忆和长期记忆示例都通过本地 Qwen3 完成真实对话。先在 llm_learning 根目录启动模型服务：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
@@ -865,17 +869,16 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>只要返回 HTTP 200 和非空模型列表，就可以继续运行代码。文章不保留接口中的动态创建时间。</p>
-<h2 id="6-使用-InMemorySaver-理解短期记忆"><a href="#6-使用-InMemorySaver-理解短期记忆" class="headerlink" title="6. 使用 InMemorySaver 理解短期记忆"></a><strong>6. 使用 InMemorySaver 理解短期记忆</strong></h2><p>先不连接 PostgreSQL，使用 InMemorySaver 理解 thread_id 的作用。</p>
+<h2 id="6-短期记忆-InMemorySaver"><a href="#6-短期记忆-InMemorySaver" class="headerlink" title="6. 短期记忆:InMemorySaver"></a>6. 短期记忆:InMemorySaver</h2><p>先不连接 PostgreSQL，使用 InMemorySaver 理解 thread_id 的作用。</p>
 <p>InMemorySaver 会根据 configurable.thread_id 保存 checkpoint。相同 thread_id 会恢复以前的 State，不同 thread_id 使用不同状态。</p>
 <p>完整代码如下：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 InMemorySaver 演示同一线程的短期记忆和不同线程的隔离。"""</span>
-
 <span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain<span class="token punctuation">.</span>agents <span class="token keyword">import</span> create_agent
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>memory <span class="token keyword">import</span> InMemorySaver
 
-
+<span class="token comment"># 第 1 步：创建模型。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -886,7 +889,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 2 步：创建内存 Checkpointer，并交给 Agent。</span>
 <span class="token comment"># InMemorySaver 只把线程状态保存在当前 Python 进程的内存中。</span>
 checkpointer <span class="token operator">=</span> InMemorySaver<span class="token punctuation">(</span><span class="token punctuation">)</span>
 agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
@@ -899,7 +902,7 @@ agent <span class="token operator">=</span> create_agent<span class="token punct
     <span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 3 步：为两段互相隔离的对话准备不同 thread_id。</span>
 same_thread <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p09-memory-a"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span>
 other_thread <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p09-memory-b"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span>
 
@@ -922,7 +925,7 @@ third <span class="token operator">=</span> agent<span class="token punctuation"
     <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"我叫什么名字？只回答名字。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     config<span class="token operator">=</span>other_thread<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"另一线程回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>third<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"另一线程回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>third<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行代码：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p09_agent_memory/01_in_memory_short_term.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
@@ -933,29 +936,27 @@ third <span class="token operator">=</span> agent<span class="token punctuation"
 另一线程回答：不知道。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>这说明 Thread 是短期记忆的隔离边界。不过，InMemorySaver 的数据只存在于当前 Python 进程中，脚本结束后无法再次恢复。</p>
-<h2 id="7-初始化-PostgreSQL-数据表"><a href="#7-初始化-PostgreSQL-数据表" class="headerlink" title="7. 初始化 PostgreSQL 数据表"></a><strong>7. 初始化 PostgreSQL 数据表</strong></h2><p>需要跨进程和重启恢复时，可以把 Checkpointer 换成 PostgresSaver。长期记忆使用的 PostgresStore 也需要自己的数据表。</p>
-<p>两套组件必须分别执行一次 setup()：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""初始化 PostgresSaver 和 PostgresStore 所需的数据表。"""</span>
+<h2 id="7-初始化-PostgreSQL-数据表"><a href="#7-初始化-PostgreSQL-数据表" class="headerlink" title="7. 初始化 PostgreSQL 数据表"></a>7. 初始化 PostgreSQL 数据表</h2><p>需要跨进程和重启恢复时，可以把 Checkpointer 换成 PostgresSaver。长期记忆使用的 PostgresStore 也需要自己的数据表。</p>
+<h3 id="7-1-初始化代码"><a href="#7-1-初始化代码" class="headerlink" title="7.1 初始化代码"></a>7.1 初始化代码</h3><pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""初始化 PostgresSaver 和 PostgresStore 所需的数据表。"""</span>
 
 <span class="token keyword">import</span> psycopg
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresSaver
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>store<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresStore
 
-
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
-    <span class="token string">"langgraph_memory?sslmode=disable"</span>
+    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/langgraph_memory?sslmode=disable"</span>
 <span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 1 步：初始化 Checkpointer 数据表。</span>
 <span class="token comment"># Checkpointer 和 Store 使用不同的数据表，因此需要分别执行 setup()。</span>
 <span class="token keyword">with</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> checkpointer<span class="token punctuation">:</span>
     checkpointer<span class="token punctuation">.</span>setup<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：初始化长期记忆 Store 数据表。</span>
 <span class="token keyword">with</span> PostgresStore<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> store<span class="token punctuation">:</span>
     store<span class="token punctuation">.</span>setup<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 3 步：查询初始化后的表名。</span>
 <span class="token comment"># 只展示稳定的表名，不输出迁移时间或其他动态字段。</span>
 <span class="token keyword">with</span> psycopg<span class="token punctuation">.</span>connect<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> connection<span class="token punctuation">:</span>
     <span class="token keyword">with</span> connection<span class="token punctuation">.</span>cursor<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> cursor<span class="token punctuation">:</span>
@@ -971,7 +972,7 @@ DB_URI <span class="token operator">=</span> <span class="token punctuation">(</
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"初始化完成，public Schema 中的数据表："</span><span class="token punctuation">)</span>
 <span class="token keyword">for</span> table_name <span class="token keyword">in</span> table_names<span class="token punctuation">:</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- </span><span class="token interpolation"><span class="token punctuation">&#123;</span>table_name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- </span><span class="token interpolation"><span class="token punctuation">&#123;</span>table_name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>连续运行两次：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p09_agent_memory/02_setup_postgres_memory.py
@@ -987,7 +988,308 @@ python langgraph/p09_agent_memory/02_setup_postgres_memory.py<span aria-hidden="
 - store_migrations<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>setup() 用于创建表和执行缺少的迁移，可以重复调用。它不会为了重新初始化而清空已经保存的 checkpoint 和 Store 数据。</p>
-<h2 id="8-使用-PostgresSaver-写入短期记忆"><a href="#8-使用-PostgresSaver-写入短期记忆" class="headerlink" title="8. 使用 PostgresSaver 写入短期记忆"></a><strong>8. 使用 PostgresSaver 写入短期记忆</strong></h2><p>写入脚本使用固定线程 p09-short-001。为了让示例可以重复执行，代码只删除当前演示线程，不会清空数据库中的其他会话。</p>
+<p><img src="https://images.hnbian.cn/new/n-d991374cfd158ec858fb6c15210da3be.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="数据库中的表"></p>
+<h3 id="7-2-表结构分析"><a href="#7-2-表结构分析" class="headerlink" title="7.2 表结构分析"></a>7.2 表结构分析</h3><pre class="line-numbers language-sql" data-language="sql"><code class="language-sql"><span class="token comment">-- public.checkpoint_blobs definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.checkpoint_blobs;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoint_blobs <span class="token punctuation">(</span>
+	thread_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	checkpoint_ns <span class="token keyword">text</span> <span class="token keyword">DEFAULT</span> <span class="token string">''</span>::<span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	channel <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"version"</span> <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"type"</span> <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"blob"</span> bytea <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> checkpoint_blobs_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">,</span> checkpoint_ns<span class="token punctuation">,</span> channel<span class="token punctuation">,</span> version<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> checkpoint_blobs_thread_id_idx <span class="token keyword">ON</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoint_blobs <span class="token keyword">USING</span> <span class="token keyword">btree</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">-- public.checkpoints definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.checkpoints;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoints <span class="token punctuation">(</span>
+	thread_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	checkpoint_ns <span class="token keyword">text</span> <span class="token keyword">DEFAULT</span> <span class="token string">''</span>::<span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	checkpoint_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	parent_checkpoint_id <span class="token keyword">text</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"type"</span> <span class="token keyword">text</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"checkpoint"</span> jsonb <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	metadata jsonb <span class="token keyword">DEFAULT</span> <span class="token string">'&#123;&#125;'</span>::jsonb <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> checkpoints_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">,</span> checkpoint_ns<span class="token punctuation">,</span> checkpoint_id<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> checkpoints_thread_id_idx <span class="token keyword">ON</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoints <span class="token keyword">USING</span> <span class="token keyword">btree</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">-- public.checkpoint_migrations definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.checkpoint_migrations;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoint_migrations <span class="token punctuation">(</span>
+	v int4 <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> checkpoint_migrations_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">-- public.checkpoint_writes definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.checkpoint_writes;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoint_writes <span class="token punctuation">(</span>
+	thread_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	checkpoint_ns <span class="token keyword">text</span> <span class="token keyword">DEFAULT</span> <span class="token string">''</span>::<span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	checkpoint_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	task_id <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	idx int4 <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	channel <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"type"</span> <span class="token keyword">text</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"blob"</span> bytea <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	task_path <span class="token keyword">text</span> <span class="token keyword">DEFAULT</span> <span class="token string">''</span>::<span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> checkpoint_writes_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">,</span> checkpoint_ns<span class="token punctuation">,</span> checkpoint_id<span class="token punctuation">,</span> task_id<span class="token punctuation">,</span> idx<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> checkpoint_writes_thread_id_idx <span class="token keyword">ON</span> <span class="token keyword">public</span><span class="token punctuation">.</span>checkpoint_writes <span class="token keyword">USING</span> <span class="token keyword">btree</span> <span class="token punctuation">(</span>thread_id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+<span class="token comment">-- public.store definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.store;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>store <span class="token punctuation">(</span>
+	prefix <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token string">"key"</span> <span class="token keyword">text</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">value</span> jsonb <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	created_at timestamptz <span class="token keyword">DEFAULT</span> <span class="token keyword">CURRENT_TIMESTAMP</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	updated_at timestamptz <span class="token keyword">DEFAULT</span> <span class="token keyword">CURRENT_TIMESTAMP</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	expires_at timestamptz <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	ttl_minutes int4 <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> store_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>prefix<span class="token punctuation">,</span> <span class="token keyword">key</span><span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> idx_store_expires_at <span class="token keyword">ON</span> <span class="token keyword">public</span><span class="token punctuation">.</span>store <span class="token keyword">USING</span> <span class="token keyword">btree</span> <span class="token punctuation">(</span>expires_at<span class="token punctuation">)</span> <span class="token keyword">WHERE</span> <span class="token punctuation">(</span>expires_at <span class="token operator">IS</span> <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">CREATE</span> <span class="token keyword">INDEX</span> store_prefix_idx <span class="token keyword">ON</span> <span class="token keyword">public</span><span class="token punctuation">.</span>store <span class="token keyword">USING</span> <span class="token keyword">btree</span> <span class="token punctuation">(</span>prefix text_pattern_ops<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">-- public.store_migrations definition</span>
+
+<span class="token comment">-- Drop table</span>
+
+<span class="token comment">-- DROP TABLE public.store_migrations;</span>
+
+<span class="token keyword">CREATE</span> <span class="token keyword">TABLE</span> <span class="token keyword">public</span><span class="token punctuation">.</span>store_migrations <span class="token punctuation">(</span>
+	v int4 <span class="token operator">NOT</span> <span class="token boolean">NULL</span><span class="token punctuation">,</span>
+	<span class="token keyword">CONSTRAINT</span> store_migrations_pkey <span class="token keyword">PRIMARY</span> <span class="token keyword">KEY</span> <span class="token punctuation">(</span>v<span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>这 6 张表可以分成两组：</p>
+<ul>
+<li><code>checkpoints</code>、<code>checkpoint_blobs</code>、<code>checkpoint_writes</code> 和 <code>checkpoint_migrations</code> 由 <code>PostgresSaver</code> 使用，负责短期记忆。</li>
+<li><code>store</code> 和 <code>store_migrations</code> 由 <code>PostgresStore</code> 使用，负责长期记忆。</li>
+</ul>
+<p>两组表彼此独立。短期记忆以 <code>thread_id</code> 为主要隔离边界，长期记忆以 <code>namespace + key</code> 为定位方式。<code>PostgresSaver.setup()</code> 和 <code>PostgresStore.setup()</code> 也分别维护自己的迁移记录，因此两者都需要执行。</p>
+<h4 id="7-2-1-checkpoints：主表"><a href="#7-2-1-checkpoints：主表" class="headerlink" title="7.2.1 checkpoints：主表"></a>7.2.1 checkpoints：主表</h4><p><code>checkpoints</code> 的一行表示某个 Thread 在某个执行时刻生成的一份 checkpoint。它保存 checkpoint 的结构、元数据以及与前一个 checkpoint 的关系，是恢复 Thread 状态时首先查询的表。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>thread_id</code></td>
+<td>Thread 的业务标识，对应调用 Agent 时传入的 <code>configurable.thread_id</code>。相同 <code>thread_id</code> 的 checkpoint 属于同一段短期记忆。</td>
+</tr>
+<tr>
+<td><code>checkpoint_ns</code></td>
+<td>checkpoint 命名空间，用来隔离同一 Thread 内不同图或子图的 checkpoint。根图通常使用默认值 <code>&#39;&#39;</code>。它和 <code>thread_id</code> 一起确定 checkpoint 所属的逻辑空间。</td>
+</tr>
+<tr>
+<td><code>checkpoint_id</code></td>
+<td>checkpoint 在当前 Thread 和命名空间内的唯一标识，由 LangGraph 生成。一次 Thread 执行会产生多个 checkpoint，因此不能只用 <code>thread_id</code> 定位某一个具体状态。</td>
+</tr>
+<tr>
+<td><code>parent_checkpoint_id</code></td>
+<td>当前 checkpoint 的父 checkpoint 标识。第一份 checkpoint 没有父节点，因此可以为 <code>NULL</code>。LangGraph 利用它形成状态演进链，并支持恢复、回放和分支。</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>表结构保留的类型字段。当前版本的 <code>PostgresSaver</code> 保存 checkpoint 主体时通常不写这个字段，所以一般为 <code>NULL</code>；它不是 Agent State 的业务类型。</td>
+</tr>
+<tr>
+<td><code>checkpoint</code></td>
+<td>checkpoint 的主体，使用 <code>jsonb</code> 保存。里面通常包含 checkpoint 格式版本、ID、时间、各 channel 的版本号、节点已经观察到的版本等信息。可以直接放入 JSON 的简单 channel 值也可能内联在这里；需要序列化的复杂值则保存在 <code>checkpoint_blobs</code>。</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>checkpoint 的附加运行信息，使用 <code>jsonb</code> 保存，例如产生 checkpoint 的来源、执行步数以及本轮节点写入摘要。<code>list()</code> 的 metadata 过滤最终也会作用在这一列上。</td>
+</tr>
+</tbody></table>
+<p>主键是 <code>(thread_id, checkpoint_ns, checkpoint_id)</code>。这表示不同 Thread 或不同命名空间可以拥有各自独立的 checkpoint ID 空间。<code>checkpoints_thread_id_idx</code> 用于加速按 Thread 查询或删除数据。</p>
+<h4 id="7-2-2-checkpoint-blobs：状态值表"><a href="#7-2-2-checkpoint-blobs：状态值表" class="headerlink" title="7.2.2 checkpoint_blobs：状态值表"></a>7.2.2 checkpoint_blobs：状态值表</h4><p>LangGraph 的 State 在内部由多个 channel 组成，例如 Agent 常见的 <code>messages</code> 就是一个 channel。<code>checkpoint_blobs</code> 保存不能直接内联到 <code>checkpoints.checkpoint</code> 中的 channel 状态快照。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>thread_id</code></td>
+<td>channel 状态所属的 Thread。</td>
+</tr>
+<tr>
+<td><code>checkpoint_ns</code></td>
+<td>channel 状态所属的 checkpoint 命名空间，含义与 <code>checkpoints.checkpoint_ns</code> 相同。</td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>State channel 的名称，例如 <code>messages</code>，也可能是 LangGraph 使用的内部 channel。</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>该 channel 值的版本号。它是 channel 级别的版本，不是数据库迁移版本，也不是 <code>checkpoint_id</code>。<code>checkpoints.checkpoint</code> 中的 <code>channel_versions</code> 会记录每个 channel 应读取哪个版本。</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>序列化类型标签。LangGraph 反序列化 <code>blob</code> 时会同时使用 <code>type</code> 和 <code>blob</code>，因此不能只读取二进制内容来判断原始 Python 类型。特殊值 <code>empty</code> 表示这个版本没有实际状态值。</td>
+</tr>
+<tr>
+<td><code>blob</code></td>
+<td>channel 值序列化后的二进制内容。该列允许为 <code>NULL</code>，因为当 <code>type=&#39;empty&#39;</code> 时只需要记录“值为空”这一语义，不需要保存二进制数据。</td>
+</tr>
+</tbody></table>
+<p>主键是 <code>(thread_id, checkpoint_ns, channel, version)</code>，其中没有 <code>checkpoint_id</code>。这是有意的设计：checkpoint 通过 <code>channel_versions</code> 引用 channel 的具体版本；如果某个 channel 在相邻 checkpoint 之间没有变化，两份 checkpoint 可以引用同一个 blob，避免重复保存完整状态。</p>
+<p><code>checkpoint_blobs_thread_id_idx</code> 用于加速按 Thread 查询和清理 blob。</p>
+<h4 id="7-2-3-checkpoint-writes：节点中间写入表"><a href="#7-2-3-checkpoint-writes：节点中间写入表" class="headerlink" title="7.2.3 checkpoint_writes：节点中间写入表"></a>7.2.3 checkpoint_writes：节点中间写入表</h4><p><code>checkpoint_writes</code> 保存某个 checkpoint 上由节点任务产生、但尚未合并为下一份完整 checkpoint 的写入，也称为 pending writes。它让 LangGraph 在失败、重试、中断恢复或并行任务场景中保留已经完成的节点结果，避免恢复时无条件重复执行所有工作。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>thread_id</code></td>
+<td>写入所属的 Thread。</td>
+</tr>
+<tr>
+<td><code>checkpoint_ns</code></td>
+<td>写入所属的 checkpoint 命名空间。</td>
+</tr>
+<tr>
+<td><code>checkpoint_id</code></td>
+<td>写入基于哪一份 checkpoint 产生，用来和 <code>checkpoints</code> 主表进行逻辑关联。</td>
+</tr>
+<tr>
+<td><code>task_id</code></td>
+<td>产生这次写入的任务标识。一次图执行中可能有多个节点任务，<code>task_id</code> 用于区分它们。</td>
+</tr>
+<tr>
+<td><code>idx</code></td>
+<td>同一个任务内各项写入的位置编号，用于维持稳定顺序并实现幂等保存。部分内部 channel 会使用预定义编号，因此它不应被当作整个图的全局执行步数。</td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>本项写入的目标 channel。除了业务 State channel，还可能出现任务调度、错误或中断等 LangGraph 内部 channel。</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td><code>blob</code> 的序列化类型标签，作用与 <code>checkpoint_blobs.type</code> 相同。表结构允许它为 <code>NULL</code>；正常通过 LangGraph 写入时会记录实际的序列化类型。</td>
+</tr>
+<tr>
+<td><code>blob</code></td>
+<td>本项写入值序列化后的二进制内容。恢复 pending writes 时，LangGraph 使用 <code>type + blob</code> 还原原始值。</td>
+</tr>
+<tr>
+<td><code>task_path</code></td>
+<td>任务在图或子图中的执行路径。根路径默认是 <code>&#39;&#39;</code>，LangGraph 可用它对任务写入进行稳定排序，并区分嵌套或并行任务。</td>
+</tr>
+</tbody></table>
+<p>主键是 <code>(thread_id, checkpoint_ns, checkpoint_id, task_id, idx)</code>。它保证同一任务的同一项写入不会被重复插入。<code>checkpoint_writes_thread_id_idx</code> 用于加速按 Thread 查询和清理中间写入。</p>
+<h4 id="7-2-4-checkpoint-migrations：迁移记录表"><a href="#7-2-4-checkpoint-migrations：迁移记录表" class="headerlink" title="7.2.4 checkpoint_migrations：迁移记录表"></a>7.2.4 checkpoint_migrations：迁移记录表</h4><p><code>checkpoint_migrations</code> 不保存任何 Agent 记忆，只记录 <code>PostgresSaver</code> 已经执行过哪些数据库迁移。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>v</code></td>
+<td>迁移版本号，也是该表的主键。<code>setup()</code> 会读取最大的 <code>v</code>，只继续执行后续尚未应用的迁移。</td>
+</tr>
+</tbody></table>
+<p>因此，重复调用 <code>PostgresSaver.setup()</code> 不会重复建表或清空 checkpoint。这个表应由 LangGraph 管理，不应该把其中的版本号当作应用版本手工修改。</p>
+<h4 id="7-2-5-store：长期记忆数据表"><a href="#7-2-5-store：长期记忆数据表" class="headerlink" title="7.2.5 store：长期记忆数据表"></a>7.2.5 store：长期记忆数据表</h4><p><code>store</code> 是 <code>PostgresStore</code> 的主体表。一行表示一个由 <code>namespace + key</code> 唯一定位的长期记忆项。它不依赖 <code>thread_id</code>，所以同一个用户可以在多个 Thread 中读取同一项长期记忆。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prefix</code></td>
+<td>Store 的 namespace。Python 中的 namespace 是字符串元组，例如 <code>(&quot;users&quot;, &quot;user-001&quot;)</code>；PostgresStore 会将其编码为 <code>users.user-001</code> 这样的点分字符串存入 <code>prefix</code>。它负责划分用户、应用或业务领域。</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>namespace 内某一项记忆的唯一键，例如 <code>profile</code> 或 <code>preferences</code>。</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>记忆正文，使用 <code>jsonb</code> 保存。调用 <code>store.put(namespace, key, value)</code> 时传入的结构化数据就写入这里。</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>该记忆项首次创建的时间。更新同一个 <code>(prefix, key)</code> 时会保留原创建时间。</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>最近一次写入该记忆项的时间。发生 upsert 更新时会改为当前时间；未使用向量检索时，<code>search()</code> 默认也会按它从新到旧排序。</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>该记忆项的实际过期时间。未设置 TTL 时为 <code>NULL</code>。设置 TTL 时通常为写入时间加上 TTL 时长；启用 TTL 刷新后，读取或搜索也可以延后它。</td>
+</tr>
+<tr>
+<td><code>ttl_minutes</code></td>
+<td>TTL 的时长，单位为分钟。它不仅记录最初的过期策略，也用于刷新 TTL 时重新计算 <code>expires_at</code>。未设置 TTL 时为 <code>NULL</code>。</td>
+</tr>
+</tbody></table>
+<p>主键是 <code>(prefix, key)</code>。因此，相同 key 可以出现在不同 namespace 中，而对相同 <code>(prefix, key)</code> 再次调用 <code>put()</code> 会更新原有记录。</p>
+<p><code>store_prefix_idx</code> 使用 <code>text_pattern_ops</code>，主要加速按 namespace 前缀进行的查询；<code>idx_store_expires_at</code> 是只包含非空 <code>expires_at</code> 的部分索引，用于加速清理过期数据。需要注意，写入 <code>expires_at</code> 不等于数据库会自动删除记录：应用还需要调用 TTL 清理方法，或启动 PostgresStore 的 TTL sweeper。</p>
+<p>本文没有配置向量索引，因此只有 <code>store</code> 主表。如果为 PostgresStore 配置 Embedding 和 pgvector，<code>setup()</code> 还会创建 <code>store_vectors</code>、<code>vector_migrations</code> 等相关表。</p>
+<h4 id="7-2-6-store-migrations：迁移记录表"><a href="#7-2-6-store-migrations：迁移记录表" class="headerlink" title="7.2.6 store_migrations：迁移记录表"></a>7.2.6 store_migrations：迁移记录表</h4><p><code>store_migrations</code> 与 <code>checkpoint_migrations</code> 的职责相同，但它只服务于 <code>PostgresStore</code>。</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>v</code></td>
+<td>Store 数据库迁移的版本号，也是该表的主键。<code>PostgresStore.setup()</code> 根据它判断接下来还需要执行哪些迁移。</td>
+</tr>
+</tbody></table>
+<p>两个 migration 表不能合并，因为 Checkpointer 和 Store 是两个独立组件，各自拥有不同的表结构和升级节奏。</p>
+<h4 id="7-2-7-表之间的关系"><a href="#7-2-7-表之间的关系" class="headerlink" title="7.2.7 表之间的关系"></a>7.2.7 表之间的关系</h4><p>这套表结构没有声明外键，表之间由 LangGraph 在应用层通过复合字段建立逻辑关联：</p>
+<ol>
+<li><code>checkpoints</code> 根据 <code>thread_id + checkpoint_ns</code> 保存一个 Thread 的 checkpoint 链，<code>parent_checkpoint_id</code> 指向链中的上一份 checkpoint。</li>
+<li>checkpoint 中的 <code>channel_versions</code> 根据 <code>thread_id + checkpoint_ns + channel + version</code> 到 <code>checkpoint_blobs</code> 读取复杂 channel 值。</li>
+<li>LangGraph 根据 <code>thread_id + checkpoint_ns + checkpoint_id</code> 从 <code>checkpoint_writes</code> 取回该 checkpoint 上的 pending writes。</li>
+<li><code>store</code> 完全独立于 checkpoint 表，只通过 <code>prefix + key</code> 定位长期记忆。</li>
+</ol>
+<p>因此，短期记忆不是简单地把完整对话 JSON 重复插入一张表，而是由 checkpoint 结构、按版本保存的 channel 值和节点中间写入共同组成。<code>PostgresSaver.delete_thread(thread_id)</code> 也会分别删除 <code>checkpoints</code>、<code>checkpoint_blobs</code> 和 <code>checkpoint_writes</code> 中的数据，而不会影响独立的长期记忆 <code>store</code>。</p>
+<h2 id="8-短期记忆-PostgreSQL"><a href="#8-短期记忆-PostgreSQL" class="headerlink" title="8. 短期记忆: PostgreSQL"></a>8. 短期记忆: PostgreSQL</h2><h3 id="8-1-写入短期记忆"><a href="#8-1-写入短期记忆" class="headerlink" title="8.1 写入短期记忆"></a>8.1 写入短期记忆</h3><p>写入脚本使用固定线程 p09-short-001。为了让示例可以重复执行，代码只删除当前演示线程，不会清空数据库中的其他会话。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 PostgresSaver 写入第一轮短期记忆。"""</span>
 
 <span class="token keyword">import</span> httpx
@@ -995,14 +1297,12 @@ python langgraph/p09_agent_memory/02_setup_postgres_memory.py<span aria-hidden="
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresSaver
 
-
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
-    <span class="token string">"langgraph_memory?sslmode=disable"</span>
+    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/langgraph_memory?sslmode=disable"</span>
 <span class="token punctuation">)</span>
 THREAD_ID <span class="token operator">=</span> <span class="token string">"p09-short-001"</span>
 
-
+<span class="token comment"># 第 1 步：创建模型。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1012,11 +1312,12 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 2 步：打开 PostgreSQL Checkpointer。</span>
 <span class="token keyword">with</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> checkpointer<span class="token punctuation">:</span>
     <span class="token comment"># 只清理当前示例线程，保证脚本重复执行时不会累积旧消息。</span>
     checkpointer<span class="token punctuation">.</span>delete_thread<span class="token punctuation">(</span>THREAD_ID<span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 3 步：创建 Agent，并把第一轮对话保存到固定 thread_id。</span>
     agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
         model<span class="token operator">=</span>model<span class="token punctuation">,</span>
         tools<span class="token operator">=</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
@@ -1032,14 +1333,15 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     <span class="token punctuation">)</span>
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"已写入线程：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>THREAD_ID<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>运行结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">已写入线程：p09-short-001
 模型回答：已记住。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>Agent 执行完成时，PostgresSaver 已经把该 Thread 的 State checkpoint 保存到 PostgreSQL。</p>
-<h2 id="9-重启数据库后恢复短期记忆"><a href="#9-重启数据库后恢复短期记忆" class="headerlink" title="9. 重启数据库后恢复短期记忆"></a><strong>9. 重启数据库后恢复短期记忆</strong></h2><p>先停止再启动 PostgreSQL：</p>
+<p><img src="https://images.hnbian.cn/new/n-1d55a404110da12aea9d81b67e943218.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="数据库中的短期记忆"></p>
+<h3 id="8-2-恢复短期记忆"><a href="#8-2-恢复短期记忆" class="headerlink" title="8.2  恢复短期记忆"></a>8.2  恢复短期记忆</h3><p>先停止再启动 PostgreSQL：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">docker</span> compose <span class="token punctuation">\</span>
   <span class="token parameter variable">-f</span> langgraph/p09_agent_memory/docker-compose.yml <span class="token punctuation">\</span>
   down
@@ -1057,15 +1359,13 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>checkpoint<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresSaver
 
-
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
-    <span class="token string">"langgraph_memory?sslmode=disable"</span>
+    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/langgraph_memory?sslmode=disable"</span>
 <span class="token punctuation">)</span>
 SAVED_THREAD_ID <span class="token operator">=</span> <span class="token string">"p09-short-001"</span>
 OTHER_THREAD_ID <span class="token operator">=</span> <span class="token string">"p09-short-other"</span>
 
-
+<span class="token comment"># 第 1 步：创建与写入脚本相同的模型。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1075,7 +1375,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-
+<span class="token comment"># 第 2 步：重新连接 PostgreSQL。这里是一个新的 Python 进程。</span>
 <span class="token keyword">with</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> checkpointer<span class="token punctuation">:</span>
     <span class="token comment"># 清理对照线程，避免它受到以前测试数据的影响。</span>
     checkpointer<span class="token punctuation">.</span>delete_thread<span class="token punctuation">(</span>OTHER_THREAD_ID<span class="token punctuation">)</span>
@@ -1090,6 +1390,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
         <span class="token punctuation">)</span><span class="token punctuation">,</span>
     <span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 3 步：固定 thread_id 能恢复原消息，另一个 thread_id 则读不到。</span>
     resumed <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
         <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"我叫什么名字？只回答名字。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
         config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> SAVED_THREAD_ID<span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
@@ -1100,14 +1401,14 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     <span class="token punctuation">)</span>
 
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"恢复线程回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>resumed<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"对照线程回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>isolated<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"对照线程回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>isolated<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>一次真实输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">恢复线程回答：小明
 对照线程回答：不知道。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>写入与读取发生在两个独立 Python 进程中，并且中间重启过 PostgreSQL。相同 thread_id 恢复了历史，不同 thread_id 仍然保持隔离。</p>
-<h2 id="10-PostgresStore-的-namespace、key-和-value"><a href="#10-PostgresStore-的-namespace、key-和-value" class="headerlink" title="10. PostgresStore 的 namespace、key 和 value"></a><strong>10. PostgresStore 的 namespace、key 和 value</strong></h2><p>Checkpointer 保存的是 AgentState 的 checkpoint。长期偏好不应该依赖某个 Thread，因此需要使用 Store。</p>
+<h2 id="9-长期记忆-PostgreSQL"><a href="#9-长期记忆-PostgreSQL" class="headerlink" title="9. 长期记忆: PostgreSQL"></a>9. 长期记忆: PostgreSQL</h2><p>Checkpointer 保存的是 AgentState 的 checkpoint。长期偏好不应该依赖某个 Thread，因此需要使用 Store。</p>
 <p>Store 中的一条记录由三部分定位：</p>
 <ul>
 <li>namespace：一组分层名称，用于隔离用户和业务范围。</li>
@@ -1117,11 +1418,10 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
 <p>下图中线程 A 和线程 B 的 thread_id 不同，但两次调用都通过 Runtime Context 提供 user-001，因此会定位到同一个 namespace 和 key。user-002 使用独立 namespace，不能读到 user-001 的偏好。</p>
 <p><img src="https://images.hnbian.cn/new/n-f33b358b809b914f2bd64e7984513e95.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="跨线程长期记忆的写入、读取与用户隔离"></p>
 <p>Store 不会自动保存聊天内容。只有 Tool 或节点显式调用 put()、get()、search() 或 delete() 时，长期记忆才会发生变化；thread_id 也不参与 Store 的定位。</p>
-<p>先直接调用 PostgresStore 的基础接口：</p>
+<h3 id="9-1-操作长期记忆CRUD"><a href="#9-1-操作长期记忆CRUD" class="headerlink" title="9.1 操作长期记忆CRUD"></a>9.1 操作长期记忆CRUD</h3><p>长期记忆的增删改查操作</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""直接使用 PostgresStore 演示长期记忆的基础 CRUD 接口。"""</span>
 
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>store<span class="token punctuation">.</span>postgres <span class="token keyword">import</span> PostgresStore
-
 
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
     <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
@@ -1135,23 +1435,30 @@ KEY <span class="token operator">=</span> <span class="token string">"preference
     <span class="token comment"># 清理固定 key，保证每次都从相同初始状态开始。</span>
     store<span class="token punctuation">.</span>delete<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 1 步：put() 新增数据，get() 按 namespace 和 key 读取。</span>
     store<span class="token punctuation">.</span>put<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string">"activity"</span><span class="token punctuation">:</span> <span class="token string">"周末去公园散步"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
     created <span class="token operator">=</span> store<span class="token punctuation">.</span>get<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"新增后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>created<span class="token punctuation">.</span>value <span class="token keyword">if</span> created <span class="token keyword">else</span> <span class="token boolean">None</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> created <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"新增后：没有找到记录"</span><span class="token punctuation">)</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"新增后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>created<span class="token punctuation">.</span>value<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-    <span class="token comment"># 相同 namespace 和 key 再次 put 会更新原有数据。</span>
+    <span class="token comment"># 第 2 步：相同 namespace 和 key 再次 put 会更新原有数据。</span>
     store<span class="token punctuation">.</span>put<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string">"activity"</span><span class="token punctuation">:</span> <span class="token string">"周末去西湖散步"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
     updated <span class="token operator">=</span> store<span class="token punctuation">.</span>get<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"更新后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>updated<span class="token punctuation">.</span>value <span class="token keyword">if</span> updated <span class="token keyword">else</span> <span class="token boolean">None</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> updated <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"更新后：没有找到记录"</span><span class="token punctuation">)</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"更新后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>updated<span class="token punctuation">.</span>value<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-    <span class="token comment"># 没有配置向量索引时，search() 只列出 namespace 下的记录。</span>
+    <span class="token comment"># 第 3 步：没有配置向量索引时，search() 只列出 namespace 下的记录。</span>
     items <span class="token operator">=</span> store<span class="token punctuation">.</span>search<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"namespace 中的记录数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">len</span><span class="token punctuation">(</span>items<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 4 步：delete() 删除指定记录。</span>
     store<span class="token punctuation">.</span>delete<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">)</span>
     deleted <span class="token operator">=</span> store<span class="token punctuation">.</span>get<span class="token punctuation">(</span>NAMESPACE<span class="token punctuation">,</span> KEY<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"删除后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>deleted<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"删除后：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>deleted<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>运行结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">新增后：&#123;'activity': '周末去公园散步'&#125;
 更新后：&#123;'activity': '周末去西湖散步'&#125;
@@ -1159,7 +1466,7 @@ namespace 中的记录数：1
 删除后：None<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这里没有为 Store 配置向量索引，所以 search(NAMESPACE) 只是列出该 namespace 下的数据，不是基于 Embedding 的语义搜索。</p>
-<h2 id="11-在线程-A-写入长期偏好"><a href="#11-在线程-A-写入长期偏好" class="headerlink" title="11. 在线程 A 写入长期偏好"></a><strong>11. 在线程 A 写入长期偏好</strong></h2><p>真正交给 Agent 使用时，用户身份通过 Runtime Context 传入。Tool 从 runtime.context 读取 user_id，再使用 runtime.store 写入偏好。</p>
+<h3 id="9-2-写入长期偏好"><a href="#9-2-写入长期偏好" class="headerlink" title="9.2 写入长期偏好"></a>9.2 写入长期偏好</h3><p>真正交给 Agent 使用时，用户身份通过 Runtime Context 传入。Tool 从 runtime.context 读取 user_id，再使用 runtime.store 写入偏好。</p>
 <p>本例统一使用下面的长期记忆位置：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">namespace <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> <span class="token string">"memories"</span><span class="token punctuation">)</span>
 key <span class="token operator">=</span> <span class="token string">"preferences"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
@@ -1197,6 +1504,7 @@ THREAD_IDS <span class="token operator">=</span> <span class="token punctuation"
 <span class="token keyword">def</span> <span class="token function">memory_namespace</span><span class="token punctuation">(</span>user_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">tuple</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""为每个用户生成相互隔离的长期记忆 namespace。"""</span>
 
+    <span class="token comment"># 不同 user_id 会生成不同路径，从而实现用户数据隔离。</span>
     <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> <span class="token string">"memories"</span><span class="token punctuation">)</span>
 
 
@@ -1210,6 +1518,7 @@ THREAD_IDS <span class="token operator">=</span> <span class="token punctuation"
     <span class="token keyword">if</span> runtime<span class="token punctuation">.</span>context <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
         <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"必须通过 context 传入 user_id"</span><span class="token punctuation">)</span>
 
+    <span class="token comment"># runtime.store 和 runtime.context 都由 Agent 自动注入。</span>
     user_id <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context<span class="token punctuation">[</span><span class="token string">"user_id"</span><span class="token punctuation">]</span>
     runtime<span class="token punctuation">.</span>store<span class="token punctuation">.</span>put<span class="token punctuation">(</span>
         memory_namespace<span class="token punctuation">(</span>user_id<span class="token punctuation">)</span><span class="token punctuation">,</span>
@@ -1219,6 +1528,7 @@ THREAD_IDS <span class="token operator">=</span> <span class="token punctuation"
     <span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"已保存偏好：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>preference<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
 
 
+<span class="token comment"># 第 1 步：创建模型。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1229,6 +1539,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
 <span class="token punctuation">)</span>
 
 
+<span class="token comment"># 第 2 步：同时打开短期记忆 Checkpointer 和长期记忆 Store。</span>
 <span class="token keyword">with</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> checkpointer<span class="token punctuation">:</span>
     <span class="token keyword">with</span> PostgresStore<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> store<span class="token punctuation">:</span>
         <span class="token comment"># 清理本示例使用的线程和长期记忆，保证结果可重复。</span>
@@ -1236,6 +1547,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
             checkpointer<span class="token punctuation">.</span>delete_thread<span class="token punctuation">(</span>thread_id<span class="token punctuation">)</span>
         store<span class="token punctuation">.</span>delete<span class="token punctuation">(</span>memory_namespace<span class="token punctuation">(</span>USER_ID<span class="token punctuation">)</span><span class="token punctuation">,</span> MEMORY_KEY<span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 3 步：将保存偏好的工具和 Store 一起交给 Agent。</span>
         agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
             model<span class="token operator">=</span>model<span class="token punctuation">,</span>
             tools<span class="token operator">=</span><span class="token punctuation">[</span>save_user_preference<span class="token punctuation">]</span><span class="token punctuation">,</span>
@@ -1244,7 +1556,6 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
             context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
             system_prompt<span class="token operator">=</span><span class="token punctuation">(</span>
                 <span class="token string">"你是一个用户偏好助手。"</span>
-                <span class="token string">"用户要求记住休闲偏好时，必须调用 save_user_preference 工具。"</span>
             <span class="token punctuation">)</span><span class="token punctuation">,</span>
         <span class="token punctuation">)</span>
         result <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
@@ -1260,10 +1571,11 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
             context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> USER_ID<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
         <span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 4 步：绕过模型直接读取 Store，确认工具确实写入了数据。</span>
         saved_item <span class="token operator">=</span> store<span class="token punctuation">.</span>get<span class="token punctuation">(</span>memory_namespace<span class="token punctuation">(</span>USER_ID<span class="token punctuation">)</span><span class="token punctuation">,</span> MEMORY_KEY<span class="token punctuation">)</span>
 
 
-<span class="token comment"># runtime 和 user_id 由框架注入，模型只需要生成 preference。</span>
+<span class="token comment"># 第 5 步：runtime 和 user_id 由框架注入，模型只需要生成 preference。</span>
 tool_schema <span class="token operator">=</span> convert_to_openai_tool<span class="token punctuation">(</span>save_user_preference<span class="token punctuation">)</span>
 visible_parameters <span class="token operator">=</span> tool_schema<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"parameters"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"properties"</span><span class="token punctuation">]</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型可见参数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span><span class="token builtin">list</span><span class="token punctuation">(</span>visible_parameters<span class="token punctuation">)</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
@@ -1275,9 +1587,11 @@ visible_parameters <span class="token operator">=</span> tool_schema<span class=
     <span class="token keyword">elif</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> ToolMessage<span class="token punctuation">)</span><span class="token punctuation">:</span>
         <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>message<span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Store 数据：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>saved_item<span class="token punctuation">.</span>value <span class="token keyword">if</span> saved_item <span class="token keyword">else</span> <span class="token boolean">None</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
+<span class="token keyword">if</span> saved_item <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"Store 数据：没有找到记录"</span><span class="token punctuation">)</span>
+<span class="token keyword">else</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Store 数据：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>saved_item<span class="token punctuation">.</span>value<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>一次真实输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">模型可见参数：['preference']
 工具调用：save_user_preference，参数=&#123;'preference': '周末去西湖散步'&#125;
@@ -1286,7 +1600,7 @@ Store 数据：&#123;'preference': '周末去西湖散步'&#125;
 最终回答：好的，已记住您喜欢在周末去西湖散步。如果您需要关于西湖的更多信息或建议，随时告诉我！<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>runtime 和 user_id 都不会出现在模型看到的 Tool Schema 中。模型只负责提取 preference，用户身份由应用通过 Context 提供，避免模型自行编造或修改用户 ID。</p>
-<h2 id="12-在线程-B-读取同一用户的偏好"><a href="#12-在线程-B-读取同一用户的偏好" class="headerlink" title="12. 在线程 B 读取同一用户的偏好"></a><strong>12. 在线程 B 读取同一用户的偏好</strong></h2><p>写入完成后，再次重启 PostgreSQL，然后在新的 Python 进程中使用线程 B 读取数据。</p>
+<h3 id="9-3-读取长期记忆"><a href="#9-3-读取长期记忆" class="headerlink" title="9.3 读取长期记忆"></a>9.3 读取长期记忆</h3><p>写入完成后，再次重启 PostgreSQL，然后在新的 Python 进程中使用线程 B 读取数据。</p>
 <p>读取 Tool 根据 user_id 生成相同 namespace。只要用户相同，即使 thread_id 不同，也可以取回同一份长期记忆。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""在线程 B 中读取同一用户的长期记忆，并验证用户隔离。"""</span>
 
@@ -1303,8 +1617,7 @@ Store 数据：&#123;'preference': '周末去西湖散步'&#125;
 
 
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
-    <span class="token string">"langgraph_memory?sslmode=disable"</span>
+    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/langgraph_memory?sslmode=disable"</span>
 <span class="token punctuation">)</span>
 MEMORY_KEY <span class="token operator">=</span> <span class="token string">"preferences"</span>
 
@@ -1318,6 +1631,7 @@ MEMORY_KEY <span class="token operator">=</span> <span class="token string">"pre
 <span class="token keyword">def</span> <span class="token function">memory_namespace</span><span class="token punctuation">(</span>user_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">tuple</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""为每个用户生成相互隔离的长期记忆 namespace。"""</span>
 
+    <span class="token comment"># 读取时必须使用与写入脚本完全相同的 namespace 规则。</span>
     <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> <span class="token string">"memories"</span><span class="token punctuation">)</span>
 
 
@@ -1328,6 +1642,7 @@ MEMORY_KEY <span class="token operator">=</span> <span class="token string">"pre
     <span class="token keyword">if</span> runtime<span class="token punctuation">.</span>context <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
         <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"必须通过 context 传入 user_id"</span><span class="token punctuation">)</span>
 
+    <span class="token comment"># 工具根据当前 Context 选择 namespace，模型不能自行指定 user_id。</span>
     user_id <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context<span class="token punctuation">[</span><span class="token string">"user_id"</span><span class="token punctuation">]</span>
     item <span class="token operator">=</span> runtime<span class="token punctuation">.</span>store<span class="token punctuation">.</span>get<span class="token punctuation">(</span>memory_namespace<span class="token punctuation">(</span>user_id<span class="token punctuation">)</span><span class="token punctuation">,</span> MEMORY_KEY<span class="token punctuation">)</span>
     <span class="token keyword">if</span> item <span class="token keyword">is</span> <span class="token boolean">None</span><span class="token punctuation">:</span>
@@ -1335,6 +1650,7 @@ MEMORY_KEY <span class="token operator">=</span> <span class="token string">"pre
     <span class="token keyword">return</span> <span class="token builtin">str</span><span class="token punctuation">(</span>item<span class="token punctuation">.</span>value<span class="token punctuation">[</span><span class="token string">"preference"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 
 
+<span class="token comment"># 第 1 步：创建模型。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1357,6 +1673,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span><span class="token punctuation">)</span>
 
 
+<span class="token comment"># 第 2 步：打开同一个 PostgreSQL 中的 Checkpointer 和 Store。</span>
 <span class="token keyword">with</span> PostgresSaver<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> checkpointer<span class="token punctuation">:</span>
     <span class="token keyword">with</span> PostgresStore<span class="token punctuation">.</span>from_conn_string<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> store<span class="token punctuation">:</span>
         <span class="token comment"># 清理两个读取线程，但不删除 user-001 在线程 A 保存的 Store 数据。</span>
@@ -1372,16 +1689,16 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
             context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
             system_prompt<span class="token operator">=</span><span class="token punctuation">(</span>
                 <span class="token string">"你是一个用户偏好助手。"</span>
-                <span class="token string">"用户询问休闲偏好时，必须调用 get_user_preference 工具，"</span>
-                <span class="token string">"并根据工具结果回答。"</span>
             <span class="token punctuation">)</span><span class="token punctuation">,</span>
         <span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 3 步：新线程仍可读取同一用户的长期记忆。</span>
         same_user <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
             <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"你还记得我的休闲偏好吗？"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
             config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p09-long-b"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
             context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> <span class="token string">"user-001"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
         <span class="token punctuation">)</span>
+        <span class="token comment"># 第 4 步：另一个用户使用不同 namespace，读取不到 user-001 的记忆。</span>
         other_user <span class="token operator">=</span> agent<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
             <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"你还记得我的休闲偏好吗？"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
             config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"thread_id"</span><span class="token punctuation">:</span> <span class="token string">"p09-long-other"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
@@ -1393,7 +1710,7 @@ tool_schema <span class="token operator">=</span> convert_to_openai_tool<span cl
 visible_parameters <span class="token operator">=</span> tool_schema<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"parameters"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"properties"</span><span class="token punctuation">]</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型可见参数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>visible_parameters<span class="token punctuation">&#125;</span></span><span class="token string">\n"</span></span><span class="token punctuation">)</span>
 print_result<span class="token punctuation">(</span><span class="token string">"同一用户的新线程："</span><span class="token punctuation">,</span> same_user<span class="token punctuation">)</span>
-print_result<span class="token punctuation">(</span><span class="token string">"另一用户的线程："</span><span class="token punctuation">,</span> other_user<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+print_result<span class="token punctuation">(</span><span class="token string">"另一用户的线程："</span><span class="token punctuation">,</span> other_user<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>一次真实输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">模型可见参数：&#123;&#125;
@@ -1414,15 +1731,13 @@ print_result<span class="token punctuation">(</span><span class="token string">"
 <li>user-002 无法读取 user-001 的 namespace。</li>
 <li>模型可见参数为空，user_id 和 runtime 没有暴露给模型。</li>
 </ul>
-<h2 id="13-查看-PostgreSQL-中的真实数据"><a href="#13-查看-PostgreSQL-中的真实数据" class="headerlink" title="13. 查看 PostgreSQL 中的真实数据"></a><strong>13. 查看 PostgreSQL 中的真实数据</strong></h2><p>为了确认记忆确实进入数据库，可以查看数据表记录数、演示 Thread 和长期记忆。代码不打印 checkpoint UUID、二进制内容或时间戳。</p>
+<h2 id="10-查看真实记忆数据"><a href="#10-查看真实记忆数据" class="headerlink" title="10. 查看真实记忆数据"></a><strong>10. 查看真实记忆数据</strong></h2><p>为了确认记忆确实进入数据库，可以查看数据表记录数、演示 Thread 和长期记忆。代码不打印 checkpoint UUID、二进制内容或时间戳。</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""检查 PostgreSQL 中 Checkpointer 和 Store 的表与演示数据。"""</span>
 
 <span class="token keyword">import</span> psycopg
 
-
 DB_URI <span class="token operator">=</span> <span class="token punctuation">(</span>
-    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/"</span>
-    <span class="token string">"langgraph_memory?sslmode=disable"</span>
+    <span class="token string">"postgresql://langgraph:langgraph_demo_1234@127.0.0.1:25432/langgraph_memory?sslmode=disable"</span>
 <span class="token punctuation">)</span>
 
 <span class="token comment"># 表名来自 PostgreSQL Checkpointer 的迁移定义。</span>
@@ -1435,7 +1750,7 @@ TABLES <span class="token operator">=</span> <span class="token punctuation">[</
     <span class="token string">"store"</span><span class="token punctuation">,</span>
 <span class="token punctuation">]</span>
 
-
+<span class="token comment"># 第 1 步：连接数据库并查看六张核心表的记录数。</span>
 <span class="token keyword">with</span> psycopg<span class="token punctuation">.</span>connect<span class="token punctuation">(</span>DB_URI<span class="token punctuation">)</span> <span class="token keyword">as</span> connection<span class="token punctuation">:</span>
     <span class="token keyword">with</span> connection<span class="token punctuation">.</span>cursor<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> cursor<span class="token punctuation">:</span>
         <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"数据表记录数："</span><span class="token punctuation">)</span>
@@ -1445,6 +1760,7 @@ TABLES <span class="token operator">=</span> <span class="token punctuation">[</
             count <span class="token operator">=</span> cursor<span class="token punctuation">.</span>fetchone<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
             <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- </span><span class="token interpolation"><span class="token punctuation">&#123;</span>table_name<span class="token punctuation">&#125;</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>count<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
+        <span class="token comment"># 第 2 步：只查询本系列创建的 p09 演示线程。</span>
         cursor<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
             <span class="token triple-quoted-string string">"""
             SELECT DISTINCT thread_id
@@ -1455,6 +1771,7 @@ TABLES <span class="token operator">=</span> <span class="token punctuation">[</
         <span class="token punctuation">)</span>
         thread_ids <span class="token operator">=</span> <span class="token punctuation">[</span>row<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token keyword">for</span> row <span class="token keyword">in</span> cursor<span class="token punctuation">.</span>fetchall<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span>
 
+        <span class="token comment"># 第 3 步：查询 users namespace 下的长期记忆。</span>
         cursor<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
             <span class="token triple-quoted-string string">"""
             SELECT prefix, key, value
@@ -1487,9 +1804,81 @@ TABLES <span class="token operator">=</span> <span class="token punctuation">[</
 <p>下图把运行时调用链与数据库中的两类存储放在一起。PostgresSaver 和 PostgresStore 可以连接同一个 PostgreSQL 实例，但它们使用不同的 API 和表组。</p>
 <p><img src="https://images.hnbian.cn/new/n-58f6f624f644befe676ca4b9749be648.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Agent、Checkpointer、Store 与 PostgreSQL 的数据流"></p>
 <p>Checkpointer 会在图执行步骤完成后自动保存 checkpoint；Store 只会在业务代码显式调用时读写数据。两类数据不会自动互相复制，也不能使用其中一套 API 查询另一套数据。</p>
-<h2 id="14-三个最容易混淆的边界"><a href="#14-三个最容易混淆的边界" class="headerlink" title="14. 三个最容易混淆的边界"></a><strong>14. 三个最容易混淆的边界</strong></h2><h3 id="14-1-Checkpointer-不等于-Store"><a href="#14-1-Checkpointer-不等于-Store" class="headerlink" title="14.1 Checkpointer 不等于 Store"></a><strong>14.1 Checkpointer 不等于 Store</strong></h3><p>PostgresSaver 保存某个 Thread 的 State checkpoint。它使同一会话能够恢复消息和状态。</p>
-<p>PostgresStore 保存独立于 Thread 的业务数据。它适合用户偏好、账户设置和其他需要跨线程读取的信息。</p>
-<p>两者是独立接口，可以只配置其中一个，也可以像本文一样同时配置：</p>
+<h2 id="11-怎么选择"><a href="#11-怎么选择" class="headerlink" title="11. 怎么选择"></a><strong>11. 怎么选择</strong></h2><p>短期记忆和长期记忆都可以保存在 PostgreSQL 中，但“短期”和“长期”描述的不是数据在数据库中保存多久，而是数据的作用范围。即使 checkpoint 一直没有删除，它仍然是某个 Thread 的短期记忆；Store 中的数据即使配置了 TTL，只要用于跨 Thread 共享，仍然属于长期记忆。</p>
+<h3 id="11-1-两类记忆的区别"><a href="#11-1-两类记忆的区别" class="headerlink" title="11.1 两类记忆的区别"></a><strong>11.1 两类记忆的区别</strong></h3><p>短期记忆由 Checkpointer 管理，解决的是“怎样继续当前会话”。它按照 <code>thread_id</code> 保存图的 checkpoint，包括消息、AgentState、channel 版本、节点中间写入和执行位置等信息。再次使用相同 <code>thread_id</code> 时，LangGraph 会自动恢复已有 State，因此它除了让 Agent 记住前文，还能支持失败重试、中断恢复和状态回放。</p>
+<p>长期记忆由 Store 管理，解决的是“怎样在不同会话中继续使用某项信息”。它按照 <code>namespace + key</code> 保存独立的结构化数据，例如用户资料、偏好、账户设置或业务规则。Store 不依赖 <code>thread_id</code>，只要使用相同的 namespace 和 key，就可以在线程 A 写入、在线程 B 读取。</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>短期记忆：Checkpointer</th>
+<th>长期记忆：Store</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主要目的</td>
+<td>延续和恢复当前会话的运行状态</td>
+<td>保存跨会话使用的用户或业务信息</td>
+</tr>
+<tr>
+<td>数据边界</td>
+<td><code>thread_id</code></td>
+<td><code>namespace + key</code></td>
+</tr>
+<tr>
+<td>典型内容</td>
+<td>messages、AgentState、checkpoint、pending writes</td>
+<td>用户资料、偏好、规则、摘要</td>
+</tr>
+<tr>
+<td>写入方式</td>
+<td>LangGraph 在图执行过程中自动保存</td>
+<td>业务代码或 Tool 显式调用 <code>put()</code></td>
+</tr>
+<tr>
+<td>读取方式</td>
+<td>使用相同 <code>thread_id</code> 时自动恢复</td>
+<td>业务代码或 Tool 显式调用 <code>get()</code>、<code>search()</code></td>
+</tr>
+<tr>
+<td>是否跨 Thread</td>
+<td>默认不跨 Thread</td>
+<td>可以跨 Thread</td>
+</tr>
+<tr>
+<td>典型能力</td>
+<td>多轮对话、重试、回放、中断恢复</td>
+<td>用户画像、个性化、跨会话共享、业务检索</td>
+</tr>
+</tbody></table>
+<p><code>get_state_history()</code> 返回的是同一 Thread 的 checkpoint 历史，用于查看 State 怎样随执行过程变化。它不会查询 Store 中的长期记忆。长期记忆必须使用 Store 的 <code>get()</code>、<code>put()</code>、<code>search()</code> 和 <code>delete()</code> 等接口。</p>
+<h3 id="11-2-根据数据的使用范围选择"><a href="#11-2-根据数据的使用范围选择" class="headerlink" title="11.2 根据数据的使用范围选择"></a><strong>11.2 根据数据的使用范围选择</strong></h3><p>选择时可以先判断数据以后需要在哪里使用。</p>
+<p>如果数据只用于继续当前 Thread，应当交给 Checkpointer。例如：</p>
+<ul>
+<li>当前对话中的用户消息和模型回答。</li>
+<li>Tool Call、ToolMessage 和其他 AgentState。</li>
+<li>图运行到哪个节点以及接下来执行什么。</li>
+<li>interrupt 之后需要恢复的执行现场。</li>
+</ul>
+<p>如果数据需要脱离当前 Thread，在新 Thread 中继续使用，应当写入 Store。例如：</p>
+<ul>
+<li>用户姓名、语言和输出格式偏好。</li>
+<li>用户明确要求 Agent 记住的事项。</li>
+<li>跨会话复用的对话摘要。</li>
+<li>账户设置、业务规则或应用配置。</li>
+<li>需要按照用户、组织或业务对象检索的数据。</li>
+</ul>
+<p>还可以使用下面三个问题快速判断：</p>
+<ol>
+<li>换一个 <code>thread_id</code> 后仍然需要读取吗？需要就使用 Store。</li>
+<li>需要恢复图的执行状态、节点结果或消息历史吗？需要就使用 Checkpointer。</li>
+<li>两种需求是否同时存在？同时存在就同时配置 Checkpointer 和 Store。</li>
+</ol>
+<p>如果应用是一次性的无状态调用，既不需要继续会话，也不需要跨会话保存数据，那么两种组件都可以不配置。</p>
+<h3 id="11-3-不要把全部聊天都写入长期记忆"><a href="#11-3-不要把全部聊天都写入长期记忆" class="headerlink" title="11.3 不要把全部聊天都写入长期记忆"></a><strong>11.3 不要把全部聊天都写入长期记忆</strong></h3><p>配置 Store 后，LangGraph 不会自动把每一句对话写成长期记忆。应用必须明确决定保存什么、使用什么 namespace 和 key，以及何时更新或删除。</p>
+<p>例如“你好”“谢谢”“换一种表达”等临时消息只对当前对话有意义，保存在短期记忆中即可。如果把完整聊天无差别地复制到 Store，不仅会造成数据膨胀，还会让后续检索混入大量无关信息。</p>
+<p>本文由 <code>save_user_preference</code> Tool 显式调用 <code>runtime.store.put()</code>，只保存用户要求记住的休闲偏好。这样既保留了 Thread 中完整的对话过程，又将真正需要跨 Thread 使用的信息提取为长期记忆。</p>
+<h3 id="11-4-实际项目通常同时使用"><a href="#11-4-实际项目通常同时使用" class="headerlink" title="11.4 实际项目通常同时使用"></a><strong>11.4 实际项目通常同时使用</strong></h3><p>短期记忆和长期记忆不是互斥方案。一个需要连续对话和用户个性化的 Agent，通常会同时配置 Checkpointer 和 Store：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">agent <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
     model<span class="token operator">=</span>model<span class="token punctuation">,</span>
     tools<span class="token operator">=</span>tools<span class="token punctuation">,</span>
@@ -1498,93 +1887,18 @@ TABLES <span class="token operator">=</span> <span class="token punctuation">[</
     context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
 <span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<h3 id="14-2-get-state-history-不是长期记忆查询"><a href="#14-2-get-state-history-不是长期记忆查询" class="headerlink" title="14.2 get_state_history() 不是长期记忆查询"></a><strong>14.2 get_state_history() 不是长期记忆查询</strong></h3><p>get_state_history() 返回的是同一 Thread 的 checkpoint 历史，用于检查 State 怎样随执行过程变化。它不会读取 PostgresStore 中的用户偏好。</p>
-<p>长期记忆必须使用 Store 的 get()、put()、search() 和 delete() 等接口。</p>
-<h3 id="14-3-Store-不会自动保存全部聊天"><a href="#14-3-Store-不会自动保存全部聊天" class="headerlink" title="14.3 Store 不会自动保存全部聊天"></a><strong>14.3 Store 不会自动保存全部聊天</strong></h3><p>配置 Store 后，LangGraph 不会自动把每一句对话写成长期记忆。应用必须明确决定保存什么、使用什么 namespace 和 key，以及何时更新或删除。</p>
-<p>本文由 save_user_preference Tool 显式调用 runtime.store.put()，只保存用户要求记住的休闲偏好。这样比把完整聊天无差别写入长期存储更容易控制数据范围。</p>
-<h2 id="15-常见问题"><a href="#15-常见问题" class="headerlink" title="15. 常见问题"></a><strong>15. 常见问题</strong></h2><h3 id="15-1-相同用户却读不到短期记忆"><a href="#15-1-相同用户却读不到短期记忆" class="headerlink" title="15.1 相同用户却读不到短期记忆"></a><strong>15.1 相同用户却读不到短期记忆</strong></h3><p>短期记忆按 thread_id 隔离，不按 user_id 隔离。读取时必须使用写入时相同的 thread_id。</p>
-<h3 id="15-2-新线程读不到长期记忆"><a href="#15-2-新线程读不到长期记忆" class="headerlink" title="15.2 新线程读不到长期记忆"></a><strong>15.2 新线程读不到长期记忆</strong></h3><p>检查写入和读取是否使用完全相同的 namespace 与 key：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">namespace <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token string">"users"</span><span class="token punctuation">,</span> user_id<span class="token punctuation">,</span> <span class="token string">"memories"</span><span class="token punctuation">)</span>
-key <span class="token operator">=</span> <span class="token string">"preferences"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>tuple 中任意一段不同，都会进入另一个命名空间。</p>
-<h3 id="15-3-忘记传递-Runtime-Context"><a href="#15-3-忘记传递-Runtime-Context" class="headerlink" title="15.3 忘记传递 Runtime Context"></a><strong>15.3 忘记传递 Runtime Context</strong></h3><p>本文的 Tool 通过 runtime.context[“user_id”] 确定用户身份，调用 Agent 时必须传入：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> <span class="token string">"user-001"</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>用户身份不应该让模型从提示词中猜测，也不应该作为可变 AgentState 让模型随意修改。</p>
-<h3 id="15-4-忘记执行-setup"><a href="#15-4-忘记执行-setup" class="headerlink" title="15.4 忘记执行 setup()"></a><strong>15.4 忘记执行 setup()</strong></h3><p>第一次使用 PostgreSQL Checkpointer 和 Store 前，必须分别执行 setup()。否则会因为数据表不存在而失败。</p>
-<p>重复执行 setup() 是安全的。它会检查迁移状态，不会删除已有记忆。</p>
-<h3 id="15-5-误以为必须安装-pgvector"><a href="#15-5-误以为必须安装-pgvector" class="headerlink" title="15.5 误以为必须安装 pgvector"></a><strong>15.5 误以为必须安装 pgvector</strong></h3><p>本文只使用普通 key-value Store，没有配置向量索引，不需要 pgvector、Embedding 或向量数据库。</p>
-<h3 id="15-6-数据库重启后数据丢失"><a href="#15-6-数据库重启后数据丢失" class="headerlink" title="15.6 数据库重启后数据丢失"></a><strong>15.6 数据库重启后数据丢失</strong></h3><p>确认 Compose 使用了命名数据卷，并且停止时执行的是 down，不是 down -v。后者会删除数据卷。</p>
-<h3 id="15-7-本地请求受到代理影响"><a href="#15-7-本地请求受到代理影响" class="headerlink" title="15.7 本地请求受到代理影响"></a><strong>15.7 本地请求受到代理影响</strong></h3><p>先使用下面的命令检查 Qwen3：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>示例中的 httpx.Client(trust_env&#x3D;False) 用于避免 VPN 或系统代理转发本机模型请求。</p>
-<h2 id="16-小结"><a href="#16-小结" class="headerlink" title="16. 小结"></a><strong>16. 小结</strong></h2><p>短期记忆和长期记忆解决的是不同问题。</p>
+<p>此时一次调用的数据流可以概括为：</p>
+<ol>
+<li>Checkpointer 根据 <code>thread_id</code> 恢复当前会话的 State。</li>
+<li>Agent 根据 <code>user_id</code> 生成 namespace，并从 Store 读取与当前任务有关的长期记忆。</li>
+<li>Agent 执行过程中产生的新消息和状态继续由 Checkpointer 自动保存。</li>
+<li>只有值得跨会话复用的信息，才由 Tool 或业务代码整理后写入 Store。</li>
+</ol>
+<p>因此，最实用的选择原则是：<strong>会话现场交给 Checkpointer，跨会话知识交给 Store。</strong></p>
+<h2 id="12-小结"><a href="#12-小结" class="headerlink" title="12. 小结"></a><strong>12. 小结</strong></h2><p>短期记忆和长期记忆解决的是不同问题。</p>
 <p>Checkpointer 让同一个 Thread 在多次调用之间恢复 AgentState。InMemorySaver 适合进程内开发测试，PostgresSaver 可以跨进程和数据库重启恢复。</p>
 <p>Store 用于保存独立于 Thread 的业务数据。本文使用 user_id 生成 namespace，在线程 A 写入偏好，再在线程 B 读取，并验证另一个用户不能读取该数据。</p>
 <p>用户身份通过 Runtime Context 传入，执行中的消息和状态保存在 AgentState，线程内历史交给 Checkpointer，跨线程偏好交给 Store。把这几种机制分开，Agent 的数据边界才会清楚。</p>
-<table>
-<thead>
-<tr>
-<th align="left">对象或机制</th>
-<th align="left">主要保存内容</th>
-<th align="left">定位方式</th>
-<th align="left">生命周期与范围</th>
-<th align="left">是否自动持久化</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">Runtime Context</td>
-<td align="left">用户 ID、租户和权限等调用前已确定的数据</td>
-<td align="left">调用时传入 context</td>
-<td align="left">单次运行，按调用隔离</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">AgentState</td>
-<td align="left">消息和 Agent 执行过程中变化的数据</td>
-<td align="left">当前 Graph 运行</td>
-<td align="left">单次运行；可由 Checkpointer 保存</td>
-<td align="left">否</td>
-</tr>
-<tr>
-<td align="left">thread_id</td>
-<td align="left">某个会话的稳定标识</td>
-<td align="left">configurable.thread_id</td>
-<td align="left">同一 Thread 的多次调用</td>
-<td align="left">它是定位键，不是存储组件</td>
-</tr>
-<tr>
-<td align="left">InMemorySaver</td>
-<td align="left">Thread 的 State checkpoint</td>
-<td align="left">thread_id</td>
-<td align="left">当前 Python 进程</td>
-<td align="left">是，但只在进程内</td>
-</tr>
-<tr>
-<td align="left">PostgresSaver</td>
-<td align="left">Thread 的 State checkpoint</td>
-<td align="left">thread_id</td>
-<td align="left">跨进程、跨数据库重启</td>
-<td align="left">是</td>
-</tr>
-<tr>
-<td align="left">PostgresStore</td>
-<td align="left">用户偏好等跨线程业务数据</td>
-<td align="left">namespace + key</td>
-<td align="left">可跨 Thread，范围由 namespace 决定</td>
-<td align="left">是</td>
-</tr>
-<tr>
-<td align="left">namespace</td>
-<td align="left">长期记忆的分层业务范围</td>
-<td align="left">例如 (“users”, user_id, “memories”)</td>
-<td align="left">通常按用户、组织或业务域隔离</td>
-<td align="left">它是定位键，不是存储组件</td>
-</tr>
-</tbody></table>
-<p>LangGraph 系列前九篇到这里完成了 Agent 主线。下一篇开始进入 Workflow 主线，继续介绍 State、Reducer、固定路由、条件分支、循环与人工介入。</p>
 
                 
             </div>
@@ -2268,7 +2582,7 @@ key <span class="token operator">=</span> <span class="token string">"preference
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             

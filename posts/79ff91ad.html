@@ -538,7 +538,7 @@
                 <a class="graph-series-link"
                    href="/posts/825ee319.html">
                     <span class="graph-series-index" aria-hidden="true">3</span>
-                    <span class="graph-series-link-title">LangGraph 系列 3：启动本地 Agent Server 并使用 Studio 调试</span>
+                    <span class="graph-series-link-title">LangGraph 系列 3：使用 Studio 调试本地 Agent Server 详细说明</span>
                     
                 </a>
             </li>
@@ -722,14 +722,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    4.9k
+                    4k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    20 分
+                    16 分
                 </div>
                 
 
@@ -776,7 +776,7 @@ user_name：用于生成个性化系统提示词<span aria-hidden="true" class="
 <li>同一个 Agent 应该能够被不同用户复用，而不是把用户名写死在代码中。</li>
 </ul>
 <p>运行时上下文解决的就是这个问题：调用方在运行开始时提供一组业务数据，Agent 的提示词、Tool 或中间件可以在本次运行中读取它们。</p>
-<h2 id="2-Config、Context-和-State-不是同一个对象"><a href="#2-Config、Context-和-State-不是同一个对象" class="headerlink" title="2. Config、Context 和 State 不是同一个对象"></a><strong>2. Config、Context 和 State 不是同一个对象</strong></h2><p>在 LangChain 和 LangGraph 中，下面三个对象很容易混淆：</p>
+<h2 id="2-Config、Context-和-State"><a href="#2-Config、Context-和-State" class="headerlink" title="**2. Config、Context 和 State **"></a>**2. Config、Context 和 State **</h2><p>在 LangChain 和 LangGraph 中，下面三个对象很容易混淆：</p>
 <ul>
 <li>config：控制一次执行，例如标签、追踪信息、回调和线程配置。</li>
 <li>context：提供本次运行需要的业务上下文，例如用户 ID 和用户名。</li>
@@ -786,7 +786,7 @@ user_name：用于生成个性化系统提示词<span aria-hidden="true" class="
 <p><img src="https://images.hnbian.cn/new/n-42dae4e64de7f38ee8c35578e3e7a48b.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Config、Context 与 State 的职责边界"></p>
 <p>configurable 并没有被废弃，thread_id 等执行标识仍然需要放在这里。本文只是把用户身份这类业务字段迁移到 Runtime Context，让执行控制与业务依赖各自使用明确的入口。</p>
 <p>本篇只实现前两个对象。AgentState 仅用于说明边界，不定义自定义字段，也不讨论 Reducer、Checkpointer 或记忆存储。</p>
-<h3 id="2-1-静态上下文的“静态”是什么意思"><a href="#2-1-静态上下文的“静态”是什么意思" class="headerlink" title="2.1 静态上下文的“静态”是什么意思"></a><strong>2.1 静态上下文的“静态”是什么意思</strong></h3><p>静态上下文具有下面几个特点：</p>
+<h3 id="2-1-静态上下文"><a href="#2-1-静态上下文" class="headerlink" title="2.1 静态上下文"></a><strong>2.1 静态上下文</strong></h3><p>静态上下文具有下面几个特点：</p>
 <ol>
 <li>在调用 invoke()、stream() 或 Agent API 时传入。</li>
 <li>只服务于本次运行。</li>
@@ -808,7 +808,7 @@ langgraph.json
 pyproject.toml<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
 <p>它是一份跟随当前 Runnable 或 Graph 调用传播的运行配置。</p>
-<h3 id="3-1-RunnableConfig-中还有什么"><a href="#3-1-RunnableConfig-中还有什么" class="headerlink" title="3.1 RunnableConfig 中还有什么"></a><strong>3.1 RunnableConfig 中还有什么</strong></h3><p>除了 configurable，常见字段还包括：</p>
+<h3 id="3-1-RunnableConfig"><a href="#3-1-RunnableConfig" class="headerlink" title="**3.1 RunnableConfig **"></a>**3.1 RunnableConfig **</h3><p>除了 configurable，常见字段还包括：</p>
 <table>
 <thead>
 <tr>
@@ -850,13 +850,12 @@ pyproject.toml<span aria-hidden="true" class="line-numbers-rows"><span></span><s
 
 <span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>runnables <span class="token keyword">import</span> RunnableConfig<span class="token punctuation">,</span> RunnableLambda
 
-
 <span class="token keyword">def</span> <span class="token function">read_config</span><span class="token punctuation">(</span>question<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> config<span class="token punctuation">:</span> RunnableConfig<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">object</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""读取本次 Runnable 调用携带的配置。"""</span>
 
-    <span class="token comment"># configurable 用于保存调用方传入的可配置字段。</span>
+    <span class="token comment"># 第 1 步：从 config 中取出 configurable。</span>
+    <span class="token comment"># 如果调用方没有传入该字段，就使用空字典。</span>
     configurable <span class="token operator">=</span> config<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"configurable"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
-
     <span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
         <span class="token string">"question"</span><span class="token punctuation">:</span> question<span class="token punctuation">,</span>
         <span class="token string">"user_name"</span><span class="token punctuation">:</span> configurable<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"user_name"</span><span class="token punctuation">,</span> <span class="token string">"匿名用户"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
@@ -864,10 +863,10 @@ pyproject.toml<span aria-hidden="true" class="line-numbers-rows"><span></span><s
         <span class="token string">"metadata"</span><span class="token punctuation">:</span> config<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"metadata"</span><span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
     <span class="token punctuation">&#125;</span>
 
-
 <span class="token comment"># RunnableLambda 会把 invoke() 的 config 自动注入 read_config()。</span>
 runnable <span class="token operator">=</span> RunnableLambda<span class="token punctuation">(</span>read_config<span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：调用 Runnable，并通过 config 传入本次调用的配置。</span>
 result <span class="token operator">=</span> runnable<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
     <span class="token string">"请介绍一下当前用户。"</span><span class="token punctuation">,</span>
     config<span class="token operator">=</span><span class="token punctuation">&#123;</span>
@@ -877,6 +876,7 @@ result <span class="token operator">=</span> runnable<span class="token punctuat
     <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
+<span class="token comment"># 第 3 步：读取函数返回的普通字典。</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"问题：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'question'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"用户名：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'user_name'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"标签：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'tags'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
@@ -895,7 +895,7 @@ python langgraph/p07_agent_runtime_context/01_runnable_configurable_basic.py<spa
 元数据：&#123;'source': 'series-24', 'user_name': '小明'&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这次调用中，<code>configurable.user_name</code> 也被合并到了运行元数据中，因此最后一行同时出现了 <code>source</code> 和 <code>user_name</code>。</p>
-<h2 id="4-为什么实战改用-Runtime-Context"><a href="#4-为什么实战改用-Runtime-Context" class="headerlink" title="4. 为什么实战改用 Runtime Context"></a><strong>4. 为什么实战改用 Runtime Context</strong></h2><p>RunnableConfig 是通用运行配置。把 user_name 放进 configurable 可以正常读取，但这会把业务身份和执行控制放在同一个字典中。</p>
+<h2 id="4-Runtime-Context"><a href="#4-Runtime-Context" class="headerlink" title="4.  Runtime Context"></a><strong>4.  Runtime Context</strong></h2><p>RunnableConfig 是通用运行配置。把 user_name 放进 configurable 可以正常读取，但这会把业务身份和执行控制放在同一个字典中。</p>
 <p><code>create_agent()</code> 提供了单独的 <code>context_schema</code> 参数。编译后的 Graph 也支持：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token builtin">input</span><span class="token punctuation">,</span> context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
@@ -919,8 +919,7 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
 <p>实际检查结果：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">No broken requirements found.<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>requirements.txt 继续复用 LangGraph 系列 2 的历史锁文件：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">-r ../p02_local_agent_project/requirements-lock.txt<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
 
 <h3 id="5-1-启动本地-Qwen3"><a href="#5-1-启动本地-Qwen3" class="headerlink" title="5.1 启动本地 Qwen3"></a><strong>5.1 启动本地 Qwen3</strong></h3><p>模型服务复用 LangGraph 系列 6 创建的 .venv_tool_server：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning
@@ -937,7 +936,7 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
   http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>接口返回一个可用模型，后续代码均通过 <code>http://127.0.0.1:18080/v1</code> 连接它。</p>
-<h2 id="6-定义类型化的-UserContext"><a href="#6-定义类型化的-UserContext" class="headerlink" title="6. 定义类型化的 UserContext"></a><strong>6. 定义类型化的 UserContext</strong></h2><p>本例只需要两个字段：</p>
+<h2 id="6-定义Agent-Graph"><a href="#6-定义Agent-Graph" class="headerlink" title="6. 定义Agent Graph"></a><strong>6. 定义Agent Graph</strong></h2><p>本例只需要两个字段：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">UserContext</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""定义每次 Agent 运行必须传入的用户上下文。"""</span>
 
@@ -981,7 +980,7 @@ python <span class="token parameter variable">-m</span> pip check<span aria-hidd
     <span class="token keyword">return</span> USER_DATABASE<span class="token punctuation">.</span>get<span class="token punctuation">(</span>user_id<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"没有找到当前用户"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>模型只需要决定是否调用 get_current_user_info，不需要知道当前用户 ID。</p>
-<h3 id="6-3-完整的-Agent-Graph"><a href="#6-3-完整的-Agent-Graph" class="headerlink" title="6.3 完整的 Agent Graph"></a><strong>6.3 完整的 Agent Graph</strong></h3><p>langgraph&#x2F;p07_agent_runtime_context&#x2F;src&#x2F;context_agent&#x2F;graph.py 的完整代码如下：</p>
+<h3 id="6-3-完整代码"><a href="#6-3-完整代码" class="headerlink" title="6.3 完整代码"></a>6.3 完整代码</h3><p>langgraph&#x2F;p07_agent_runtime_context&#x2F;src&#x2F;context_agent&#x2F;graph.py 的完整代码如下：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""创建使用类型化运行时上下文的本地 Qwen3 Agent。"""</span>
 
 <span class="token keyword">from</span> typing_extensions <span class="token keyword">import</span> TypedDict
@@ -1006,7 +1005,7 @@ USER_DATABASE <span class="token operator">=</span> <span class="token punctuati
     <span class="token string">"user-002"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"name"</span><span class="token punctuation">:</span> <span class="token string">"小红"</span><span class="token punctuation">,</span> <span class="token string">"age"</span><span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">,</span> <span class="token string">"city"</span><span class="token punctuation">:</span> <span class="token string">"成都"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
 <span class="token punctuation">&#125;</span>
 
-
+<span class="token comment"># 第 1 步：创建本地 Qwen3 模型客户端。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
     model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
     base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
@@ -1017,11 +1016,11 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-
 <span class="token decorator annotation punctuation">@dynamic_prompt</span>
 <span class="token keyword">def</span> <span class="token function">personalized_prompt</span><span class="token punctuation">(</span>request<span class="token punctuation">:</span> ModelRequest<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""根据本次运行的用户名生成动态系统提示词。"""</span>
 
+    <span class="token comment"># 动态提示词在每次调用时运行，可以读取本次调用的 context。</span>
     context <span class="token operator">=</span> request<span class="token punctuation">.</span>runtime<span class="token punctuation">.</span>context
     <span class="token keyword">if</span> context <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">or</span> <span class="token string">"user_name"</span> <span class="token keyword">not</span> <span class="token keyword">in</span> context<span class="token punctuation">:</span>
         <span class="token keyword">raise</span> ValueError<span class="token punctuation">(</span><span class="token string">"必须通过 context 传入 user_name"</span><span class="token punctuation">)</span>
@@ -1038,6 +1037,7 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
 <span class="token keyword">def</span> <span class="token function">get_current_user_info</span><span class="token punctuation">(</span>runtime<span class="token punctuation">:</span> ToolRuntime<span class="token punctuation">[</span>UserContext<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">object</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""查询当前用户的姓名、年龄和所在城市。"""</span>
 
+    <span class="token comment"># 第 2 步：工具通过 runtime 读取当前用户。</span>
     <span class="token comment"># runtime 由 LangChain 自动注入，模型不需要生成 user_id 参数。</span>
     context <span class="token operator">=</span> runtime<span class="token punctuation">.</span>context
     <span class="token keyword">if</span> context <span class="token keyword">is</span> <span class="token boolean">None</span> <span class="token keyword">or</span> <span class="token string">"user_id"</span> <span class="token keyword">not</span> <span class="token keyword">in</span> context<span class="token punctuation">:</span>
@@ -1047,16 +1047,18 @@ model <span class="token operator">=</span> ChatOpenAI<span class="token punctua
     <span class="token keyword">return</span> USER_DATABASE<span class="token punctuation">.</span>get<span class="token punctuation">(</span>user_id<span class="token punctuation">,</span> <span class="token punctuation">&#123;</span><span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string">"没有找到当前用户"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
 
 
+<span class="token comment"># 第 3 步：组装 Agent。</span>
 <span class="token comment"># context_schema 声明本 Graph 接收的运行时上下文结构。</span>
 graph <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
     model<span class="token operator">=</span>model<span class="token punctuation">,</span>
     tools<span class="token operator">=</span><span class="token punctuation">[</span>get_current_user_info<span class="token punctuation">]</span><span class="token punctuation">,</span>
     middleware<span class="token operator">=</span><span class="token punctuation">[</span>personalized_prompt<span class="token punctuation">]</span><span class="token punctuation">,</span>
     context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这里没有定义 state_schema，也没有导入 AgentState。本例只关心运行开始时传入的静态上下文。</p>
-<h2 id="7-直接调用-Context-Agent"><a href="#7-直接调用-Context-Agent" class="headerlink" title="7. 直接调用 Context Agent"></a><strong>7. 直接调用 Context Agent</strong></h2><p>调用 Graph 时，用户问题仍然放在 messages 中，身份信息通过单独的 context 参数传入：</p>
+<h2 id="7-调用-Context-Agent"><a href="#7-调用-Context-Agent" class="headerlink" title="7. 调用 Context Agent"></a><strong>7. 调用 Context Agent</strong></h2><p>调用 Graph 时，用户问题仍然放在 messages 中，身份信息通过单独的 context 参数传入,无法在消息中直接传入：</p>
+<p><img src="https://images.hnbian.cn/new/n-fe791a56c8da99a046e31a9ddb56fe69.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="在测试环境直接传入用户名"></p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">result <span class="token operator">=</span> graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
     <span class="token punctuation">&#123;</span><span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">&#123;</span><span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span> <span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"告诉我当前用户的年龄和城市。"</span><span class="token punctuation">&#125;</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> user_id<span class="token punctuation">,</span> <span class="token string">"user_name"</span><span class="token punctuation">:</span> user_name<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
@@ -1070,7 +1072,6 @@ graph <span class="token operator">=</span> create_agent<span class="token punct
 
 <span class="token keyword">from</span> context_agent<span class="token punctuation">.</span>graph <span class="token keyword">import</span> get_current_user_info<span class="token punctuation">,</span> graph
 
-
 <span class="token keyword">def</span> <span class="token function">run_for_user</span><span class="token punctuation">(</span>user_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> user_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""使用指定用户上下文运行一次 Agent。"""</span>
 
@@ -1079,6 +1080,7 @@ graph <span class="token operator">=</span> create_agent<span class="token punct
         context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> user_id<span class="token punctuation">,</span> <span class="token string">"user_name"</span><span class="token punctuation">:</span> user_name<span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     <span class="token punctuation">)</span>
 
+    <span class="token comment"># 依次查看 Agent 产生的消息，便于理解工具调用过程。</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n当前上下文：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_id<span class="token punctuation">&#125;</span></span><span class="token string"> / </span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">for</span> message <span class="token keyword">in</span> result<span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
         <span class="token keyword">if</span> <span class="token builtin">isinstance</span><span class="token punctuation">(</span>message<span class="token punctuation">,</span> AIMessage<span class="token punctuation">)</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>tool_calls<span class="token punctuation">:</span>
@@ -1089,15 +1091,16 @@ graph <span class="token operator">=</span> create_agent<span class="token punct
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>result<span class="token punctuation">[</span><span class="token string">'messages'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">.</span>content<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
 
-<span class="token comment"># runtime 参数由框架注入，因此工具 Schema 中没有 user_id 和 user_name。</span>
+<span class="token comment"># 第 1 步：确认 runtime 参数由框架注入，模型看不到 user_id 和 user_name。</span>
 tool_schema <span class="token operator">=</span> convert_to_openai_tool<span class="token punctuation">(</span>get_current_user_info<span class="token punctuation">)</span>
 <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"模型可见的工具参数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_schema<span class="token punctuation">[</span><span class="token string">'function'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'parameters'</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">'properties'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：分别传入两个用户的运行时上下文，验证数据相互隔离。</span>
 run_for_user<span class="token punctuation">(</span><span class="token string">"user-001"</span><span class="token punctuation">,</span> <span class="token string">"小明"</span><span class="token punctuation">)</span>
-run_for_user<span class="token punctuation">(</span><span class="token string">"user-002"</span><span class="token punctuation">,</span> <span class="token string">"小红"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+run_for_user<span class="token punctuation">(</span><span class="token string">"user-002"</span><span class="token punctuation">,</span> <span class="token string">"小红"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>执行：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python langgraph/p07_agent_runtime_context/02_invoke_context_agent.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token punctuation">(</span>.venv_langgraph<span class="token punctuation">)</span> <span class="token punctuation">(</span>base<span class="token punctuation">)</span> bianhn@BianhnMacBook-Pro p07_agent_runtime_context % python 02_invoke_context_agent.py<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>本次真实输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">模型可见的工具参数：&#123;&#125;
@@ -1105,12 +1108,12 @@ run_for_user<span class="token punctuation">(</span><span class="token string">"
 当前上下文：user-001 / 小明
 工具调用：get_current_user_info
 工具结果：&#123;"name": "小明", "age": 18, "city": "杭州"&#125;
-最终回答：小明今年18岁，来自杭州。
+最终回答：当前用户的年龄是18岁，所在城市是杭州。
 
 当前上下文：user-002 / 小红
 工具调用：get_current_user_info
 工具结果：&#123;"name": "小红", "age": 20, "city": "成都"&#125;
-最终回答：当前用户的年龄是20岁，所在城市是成都。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+最终回答：小红今年20岁，来自成都。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这段结果验证了三件事：</p>
 <ol>
@@ -1119,31 +1122,7 @@ run_for_user<span class="token punctuation">(</span><span class="token string">"
 <li>两位用户分别得到自己的资料，没有发生上下文串用。</li>
 </ol>
 <p>模型回答的具体措辞可能变化，但工具名称、工具返回的数据和用户隔离结果应该保持一致。</p>
-<h2 id="8-通过-Agent-API-传入-Context"><a href="#8-通过-Agent-API-传入-Context" class="headerlink" title="8. 通过 Agent API 传入 Context"></a><strong>8. 通过 Agent API 传入 Context</strong></h2><p>本地直接调用使用 graph.invoke(…, context&#x3D;…)。Agent 发布为服务后，LangGraph SDK 同样提供独立的 context 参数。</p>
-<h3 id="8-1-注册-context-agent"><a href="#8-1-注册-context-agent" class="headerlink" title="8.1 注册 context_agent"></a><strong>8.1 注册 context_agent</strong></h3><p>langgraph.json 内容如下：</p>
-<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
-  <span class="token property">"dependencies"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"."</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-  <span class="token property">"graphs"</span><span class="token operator">:</span> <span class="token punctuation">&#123;</span>
-    <span class="token property">"context_agent"</span><span class="token operator">:</span> <span class="token string">"./src/context_agent/graph.py:graph"</span>
-  <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-  <span class="token property">"python_version"</span><span class="token operator">:</span> <span class="token string">"3.12"</span>
-<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>进入 p07 项目并启动 Agent Server：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /path/to/llm-learning/langgraph/p07_agent_runtime_context
-
-<span class="token punctuation">..</span>/<span class="token punctuation">..</span>/.venv_langgraph/bin/langgraph dev <span class="token punctuation">\</span>
-  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
-  <span class="token parameter variable">--port</span> <span class="token number">2024</span> <span class="token punctuation">\</span>
-  --no-browser<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>检查健康接口：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:2024/ok<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>真实结果：</p>
-<pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span><span class="token property">"ok"</span><span class="token operator">:</span><span class="token boolean">true</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="8-2-使用-SDK-调用"><a href="#8-2-使用-SDK-调用" class="headerlink" title="8.2 使用 SDK 调用"></a><strong>8.2 使用 SDK 调用</strong></h3><p>langgraph&#x2F;p07_agent_runtime_context&#x2F;03_call_context_agent_api.py 的完整代码如下：</p>
+<h2 id="8-使用-SDK-调用"><a href="#8-使用-SDK-调用" class="headerlink" title="8 使用 SDK 调用"></a><strong>8 使用 SDK 调用</strong></h2><p>langgraph&#x2F;p07_agent_runtime_context&#x2F;03_call_context_agent_api.py 的完整代码如下：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用 LangGraph Python SDK 向 Agent Server 传入运行时上下文。"""</span>
 
 <span class="token keyword">from</span> langgraph_sdk <span class="token keyword">import</span> get_sync_client
@@ -1152,10 +1131,12 @@ run_for_user<span class="token punctuation">(</span><span class="token string">"
 <span class="token keyword">def</span> <span class="token function">call_agent</span><span class="token punctuation">(</span>user_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> user_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""通过 Agent API 查询指定上下文对应的用户资料。"""</span>
 
+    <span class="token comment"># 第 1 步：连接 Agent Server。</span>
     client <span class="token operator">=</span> get_sync_client<span class="token punctuation">(</span>url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:2024"</span><span class="token punctuation">)</span>
     tool_result <span class="token operator">=</span> <span class="token string">""</span>
     final_answer <span class="token operator">=</span> <span class="token string">""</span>
 
+    <span class="token comment"># 第 2 步：把用户身份放在 context 中，而不是放进用户问题。</span>
     <span class="token keyword">for</span> chunk <span class="token keyword">in</span> client<span class="token punctuation">.</span>runs<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
         <span class="token boolean">None</span><span class="token punctuation">,</span>  <span class="token comment"># 使用 Threadless Run，本例不保存聊天历史。</span>
         <span class="token string">"context_agent"</span><span class="token punctuation">,</span>  <span class="token comment"># 对应 langgraph.json 中注册的 Graph 名称。</span>
@@ -1171,19 +1152,20 @@ run_for_user<span class="token punctuation">(</span><span class="token string">"
             <span class="token keyword">continue</span>
 
         <span class="token comment"># messages-tuple 第一项是消息块，第二项是执行元数据。</span>
-        message<span class="token punctuation">,</span> metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
+        message<span class="token punctuation">,</span> _metadata <span class="token operator">=</span> chunk<span class="token punctuation">.</span>data
         <span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"tool"</span><span class="token punctuation">:</span>
             tool_result <span class="token operator">=</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
         <span class="token keyword">elif</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"AIMessageChunk"</span> <span class="token keyword">and</span> tool_result<span class="token punctuation">:</span>
             final_answer <span class="token operator">+=</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
 
+    <span class="token comment"># 第 3 步：分别展示工具读取的资料和模型整理的回答。</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"上下文：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_id<span class="token punctuation">&#125;</span></span><span class="token string"> / </span><span class="token interpolation"><span class="token punctuation">&#123;</span>user_name<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"工具结果：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>tool_result<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"最终回答：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>final_answer<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
 
 
 call_agent<span class="token punctuation">(</span><span class="token string">"user-001"</span><span class="token punctuation">,</span> <span class="token string">"小明"</span><span class="token punctuation">)</span>
-call_agent<span class="token punctuation">(</span><span class="token string">"user-002"</span><span class="token punctuation">,</span> <span class="token string">"小红"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+call_agent<span class="token punctuation">(</span><span class="token string">"user-002"</span><span class="token punctuation">,</span> <span class="token string">"小红"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>从 llm_learning 根目录执行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">.venv_langgraph/bin/python <span class="token punctuation">\</span>
@@ -1197,15 +1179,6 @@ call_agent<span class="token punctuation">(</span><span class="token string">"us
 工具结果：&#123;"name": "小红", "age": 20, "city": "成都"&#125;
 最终回答：当前用户的年龄是20岁，所在城市是成都。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>SDK 中的 context 与 config 是两个独立参数：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">client<span class="token punctuation">.</span>runs<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-    thread_id<span class="token punctuation">,</span>
-    assistant_id<span class="token punctuation">,</span>
-    <span class="token builtin">input</span><span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-    config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-    context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
 <p>如果后面同时使用线程持久化，可以把 thread_id 交给 Agent Server，同时继续通过 context 传递本次运行的业务身份。不要把 Context 当作聊天记录保存方式。</p>
 <h2 id="9-Context-的生命周期和隔离范围"><a href="#9-Context-的生命周期和隔离范围" class="headerlink" title="9. Context 的生命周期和隔离范围"></a><strong>9. Context 的生命周期和隔离范围</strong></h2><p>本例连续执行了两次相同问题：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">第一次：user-001 / 小明
@@ -1213,87 +1186,6 @@ call_agent<span class="token punctuation">(</span><span class="token string">"us
 
 <p>Graph 和 Tool 没有变化，只有调用时传入的 Context 不同。每次运行都会创建自己的 Runtime，因此第二次运行不会继续使用第一次的 user_id。</p>
 <p>Context 也不会因为 Agent Server 使用相同 Graph 就自动保存。下一次运行仍然必须重新传入。需要保存聊天历史时应使用 Thread 和 Checkpointer；需要保存跨会话资料时应使用 Store 或业务数据库。这些内容将在后文介绍。</p>
-<h2 id="10-常见问题"><a href="#10-常见问题" class="headerlink" title="10. 常见问题"></a><strong>10. 常见问题</strong></h2><h3 id="10-1-把-context-传成了-config"><a href="#10-1-把-context-传成了-config" class="headerlink" title="10.1 把 context 传成了 config"></a><strong>10.1 把 context 传成了 config</strong></h3><p>下面两种调用并不等价：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token builtin">input</span><span class="token punctuation">,</span> config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"configurable"</span><span class="token punctuation">:</span> <span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> <span class="token string">"user-001"</span><span class="token punctuation">&#125;</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span>
-graph<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token builtin">input</span><span class="token punctuation">,</span> context<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"user_id"</span><span class="token punctuation">:</span> <span class="token string">"user-001"</span><span class="token punctuation">,</span> <span class="token string">"user_name"</span><span class="token punctuation">:</span> <span class="token string">"小明"</span><span class="token punctuation">&#125;</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>本文的 Graph 使用 context_schema&#x3D;UserContext，动态提示词读取的是 runtime.context，因此应该使用第二种方式。</p>
-<h3 id="10-2-忘记传入-Context"><a href="#10-2-忘记传入-Context" class="headerlink" title="10.2 忘记传入 Context"></a><strong>10.2 忘记传入 Context</strong></h3><p>示例主动检查了必要字段。缺少 Context 时，真实错误为：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">ValueError
-必须通过 context 传入 user_name<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>相比直接出现 ‘NoneType’ object is not subscriptable，这种错误更容易定位。</p>
-<h3 id="10-3-TypedDict-为什么没有自动拦截字段缺失"><a href="#10-3-TypedDict-为什么没有自动拦截字段缺失" class="headerlink" title="10.3 TypedDict 为什么没有自动拦截字段缺失"></a><strong>10.3 TypedDict 为什么没有自动拦截字段缺失</strong></h3><p>TypedDict 主要用于静态类型提示。它不会像 Pydantic 模型一样自动完成所有运行时校验，所以关键字段仍然需要在应用入口检查。</p>
-<h3 id="10-4-Tool-Schema-中看不到-runtime"><a href="#10-4-Tool-Schema-中看不到-runtime" class="headerlink" title="10.4 Tool Schema 中看不到 runtime"></a><strong>10.4 Tool Schema 中看不到 runtime</strong></h3><p>这是正常现象。ToolRuntime 属于框架注入参数，不应该由模型生成。本例打印出的模型可见参数为：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">&#123;&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="10-5-动态提示词没有生效"><a href="#10-5-动态提示词没有生效" class="headerlink" title="10.5 动态提示词没有生效"></a><strong>10.5 动态提示词没有生效</strong></h3><p>使用 @dynamic_prompt 后，需要把它加入 Agent 的 middleware：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">graph <span class="token operator">=</span> create_agent<span class="token punctuation">(</span>
-    model<span class="token operator">=</span>model<span class="token punctuation">,</span>
-    tools<span class="token operator">=</span><span class="token punctuation">[</span>get_current_user_info<span class="token punctuation">]</span><span class="token punctuation">,</span>
-    middleware<span class="token operator">=</span><span class="token punctuation">[</span>personalized_prompt<span class="token punctuation">]</span><span class="token punctuation">,</span>
-    context_schema<span class="token operator">=</span>UserContext<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>只定义函数但不加入 middleware，Agent 不会执行它。</p>
-<h3 id="10-6-本地-langchain-目录遮蔽了安装包"><a href="#10-6-本地-langchain-目录遮蔽了安装包" class="headerlink" title="10.6 本地 langchain 目录遮蔽了安装包"></a><strong>10.6 本地 langchain 目录遮蔽了安装包</strong></h3><p>项目根目录中本身存在一个名为 langchain&#x2F; 的代码目录。在根目录使用下面这种标准输入方式时：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash">python - <span class="token operator">&lt;&lt;</span><span class="token string">'PY'
-import langchain
-PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-
-<p>Python 可能优先把本地目录识别为 langchain 命名空间，导致：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">ModuleNotFoundError: No module named 'langchain.agents'<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>本文提供的脚本可以直接按文中的路径执行。需要临时运行 Python 片段时，可以进入 p07_agent_runtime_context 目录，或者避免让包含同名目录的路径位于 sys.path 首位。</p>
-<h3 id="10-7-连接本地服务失败"><a href="#10-7-连接本地服务失败" class="headerlink" title="10.7 连接本地服务失败"></a><strong>10.7 连接本地服务失败</strong></h3><p>先分别检查两个接口：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models
-<span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:2024/ok<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-<p>18080 是 Qwen3 模型服务，2024 是 LangGraph Agent Server。代码中的 httpx.Client(trust_env&#x3D;False) 用于避免系统代理或 VPN 转发本机请求。</p>
-<h2 id="11-小结"><a href="#11-小结" class="headerlink" title="11. 小结"></a><strong>11. 小结</strong></h2><p>config[“configurable”] 展示了配置如何跟随一次 Runnable 或 Agent 调用传播。它仍然是有效的运行配置入口，尤其是 thread_id、标签、元数据和回调等执行信息。</p>
-<p>对于用户身份、租户、权限和业务依赖，Runtime Context 提供了更清楚的边界。使用 <code>context_schema</code> 声明结构，通过 <code>context=</code> 传入，再从 <code>request.runtime.context</code> 或 <code>ToolRuntime.context</code> 读取。</p>
-<p>本次实测中，同一个 Agent 分别读取了小明和小红的 Context，正确调用本地工具并返回各自资料。用户 ID 没有出现在模型可见的 Tool Schema 中，两次运行也没有互相覆盖。</p>
-<table>
-<thead>
-<tr>
-<th align="left">对象</th>
-<th align="left">传入方式</th>
-<th align="left">主要用途</th>
-<th align="left">读取方式</th>
-<th align="left">是否在运行中变化</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">用户输入</td>
-<td align="left">input&#x3D;{“messages”: […]}</td>
-<td align="left">用户问题和对话消息</td>
-<td align="left">state[“messages”]</td>
-<td align="left">会随着对话和工具调用增加</td>
-</tr>
-<tr>
-<td align="left">RunnableConfig</td>
-<td align="left">config&#x3D;{…}</td>
-<td align="left">线程、标签、元数据、回调和执行限制</td>
-<td align="left">函数的 config 或 runtime.config</td>
-<td align="left">应由框架和调用方管理</td>
-</tr>
-<tr>
-<td align="left">Runtime Context</td>
-<td align="left">context&#x3D;{…}</td>
-<td align="left">用户 ID、用户名、租户、权限和依赖</td>
-<td align="left">runtime.context</td>
-<td align="left">本次运行期间按只读方式使用</td>
-</tr>
-<tr>
-<td align="left">AgentState</td>
-<td align="left">Graph 内部维护</td>
-<td align="left">消息和执行过程中产生的动态数据</td>
-<td align="left">State 参数或 runtime.state</td>
-<td align="left">可以被节点和 Tool 更新，后续专门介绍</td>
-</tr>
-</tbody></table>
-<p>参考文档：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/runtime">LangChain Runtime</a>、<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/concepts/context">Context overview</a>、<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/tools">LangChain Tools</a>、<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/graph-api">LangGraph Graph API</a>。</p>
-<p>下一篇将进入 AgentState，观察消息状态如何随 Agent 执行过程变化，并使用 Command(update&#x3D;…) 在 Tool 中更新自定义状态。</p>
 
                 
             </div>
@@ -1977,7 +1869,7 @@ PY</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span><
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1510.1k</span>
+                        class="white-color">1513.7k</span>
             
             
             
