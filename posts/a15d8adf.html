@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="keywords" content="LangGraph 系列 12：异步并发工具调用与 ToolNode, hnbian">
-    <meta name="description" content="前面已经使用 LangGraph 编写了固定流程、条件路由和评估器循环。接下来要实现一个可以连续调用工具的智能小秘书。在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务…">
+    <meta name="description" content="在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务，等待它们全部完成后，再把两个结果作为 ToolMessage 返回模型。 本文先手动实现一个最小异步工具节点，再使用…">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="renderer" content="webkit|ie-stand|ie-comp">
@@ -22,14 +22,14 @@
 
     <meta property="og:type" content="article">
     <meta property="og:title" content="LangGraph 系列 12：异步并发工具调用与 ToolNode | hnbian">
-    <meta property="og:description" content="前面已经使用 LangGraph 编写了固定流程、条件路由和评估器循环。接下来要实现一个可以连续调用工具的智能小秘书。在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务…">
+    <meta property="og:description" content="在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务，等待它们全部完成后，再把两个结果作为 ToolMessage 返回模型。 本文先手动实现一个最小异步工具节点，再使用…">
     <meta property="og:url" content="https://www.hnbian.cn/posts/a15d8adf.html">
     <meta property="og:image" content="https://images.hnbian.cn/new/n-7eb9bce766ebdc1f74061d0138299cac.jpg">
     <meta property="og:site_name" content="hnbian">
     <meta property="og:locale" content="zh_CN">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LangGraph 系列 12：异步并发工具调用与 ToolNode | hnbian">
-    <meta name="twitter:description" content="前面已经使用 LangGraph 编写了固定流程、条件路由和评估器循环。接下来要实现一个可以连续调用工具的智能小秘书。在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务…">
+    <meta name="twitter:description" content="在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务，等待它们全部完成后，再把两个结果作为 ToolMessage 返回模型。 本文先手动实现一个最小异步工具节点，再使用…">
     <meta name="twitter:image" content="https://images.hnbian.cn/new/n-7eb9bce766ebdc1f74061d0138299cac.jpg">
     
     <meta property="article:published_time" content="2026-06-01T12:41:26.000Z">
@@ -38,8 +38,6 @@
         
     <meta property="article:tag" content="langgraph">
         
-    <meta property="article:tag" content="workflow">
-        
     <meta property="article:tag" content="tool">
         
     <meta property="article:tag" content="asyncio">
@@ -47,7 +45,7 @@
     
 
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/a15d8adf.html#blogposting","url":"https://www.hnbian.cn/posts/a15d8adf.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/a15d8adf.html"},"headline":"LangGraph 系列 12：异步并发工具调用与 ToolNode","description":"前面已经使用 LangGraph 编写了固定流程、条件路由和评估器循环。接下来要实现一个可以连续调用工具的智能小秘书。在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务…","image":["https://images.hnbian.cn/new/n-7eb9bce766ebdc1f74061d0138299cac.jpg"],"datePublished":"2026-06-01T12:41:26.000Z","dateModified":"2026-06-01T12:41:26.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, workflow, tool, asyncio"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/a15d8adf.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 12：异步并发工具调用与 ToolNode","item":"https://www.hnbian.cn/posts/a15d8adf.html"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/a15d8adf.html#blogposting","url":"https://www.hnbian.cn/posts/a15d8adf.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/a15d8adf.html"},"headline":"LangGraph 系列 12：异步并发工具调用与 ToolNode","description":"在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？ 如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务，等待它们全部完成后，再把两个结果作为 ToolMessage 返回模型。 本文先手动实现一个最小异步工具节点，再使用…","image":["https://images.hnbian.cn/new/n-7eb9bce766ebdc1f74061d0138299cac.jpg"],"datePublished":"2026-06-01T12:41:26.000Z","dateModified":"2026-06-01T12:41:26.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, tool, asyncio"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/a15d8adf.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 12：异步并发工具调用与 ToolNode","item":"https://www.hnbian.cn/posts/a15d8adf.html"}]}]}</script>
 
 
     <!-- Google Analytics 4: production traffic and blog interaction events. -->
@@ -689,10 +687,6 @@
                                 <span class="chip bg-color">langgraph</span>
                             </a>
                         
-                            <a href="/tags/workflow/">
-                                <span class="chip bg-color">workflow</span>
-                            </a>
-                        
                             <a href="/tags/tool/">
                                 <span class="chip bg-color">tool</span>
                             </a>
@@ -731,14 +725,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    2.1k
+                    1.8k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    8 分
+                    7 分
                 </div>
                 
 
@@ -765,7 +759,7 @@
                  data-article-title="LangGraph 系列 12：异步并发工具调用与 ToolNode"
                  data-article-category="langgraph"
                  data-article-path="/posts/a15d8adf.html">
-                <p>前面已经使用 LangGraph 编写了固定流程、条件路由和评估器循环。接下来要实现一个可以连续调用工具的智能小秘书。在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？</p>
+                <p>在搭建完整 Workflow 之前，需要先解决一个更基础的问题：模型一次返回多个 Tool Call 时，工具应该怎样执行？</p>
 <p>如果两个工具互不依赖，顺序等待会浪费时间。更合理的方式是同时启动两个异步任务，等待它们全部完成后，再把两个结果作为 ToolMessage 返回模型。</p>
 <p>本文先手动实现一个最小异步工具节点，再使用 LangGraph 内置的 ToolNode 简化代码。</p>
 <h2 id="1-同步、异步和并发的区别"><a href="#1-同步、异步和并发的区别" class="headerlink" title="1. 同步、异步和并发的区别"></a><strong>1. 同步、异步和并发的区别</strong></h2><p>同步执行表示当前函数没有结束时，调用方继续等待。异步函数使用 async def 定义，在等待网络、磁盘等 I&#x2F;O 时，可以把执行机会交给其他任务。</p>
@@ -920,7 +914,7 @@ route_without_tool <span class="token operator">=</span> tools_condition<span cl
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"tools"</span><span class="token punctuation">,</span> <span class="token string">"chatbot"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
 <p>模型提出工具请求时进入 tools，没有工具请求时结束。工具执行后重新回到模型，让模型读取 ToolMessage 并决定继续调用工具还是生成最终回答。</p>
-<h2 id="6-什么时候仍然需要自定义工具节点"><a href="#6-什么时候仍然需要自定义工具节点" class="headerlink" title="6. 什么时候仍然需要自定义工具节点"></a><strong>6. 什么时候仍然需要自定义工具节点</strong></h2><p>普通工具循环优先使用 ToolNode，因为它已经处理了大量边界情况。下面这些场景才需要自定义：</p>
+<h2 id="6-自定义工具节点"><a href="#6-自定义工具节点" class="headerlink" title="6. 自定义工具节点"></a>6. 自定义工具节点</h2><p>普通工具循环优先使用 ToolNode，因为它已经处理了大量边界情况。下面这些场景才需要自定义：</p>
 <ul>
 <li>只允许特定工具并发，其他工具必须顺序执行。</li>
 <li>需要统一记录每个工具的业务审计日志。</li>
@@ -929,56 +923,6 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
 <li>需要修改 Tool Call 参数后再执行。</li>
 </ul>
 <p>后续人工介入案例会再次使用这种细粒度控制能力。</p>
-<h2 id="7-总结"><a href="#7-总结" class="headerlink" title="7. 总结"></a><strong>7. 总结</strong></h2><table>
-<thead>
-<tr>
-<th align="left">要点</th>
-<th align="left">作用</th>
-<th align="left">本文验证结果</th>
-</tr>
-</thead>
-<tbody><tr>
-<td align="left">async def</td>
-<td align="left">定义可以等待 I&#x2F;O 的异步函数</td>
-<td align="left">两个演示工具均可异步调用</td>
-</tr>
-<tr>
-<td align="left">await</td>
-<td align="left">等待一个异步任务完成</td>
-<td align="left">连续 await 仍然顺序执行</td>
-</tr>
-<tr>
-<td align="left">asyncio.gather()</td>
-<td align="left">同时等待多个独立任务</td>
-<td align="left">耗时由约 2 秒降到约 1 秒</td>
-</tr>
-<tr>
-<td align="left">AIMessage.tool_calls</td>
-<td align="left">保存模型提出的工具请求</td>
-<td align="left">一条消息包含两个 Tool Call</td>
-</tr>
-<tr>
-<td align="left">ToolMessage</td>
-<td align="left">把工具结果返回模型</td>
-<td align="left">每条结果保留对应调用 ID</td>
-</tr>
-<tr>
-<td align="left">自定义工具节点</td>
-<td align="left">完全控制校验、并发和异常逻辑</td>
-<td align="left">未注册工具会被明确拒绝</td>
-</tr>
-<tr>
-<td align="left">ToolNode</td>
-<td align="left">并行执行工具并生成 ToolMessage</td>
-<td align="left">参数错误可返回错误消息，运行时异常可配置处理</td>
-</tr>
-<tr>
-<td align="left">tools_condition</td>
-<td align="left">根据最后一条消息选择工具或结束</td>
-<td align="left">返回 tools 或 <strong>end</strong></td>
-</tr>
-</tbody></table>
-<p>至此，模型、工具节点和路由函数已经准备完成。下一篇会把 Bing 与 12306 两个 MCP Server 接入同一张图，构建完整的智能小秘书 Workflow。</p>
 
                 
             </div>
@@ -1045,10 +989,6 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
                             
                                 <a href="/tags/langgraph/">
                                     <span class="chip bg-color">langgraph</span>
-                                </a>
-                            
-                                <a href="/tags/workflow/">
-                                    <span class="chip bg-color">workflow</span>
                                 </a>
                             
                                 <a href="/tags/tool/">
@@ -1410,10 +1350,6 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
                         <span class="chip bg-color">langgraph</span>
                     </a>
                     
-                    <a href="/tags/qwen/">
-                        <span class="chip bg-color">qwen</span>
-                    </a>
-                    
                     <a href="/tags/workflow/">
                         <span class="chip bg-color">workflow</span>
                     </a>
@@ -1472,10 +1408,6 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
                     
                     <a href="/tags/structured-output/">
                         <span class="chip bg-color">structured-output</span>
-                    </a>
-                    
-                    <a href="/tags/workflow/">
-                        <span class="chip bg-color">workflow</span>
                     </a>
                     
                     <a href="/tags/evaluator/">
@@ -1662,7 +1594,7 @@ builder<span class="token punctuation">.</span>add_edge<span class="token punctu
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1434.7k</span>
+                        class="white-color">1434.4k</span>
             
             
             
