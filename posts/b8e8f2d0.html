@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="keywords" content="LangGraph 系列 11：使用评估器优化器循环改进模型输出, hnbian">
-    <meta name="description" content="前面已经使用 LangGraph 编写了固定路径、条件分支和并行分支。但是有一类任务不是执行一次就能结束：模型先生成内容，评估器再按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的核心不是简单地多调用几…">
+    <meta name="description" content="本篇继续使用预先定义的图结构，解决一类需要反复改进输出的问题：模型先生成内容，评估器按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的重点不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：…">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="renderer" content="webkit|ie-stand|ie-comp">
@@ -22,14 +22,14 @@
 
     <meta property="og:type" content="article">
     <meta property="og:title" content="LangGraph 系列 11：使用评估器优化器循环改进模型输出 | hnbian">
-    <meta property="og:description" content="前面已经使用 LangGraph 编写了固定路径、条件分支和并行分支。但是有一类任务不是执行一次就能结束：模型先生成内容，评估器再按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的核心不是简单地多调用几…">
+    <meta property="og:description" content="本篇继续使用预先定义的图结构，解决一类需要反复改进输出的问题：模型先生成内容，评估器按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的重点不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：…">
     <meta property="og:url" content="https://www.hnbian.cn/posts/b8e8f2d0.html">
     <meta property="og:image" content="https://images.hnbian.cn/new/n-e9d31040dfc0c1ba782d366e86f27619.jpg">
     <meta property="og:site_name" content="hnbian">
     <meta property="og:locale" content="zh_CN">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LangGraph 系列 11：使用评估器优化器循环改进模型输出 | hnbian">
-    <meta name="twitter:description" content="前面已经使用 LangGraph 编写了固定路径、条件分支和并行分支。但是有一类任务不是执行一次就能结束：模型先生成内容，评估器再按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的核心不是简单地多调用几…">
+    <meta name="twitter:description" content="本篇继续使用预先定义的图结构，解决一类需要反复改进输出的问题：模型先生成内容，评估器按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的重点不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：…">
     <meta name="twitter:image" content="https://images.hnbian.cn/new/n-e9d31040dfc0c1ba782d366e86f27619.jpg">
     
     <meta property="article:published_time" content="2026-05-28T13:03:47.000Z">
@@ -47,7 +47,7 @@
     
 
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html#blogposting","url":"https://www.hnbian.cn/posts/b8e8f2d0.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html"},"headline":"LangGraph 系列 11：使用评估器优化器循环改进模型输出","description":"前面已经使用 LangGraph 编写了固定路径、条件分支和并行分支。但是有一类任务不是执行一次就能结束：模型先生成内容，评估器再按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的核心不是简单地多调用几…","image":["https://images.hnbian.cn/new/n-e9d31040dfc0c1ba782d366e86f27619.jpg"],"datePublished":"2026-05-28T13:03:47.000Z","dateModified":"2026-05-28T13:03:47.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, structured-output, workflow, evaluator"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 11：使用评估器优化器循环改进模型输出","item":"https://www.hnbian.cn/posts/b8e8f2d0.html"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html#blogposting","url":"https://www.hnbian.cn/posts/b8e8f2d0.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html"},"headline":"LangGraph 系列 11：使用评估器优化器循环改进模型输出","description":"本篇继续使用预先定义的图结构，解决一类需要反复改进输出的问题：模型先生成内容，评估器按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。 这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的重点不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：…","image":["https://images.hnbian.cn/new/n-e9d31040dfc0c1ba782d366e86f27619.jpg"],"datePublished":"2026-05-28T13:03:47.000Z","dateModified":"2026-05-28T13:03:47.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, structured-output, workflow, evaluator"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/b8e8f2d0.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 11：使用评估器优化器循环改进模型输出","item":"https://www.hnbian.cn/posts/b8e8f2d0.html"}]}]}</script>
 
 
     <!-- Google Analytics 4: production traffic and blog interaction events. -->
@@ -502,7 +502,7 @@
        aria-hidden="true"
        aria-labelledby="graph-series-title"
        data-graph-series-key="langgraph"
-       data-graph-series-count="15">
+       data-graph-series-count="16">
     <header class="graph-series-header">
         <div class="graph-series-heading">
             <span class="graph-series-parent">大模型与智能体</span>
@@ -601,7 +601,16 @@
                 <a class="graph-series-link"
                    href="/posts/59d38774.html">
                     <span class="graph-series-index" aria-hidden="true">10</span>
-                    <span class="graph-series-link-title">LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由</span>
+                    <span class="graph-series-link-title">LangGraph 系列 10（上）：Workflow 的 State、Reducer 与 Node</span>
+                    
+                </a>
+            </li>
+            
+            <li class="graph-series-item">
+                <a class="graph-series-link"
+                   href="/posts/40e143f7.html">
+                    <span class="graph-series-index" aria-hidden="true">11</span>
+                    <span class="graph-series-link-title">LangGraph 系列 10（下）：Workflow 的 Edge、路由与 Studio 完整案例</span>
                     
                 </a>
             </li>
@@ -610,7 +619,7 @@
                 <a class="graph-series-link is-current"
                    href="/posts/b8e8f2d0.html"
                    aria-current="page">
-                    <span class="graph-series-index" aria-hidden="true">11</span>
+                    <span class="graph-series-index" aria-hidden="true">12</span>
                     <span class="graph-series-link-title">LangGraph 系列 11：使用评估器优化器循环改进模型输出</span>
                     
                     <span class="graph-series-current">当前</span>
@@ -621,7 +630,7 @@
             <li class="graph-series-item">
                 <a class="graph-series-link"
                    href="/posts/a15d8adf.html">
-                    <span class="graph-series-index" aria-hidden="true">12</span>
+                    <span class="graph-series-index" aria-hidden="true">13</span>
                     <span class="graph-series-link-title">LangGraph 系列 12：异步并发工具调用与 ToolNode</span>
                     
                 </a>
@@ -630,7 +639,7 @@
             <li class="graph-series-item">
                 <a class="graph-series-link"
                    href="/posts/beeb3f66.html">
-                    <span class="graph-series-index" aria-hidden="true">13</span>
+                    <span class="graph-series-index" aria-hidden="true">14</span>
                     <span class="graph-series-link-title">LangGraph 系列 13：使用 Bing 与 12306 MCP 构建智能小秘书 Workflow</span>
                     
                 </a>
@@ -639,7 +648,7 @@
             <li class="graph-series-item">
                 <a class="graph-series-link"
                    href="/posts/204e2c63.html">
-                    <span class="graph-series-index" aria-hidden="true">14</span>
+                    <span class="graph-series-index" aria-hidden="true">15</span>
                     <span class="graph-series-link-title">LangGraph 系列 14：使用静态断点实现工具执行审批</span>
                     
                 </a>
@@ -648,7 +657,7 @@
             <li class="graph-series-item">
                 <a class="graph-series-link"
                    href="/posts/7cd6846.html">
-                    <span class="graph-series-index" aria-hidden="true">15</span>
+                    <span class="graph-series-index" aria-hidden="true">16</span>
                     <span class="graph-series-link-title">LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入</span>
                     
                 </a>
@@ -722,14 +731,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    6.2k
+                    5.6k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    24 分
+                    21 分
                 </div>
                 
 
@@ -756,104 +765,167 @@
                  data-article-title="LangGraph 系列 11：使用评估器优化器循环改进模型输出"
                  data-article-category="langgraph"
                  data-article-path="/posts/b8e8f2d0.html">
-                <p>前面已经使用 LangGraph 编写了固定路径、条件分支和并行分支。但是有一类任务不是执行一次就能结束：模型先生成内容，评估器再按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。</p>
-<p>这种模式叫作 <strong>Evaluator-optimizer Workflow</strong>，也就是评估器优化器工作流。它的核心不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">生成内容
--> 评估内容
--> 通过则结束
--> 不通过则携带反馈重新生成<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+                <p>本篇继续使用预先定义的图结构，解决一类需要反复改进输出的问题：模型先生成内容，评估器按照明确标准检查；如果没有通过，就把具体反馈交回生成器继续修改。</p>
+<p>这种模式叫作 Evaluator-optimizer Workflow，也就是评估器优化器工作流。它的重点不是简单地多调用几次模型，而是让每次重试都有上一轮的评估依据：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">生成内容 -> 评估内容 -> 通过则结束 -> 不通过则携带反馈重新生成<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>本文使用一个简单的中文冷笑话案例，把 State、结构化输出、条件路由、循环和停止条件组合起来。为了避免把图结构问题与模型问题混在一起，先使用确定性函数验证工作流，再接入本地 Qwen3。</p>
-<h2 id="1-评估器优化器解决什么问题"><a href="#1-评估器优化器解决什么问题" class="headerlink" title="1. 评估器优化器解决什么问题"></a><strong>1. 评估器优化器解决什么问题</strong></h2><p>普通模型调用只生成一次。结果是否满足要求，只能由调用方在工作流之外判断。</p>
-<p>评估器优化器会把判断过程放进工作流：</p>
+<p>本文使用中文冷笑话作为案例。我们先让本地 Qwen3 负责生成、用固定评估规则验证循环和停止条件，再验证 Qwen3 的结构化输出，最后把生成器与评估器都交给模型。</p>
+<h2 id="1-认识评估器优化器-Workflow"><a href="#1-认识评估器优化器-Workflow" class="headerlink" title="1. 认识评估器优化器 Workflow"></a>1. 认识评估器优化器 Workflow</h2><p>普通模型调用只生成一次，结果是否满足要求通常由调用方在工作流之外判断。评估器优化器把“生成、检查和修改”都放进工作流：</p>
 <ol>
-<li>生成器根据主题生成内容。</li>
+<li>生成器根据输入生成内容。</li>
 <li>评估器按照预先定义的标准检查内容。</li>
 <li>通过时结束工作流。</li>
 <li>不通过时返回具体反馈。</li>
-<li>生成器读取反馈并修改内容。</li>
+<li>生成器读取反馈并重新生成。</li>
 <li>达到最大次数仍未通过时停止。</li>
 </ol>
 <p><img src="https://images.hnbian.cn/new/n-c193712ef24f0fa13949e1ddced509c1.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="评估器优化器的生成、评估、重试与停止循环"></p>
-<p>图中的 accepted、retry 和 max_attempts 是路由函数返回的业务值，不是三个节点。path_map 将两个停止结果 accepted 和 max_attempts 都映射到同一个 finish 节点，只有 retry 返回 generate_joke 继续生成。</p>
-<p>它适合有明确验收标准、并且允许反复修改的任务，例如标题改写、格式检查、内容完整性检查和代码审查建议。</p>
-<p>但它并不适合所有问题。如果标准无法说清楚，评估器就难以稳定判断；如果一次生成已经足够，多一次评估只会增加时间和调用成本。</p>
-<p>这一执行模式与 <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/workflows-agents#evaluator-optimizer">LangGraph Evaluator-optimizer Workflow</a> 的定义一致：生成器产生结果，评估器给出判断和反馈，未通过时再根据反馈重新生成。</p>
-<h2 id="2-它与普通调用和-Agent-有什么区别"><a href="#2-它与普通调用和-Agent-有什么区别" class="headerlink" title="2. 它与普通调用和 Agent 有什么区别"></a><strong>2. 它与普通调用和 Agent 有什么区别</strong></h2><p>三种执行方式的差异主要在“下一步由谁决定”。</p>
-<h3 id="2-1-普通模型调用"><a href="#2-1-普通模型调用" class="headerlink" title="2.1 普通模型调用"></a><strong>2.1 普通模型调用</strong></h3><p>程序提交输入，模型返回一次结果，流程随即结束：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">输入 -> 模型 -> 输出<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<h3 id="2-2-评估器优化器"><a href="#2-2-评估器优化器" class="headerlink" title="2.2 评估器优化器"></a><strong>2.2 评估器优化器</strong></h3><p>程序员提前定义生成、评估、接受、重试和停止路径。模型负责生成内容和执行评估，但不会自由选择工作流之外的动作。</p>
-<h3 id="2-3-Agent"><a href="#2-3-Agent" class="headerlink" title="2.3 Agent"></a><strong>2.3 Agent</strong></h3><p>Agent 通常由模型根据当前消息决定下一步，例如调用哪个工具、继续思考还是返回最终答案。它比固定 Workflow 灵活，但执行路径也更难预测。</p>
-<p>本文的流程属于 Workflow。它存在循环，但每条边和每个停止条件都由代码提前定义。</p>
-<h2 id="3-本文的“评估器”指什么"><a href="#3-本文的“评估器”指什么" class="headerlink" title="3. 本文的“评估器”指什么"></a><strong>3. 本文的“评估器”指什么</strong></h2><p>这里的评估器是工作流中的一个运行时节点。用户每次执行工作流时，它都会检查本轮刚刚生成的内容。</p>
-<p>它不是下面这些概念：</p>
+<p>这种模式适合有明确验收标准、允许反复修改的任务，例如标题改写、格式检查、内容完整性检查和代码审查建议。如果验收标准无法说清楚，评估器也很难稳定判断；如果一次生成已经足够，额外评估只会增加延迟和成本。</p>
+<p>它与普通模型调用、Agent 的主要区别，是下一步由谁决定：</p>
+<table>
+<thead>
+<tr>
+<th align="left">方式</th>
+<th align="left">执行路径</th>
+<th align="left">下一步由谁决定</th>
+<th align="left">适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">普通模型调用</td>
+<td align="left">输入 → 模型 → 输出</td>
+<td align="left">没有后续步骤</td>
+<td align="left">一次生成即可完成</td>
+</tr>
+<tr>
+<td align="left">评估器优化器</td>
+<td align="left">生成 → 评估 → 接受或重试</td>
+<td align="left">程序预先定义的路由规则</td>
+<td align="left">标准明确、允许修改</td>
+</tr>
+<tr>
+<td align="left">Agent</td>
+<td align="left">模型可选择工具和后续动作</td>
+<td align="left">模型结合上下文动态决定</td>
+<td align="left">路径难以预先确定</td>
+</tr>
+</tbody></table>
+<p>本文实现的是 Workflow：虽然图中存在循环，但节点、边和停止条件都由代码提前定义。这与 <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/workflows-agents#evaluator-optimizer">LangGraph Evaluator-optimizer Workflow</a> 的模式一致。</p>
+<p>这里的“评估器”是工作流中的在线评估节点。每次运行时，它只检查本轮刚生成的内容，是否符合要求。</p>
+<h2 id="2-设计循环、State-与停止条件"><a href="#2-设计循环、State-与停止条件" class="headerlink" title="2. 设计循环、State 与停止条件"></a>2. 设计循环、State 与停止条件</h2><h3 id="2-1-节点与执行路径"><a href="#2-1-节点与执行路径" class="headerlink" title="2.1 节点与执行路径"></a>2.1 节点与执行路径</h3><p>完整流程由三个业务节点和一个路由函数组成：</p>
 <ul>
-<li>不是 LangSmith 中针对数据集批量运行的离线评估。</li>
-<li>不是模型排行榜或基准测试。</li>
-<li>不是人工标注平台。</li>
+<li><code>generate_joke</code>：生成笑话；重试时读取上一轮反馈。</li>
+<li><code>evaluate_joke</code>：按照固定标准返回等级和反馈。</li>
+<li><code>route_after_evaluation</code>：决定接受、重试还是因达到上限而停止。</li>
+<li><code>finish</code>：把真实停止原因写入 State。</li>
 </ul>
-<p>这些功能都可能使用“评估”一词，但运行位置和目标不同。本文只讨论 Workflow 内部的在线评估节点。</p>
-<h2 id="4-设计工作流-State"><a href="#4-设计工作流-State" class="headerlink" title="4. 设计工作流 State"></a><strong>4. 设计工作流 State</strong></h2><p>冷笑话工作流需要保存主题、当前笑话、评估反馈和循环次数：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">JokeState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    topic<span class="token punctuation">:</span> <span class="token builtin">str</span>
-    joke<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
-    feedback<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
-    grade<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span>Literal<span class="token punctuation">[</span><span class="token string">"funny"</span><span class="token punctuation">,</span> <span class="token string">"not funny"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
-    attempts<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>
-    stop_reason<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>各字段的作用如下：</p>
-<ul>
-<li>topic：用户指定的主题。</li>
-<li>joke：生成器本轮返回的字符串。</li>
-<li>feedback：评估器的判断理由或修改建议。</li>
-<li>grade：固定为 funny 或 not funny。</li>
-<li>attempts：已经生成了多少次。</li>
-<li>stop_reason：最终因为通过还是达到上限而停止。</li>
-</ul>
+<p>执行路径如下：</p>
+<p><img src="https://images.hnbian.cn/new/n-9bca86f4ce530c1309737da70b509821.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="评估器优化器 Workflow 的生成、评估、路由与重试流程"></p>
+<h3 id="2-2-State-保存什么"><a href="#2-2-State-保存什么" class="headerlink" title="2.2 State 保存什么"></a>2.2 State 保存什么</h3><p>冷笑话工作流需要保存输入、本轮结果、评估反馈和停止信息：</p>
+<table>
+<thead>
+<tr>
+<th align="left">字段</th>
+<th align="left">作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>topic</code></td>
+<td align="left">用户指定的主题</td>
+</tr>
+<tr>
+<td align="left"><code>joke</code></td>
+<td align="left">生成器本轮返回的笑话字符串</td>
+</tr>
+<tr>
+<td align="left"><code>feedback</code></td>
+<td align="left">评估器的判断理由或修改建议</td>
+</tr>
+<tr>
+<td align="left"><code>grade</code></td>
+<td align="left">固定为 <code>funny</code> 或 <code>not funny</code></td>
+</tr>
+<tr>
+<td align="left"><code>attempts</code></td>
+<td align="left">已经生成的次数</td>
+</tr>
+<tr>
+<td align="left"><code>stop_reason</code></td>
+<td align="left">最终因为通过还是达到上限而停止</td>
+</tr>
+</tbody></table>
 <p><img src="https://images.hnbian.cn/new/n-49bb81affee5a662ee8f026da97d8b1a.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="Topic、Joke、Feedback 与路由结果在 State 中的流转"></p>
-<p>这些字段使用默认覆盖行为即可。新一轮笑话应该替换上一轮笑话，新一轮反馈也应该替换旧反馈，因此不需要列表 Reducer。</p>
-<p>评估模型返回的 Feedback 对象不会直接交给路由函数。evaluate_joke 先取出其中的 grade 和 feedback，以局部更新的形式写回 State；LangGraph 合并更新后，路由函数再从 State 读取 grade 和 attempts。路由函数只选择路径，不修改 State。</p>
-<h2 id="5-先用确定性函数验证循环"><a href="#5-先用确定性函数验证循环" class="headerlink" title="5. 先用确定性函数验证循环"></a><strong>5. 先用确定性函数验证循环</strong></h2><p>接入模型之前，先让生成器和评估器返回固定结果：</p>
+<p>这些字段使用默认覆盖行为即可。新一轮笑话应该替换旧笑话，新一轮反馈也应该替换旧反馈，因此不需要列表 Reducer。节点只返回自己要修改的字段，LangGraph 会把局部更新合并进 State。</p>
+<h3 id="2-3-两种次数限制不要混淆"><a href="#2-3-两种次数限制不要混淆" class="headerlink" title="2.3 两种次数限制不要混淆"></a>2.3 两种次数限制不要混淆</h3><p>案例同时使用两类限制：</p>
 <ul>
-<li>第一次生成普通陈述，固定评估为不通过。</li>
-<li>第二次根据反馈生成问答式笑话，固定评估为通过。</li>
-<li>当最大次数为 1 时，不允许进入第二次生成。</li>
+<li>业务次数上限：<code>MAX_ATTEMPTS</code> 或 State 中的 <code>max_attempts</code>，表示最多允许生成多少次。达到上限属于正常业务结果，停止原因为 <code>max_attempts</code>。</li>
+<li>图递归限制：调用时传入的 <code>recursion_limit</code>，用于防止错误路由造成无限循环。触发时会抛出异常，它不是正常的业务分支。</li>
 </ul>
-<p>这样可以稳定验证条件路由，而不会受模型输出变化影响。</p>
-<p>完整代码如下：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 本示例不调用大模型，用固定结果演示评估器优化器的循环、反馈和停止条件。</span>
+<p>因此，业务代码必须自己判断生成次数，不能只依赖 <code>recursion_limit</code>。路由判断也要先检查是否已经通过，再检查次数上限：最后一次生成如果通过，应该得到 <code>accepted</code>，而不是 <code>max_attempts</code>。</p>
+<h2 id="3-测试评估器"><a href="#3-测试评估器" class="headerlink" title="3. 测试评估器"></a>3. 测试评估器</h2><p>第一个案例已经使用本地 Qwen3 生成笑话，但暂时不让模型负责评估。固定评估规则只根据生成次数返回结果：</p>
+<ul>
+<li>第一次生成后，评估器固定返回不通过，并写入修改反馈。</li>
+<li>如果允许重试，Qwen3 会读取反馈重新生成，第二次评估固定返回通过。</li>
+<li>如果最多只生成一次，工作流直接按次数上限结束。</li>
+</ul>
+<p>这种设计能够确认真实模型是否收到了反馈，同时让反馈重试、成功结束和次数上限三个核心行为保持稳定。此脚本需要本地 Qwen3 服务，请先按照第 4.2 节启动并检查服务。</p>
+<p>下面是 <code>01_deterministic_evaluator_loop.py</code> 的完整代码：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用本地 Qwen3 生成笑话，并用固定评估规则演示循环和停止条件。
 
+生成内容来自真实模型，评估结果仍由固定规则产生，方便稳定观察反馈重试。
+"""</span>
+<span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal<span class="token punctuation">,</span> NotRequired<span class="token punctuation">,</span> TypedDict
 
+<span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> StateGraph
 
+<span class="token comment"># 生成节点调用本地 MLX-LM 提供的 OpenAI 兼容接口。</span>
+generator_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
+    model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
+    temperature<span class="token operator">=</span><span class="token number">0.7</span><span class="token punctuation">,</span>
+    max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
+    <span class="token comment"># 禁止读取系统代理，确保请求直接发送到本机 Qwen3。</span>
+    http_client<span class="token operator">=</span>httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span>
 
 <span class="token keyword">class</span> <span class="token class-name">JokeState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""定义冷笑话工作流在各节点之间传递的状态。"""</span>
 
+    <span class="token comment"># 调用工作流时需要提供的输入。</span>
     topic<span class="token punctuation">:</span> <span class="token builtin">str</span>
+    max_attempts<span class="token punctuation">:</span> <span class="token builtin">int</span>
+
+    <span class="token comment"># 以下字段由各个 Node 在运行过程中逐步写入。</span>
     joke<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
     feedback<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
     grade<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span>Literal<span class="token punctuation">[</span><span class="token string">"funny"</span><span class="token punctuation">,</span> <span class="token string">"not funny"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
     attempts<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span>
-    max_attempts<span class="token punctuation">:</span> <span class="token builtin">int</span>
     stop_reason<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
 
-
 <span class="token keyword">def</span> <span class="token function">generate_joke</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""第一次生成普通句子，收到反馈后生成带有反转的冷笑话。"""</span>
+    <span class="token triple-quoted-string string">"""调用本地 Qwen3 生成笑话，重试时参考上一轮反馈。"""</span>
 
     attempts <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"attempts"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">1</span>
+    feedback <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"feedback"</span><span class="token punctuation">)</span>
 
-    <span class="token comment"># 第一次没有 feedback，重试时会收到评估节点写入的 feedback。</span>
-    <span class="token keyword">if</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"feedback"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        joke <span class="token operator">=</span> <span class="token string">"程序员去海边为什么带键盘？因为他想按一下浪（浪）。"</span>
+    <span class="token comment"># 第一次没有 feedback，只根据主题生成；重试时要求模型针对反馈改进。</span>
+    <span class="token keyword">if</span> feedback<span class="token punctuation">:</span>
+        instruction <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""请围绕“</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">'topic'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">”重新写一个简短的中文冷笑话。
+上一版没有通过，评估反馈是：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>feedback<span class="token punctuation">&#125;</span></span><span class="token string">
+请针对反馈改进，使用问答结构、双关或结尾反转，只输出笑话正文。"""</span></span>
     <span class="token keyword">else</span><span class="token punctuation">:</span>
-        joke <span class="token operator">=</span> <span class="token string">"程序员正在工作。"</span>
+        instruction <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""请围绕“</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">'topic'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">”写一个简短的中文冷笑话。
+笑话需要简洁、容易理解，只输出笑话正文。"""</span></span>
 
-    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"joke"</span><span class="token punctuation">:</span> joke<span class="token punctuation">,</span> <span class="token string">"attempts"</span><span class="token punctuation">:</span> attempts<span class="token punctuation">&#125;</span>
+    response <span class="token operator">=</span> generator_model<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+        <span class="token string">"你是一名擅长写简短中文冷笑话的创作者。\n\n"</span> <span class="token operator">+</span> instruction
+    <span class="token punctuation">)</span>
+
+    <span class="token comment"># 模型返回 AIMessage，State 中只保存它的文本内容。</span>
+    <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"joke"</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"attempts"</span><span class="token punctuation">:</span> attempts<span class="token punctuation">&#125;</span>
 
 
 <span class="token keyword">def</span> <span class="token function">evaluate_joke</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
@@ -891,17 +963,19 @@
     <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"stop_reason"</span><span class="token punctuation">:</span> stop_reason<span class="token punctuation">&#125;</span>
 
 
-<span class="token comment"># 第 1 步：按照“生成 → 评估 → 路由”的顺序构建循环。</span>
+<span class="token comment"># 第 1 步：创建图并注册三个 Node。</span>
 builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>JokeState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> generate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span> evaluate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"finish"</span><span class="token punctuation">,</span> finish<span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：添加固定 Edge 和条件 Edge。</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"generate_joke"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> <span class="token string">"evaluate_joke"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
     <span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span>
     route_after_evaluation<span class="token punctuation">,</span>
+    <span class="token comment"># 路由函数返回业务值，path_map 再把业务值映射到真实 Node。</span>
     <span class="token punctuation">&#123;</span>
         <span class="token string">"accepted"</span><span class="token punctuation">:</span> <span class="token string">"finish"</span><span class="token punctuation">,</span>
         <span class="token string">"retry"</span><span class="token punctuation">:</span> <span class="token string">"generate_joke"</span><span class="token punctuation">,</span>
@@ -910,80 +984,88 @@ builder<span class="token punctuation">.</span>add_conditional_edges<span class=
 <span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"finish"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
 
+<span class="token comment"># 第 3 步：编译后才得到可以 invoke() 的工作流。</span>
 workflow <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 
 
 <span class="token keyword">def</span> <span class="token function">run_case</span><span class="token punctuation">(</span>max_attempts<span class="token punctuation">:</span> <span class="token builtin">int</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""运行一个案例，并打印每个节点返回的局部更新。"""</span>
+    <span class="token triple-quoted-string string">"""运行一个案例，并打印最终 State。"""</span>
 
     <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"\n最大生成次数：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>max_attempts<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-    final_state<span class="token punctuation">:</span> JokeState <span class="token operator">=</span> <span class="token punctuation">&#123;</span>
-        <span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">,</span>
-        <span class="token string">"max_attempts"</span><span class="token punctuation">:</span> max_attempts<span class="token punctuation">,</span>
-    <span class="token punctuation">&#125;</span>
-
-    <span class="token comment"># 第 2 步：updates 模式返回每个节点本次修改的字段。</span>
-    <span class="token keyword">for</span> update <span class="token keyword">in</span> workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>final_state<span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">for</span> node_name<span class="token punctuation">,</span> node_update <span class="token keyword">in</span> update<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-            final_state<span class="token punctuation">.</span>update<span class="token punctuation">(</span>node_update<span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"</span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_name<span class="token punctuation">&#125;</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-
-    <span class="token keyword">print</span><span class="token punctuation">(</span>
-        <span class="token string">"最终结果："</span><span class="token punctuation">,</span>
+    result <span class="token operator">=</span> workflow<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
         <span class="token punctuation">&#123;</span>
-            <span class="token string">"attempts"</span><span class="token punctuation">:</span> final_state<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-            <span class="token string">"grade"</span><span class="token punctuation">:</span> final_state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-            <span class="token string">"stop_reason"</span><span class="token punctuation">:</span> final_state<span class="token punctuation">[</span><span class="token string">"stop_reason"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-        <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+            <span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">,</span>
+            <span class="token string">"max_attempts"</span><span class="token punctuation">:</span> max_attempts<span class="token punctuation">,</span>
+        <span class="token punctuation">&#125;</span>
     <span class="token punctuation">)</span>
 
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"笑话："</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"joke"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"生成次数："</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"停止原因："</span><span class="token punctuation">,</span> result<span class="token punctuation">[</span><span class="token string">"stop_reason"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 
-run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">)</span>
-run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>运行代码：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
-python langgraph/p11_evaluator_optimizer/01_deterministic_evaluator_loop.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>真实输出如下：</p>
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    <span class="token comment"># 第一个案例允许重试，因此第二次生成后通过评估。</span>
+    run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">)</span>
+    <span class="token comment"># 第二个案例只允许生成一次，因此未通过时直接按次数上限结束。</span>
+    run_case<span class="token punctuation">(</span>max_attempts<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /Users/bianhn/git/llm-learning
+<span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
+python langgraph/p11_evaluator_optimizer/01_deterministic_evaluator_loop.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+
+<p>笑话正文由模型生成，因此每次运行可能不同。一次实际输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">最大生成次数：3
-generate_joke: &#123;'joke': '程序员正在工作。', 'attempts': 1&#125;
-evaluate_joke: &#123;'grade': 'not funny', 'feedback': '这只是一句陈述，请增加问答结构和结尾反转。'&#125;
-generate_joke: &#123;'joke': '程序员去海边为什么带键盘？因为他想按一下浪（浪）。', 'attempts': 2&#125;
-evaluate_joke: &#123;'grade': 'funny', 'feedback': '笑话包含问答结构和反转，可以通过。'&#125;
-finish: &#123;'stop_reason': 'accepted'&#125;
-最终结果： &#123;'attempts': 2, 'grade': 'funny', 'stop_reason': 'accepted'&#125;
+笑话： 为什么程序员喜欢用黑暗模式？
+因为他们在“亮”着的时候，总觉得“黑”得不够彻底。
+生成次数： 2
+评估等级： funny
+停止原因： accepted
 
 最大生成次数：1
-generate_joke: &#123;'joke': '程序员正在工作。', 'attempts': 1&#125;
-evaluate_joke: &#123;'grade': 'not funny', 'feedback': '这只是一句陈述，请增加问答结构和结尾反转。'&#125;
-finish: &#123;'stop_reason': 'max_attempts'&#125;
-最终结果： &#123;'attempts': 1, 'grade': 'not funny', 'stop_reason': 'max_attempts'&#125;<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+笑话： 我问程序员：“你有没有女朋友？”
+他说：“有啊，她是我的 Bug，不过我还没找到她。”
+生成次数： 1
+评估等级： not funny
+停止原因： max_attempts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>第一组案例证明反馈进入了第二轮生成。第二组案例证明达到次数上限后，工作流不会继续循环。</p>
-<h2 id="6-使用-Pydantic-定义评估结果"><a href="#6-使用-Pydantic-定义评估结果" class="headerlink" title="6. 使用 Pydantic 定义评估结果"></a><strong>6. 使用 Pydantic 定义评估结果</strong></h2><p>如果让评估器返回一段自然语言，路由函数就需要自行判断“通过”“很好”“可以”等不同说法。模型措辞稍有变化，条件判断就可能失效。</p>
-<p>更稳定的做法是定义结构化结果：</p>
+<p>两个案例使用同一张编译后的图，只改变输入中的 <code>max_attempts</code>。虽然笑话内容不固定，但第一个案例会在第二次生成后得到 <code>accepted</code>，第二个案例会在第一次生成后得到 <code>max_attempts</code>。这说明停止条件属于业务状态的一部分，可以由调用方按任务设置。</p>
+<h2 id="4-Qwen3-验证评估器"><a href="#4-Qwen3-验证评估器" class="headerlink" title="4. Qwen3 验证评估器"></a>4. Qwen3 验证评估器</h2><p>确定图的循环没有问题后，再单独验证模型是否能稳定返回评估结果。这里的顺序很重要：先定义返回结构，再启动并检查模型服务，最后运行固定笑话测试。</p>
+<h3 id="4-1-定义-Feedback"><a href="#4-1-定义-Feedback" class="headerlink" title="4.1 定义 Feedback"></a>4.1 定义 Feedback</h3><p>评估节点不应该返回一段难以解析的自然语言，而应该返回固定结构：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Feedback</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
     grade<span class="token punctuation">:</span> Literal<span class="token punctuation">[</span><span class="token string">"funny"</span><span class="token punctuation">,</span> <span class="token string">"not funny"</span><span class="token punctuation">]</span>
     feedback<span class="token punctuation">:</span> <span class="token builtin">str</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
-<p>Literal 把等级限制为两个值，feedback 保存判断理由。路由函数只需要读取 grade，不再解析自然语言。</p>
-<p>本地 Qwen3 通过 MLX-LM 提供 OpenAI 兼容接口。本文使用已经验证的 function_calling 方法：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">evaluator <span class="token operator">=</span> model<span class="token punctuation">.</span>with_structured_output<span class="token punctuation">(</span>
-    Feedback<span class="token punctuation">,</span>
-    method<span class="token operator">=</span><span class="token string">"function_calling"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p><code>Literal</code> 把等级限制为两个合法值，Pydantic 负责校验结果类型。路由函数因此可以直接判断 <code>grade</code>，不需要猜测模型写的是“通过”“还不错”还是其他表达。</p>
+<h3 id="4-2-启动并检查-Qwen3"><a href="#4-2-启动并检查-Qwen3" class="headerlink" title="4.2 启动并检查 Qwen3"></a>4.2 启动并检查 Qwen3</h3><p>打开一个终端，在项目根目录启动 MLX-LM 的 OpenAI 兼容服务：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">cd</span> /Users/bianhn/git/llm-learning
+<span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
 
-<p>OpenAI 兼容接口只说明请求和响应格式相似，并不代表推理服务支持每一种 Structured Output 方法。本地服务不应在没有测试的情况下直接改用默认 json_schema。</p>
-<h2 id="7-单独验证结构化评估器"><a href="#7-单独验证结构化评估器" class="headerlink" title="7. 单独验证结构化评估器"></a><strong>7. 单独验证结构化评估器</strong></h2><p>在完整工作流中同时排查生成、评估和路由会比较困难。因此先用一条固定笑话验证评估器。</p>
-<p>完整代码如下：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 本示例使用本地 Qwen3 评估一条固定冷笑话，验证 Pydantic 结构化输出。</span>
+<span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
+  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
+  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
+  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
+  --prompt-cache-size <span class="token number">0</span> <span class="token punctuation">\</span>
+  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>服务启动后先检查模型列表：</p>
+<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+<p>只有这个请求能够返回模型信息，才继续运行 Python 脚本。</p>
+<h3 id="4-3-运行固定笑话测试"><a href="#4-3-运行固定笑话测试" class="headerlink" title="4.3 运行固定笑话测试"></a>4.3 运行固定笑话测试</h3><p><code>with_structured_output(Feedback, method=&quot;function_calling&quot;)</code> 会要求模型按照 <code>Feedback</code> 的字段返回结果，并把响应解析成 Pydantic 对象。下面是 <code>02_test_structured_evaluator.py</code> 的完整代码：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用本地 Qwen3 评估一条固定冷笑话，验证 Pydantic 结构化输出。"""</span>
 
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal
 
-<span class="token keyword">import</span> httpx
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
 
+
+MODEL_NAME <span class="token operator">=</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span>
+BASE_URL <span class="token operator">=</span> <span class="token string">"http://127.0.0.1:18080/v1"</span>
 
 <span class="token keyword">class</span> <span class="token class-name">Feedback</span><span class="token punctuation">(</span>BaseModel<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""约束评估器只能返回固定等级和具体反馈。"""</span>
@@ -993,25 +1075,24 @@ finish: &#123;'stop_reason': 'max_attempts'&#125;
     <span class="token punctuation">)</span>
     feedback<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"判断理由；不通过时给出具体修改建议"</span><span class="token punctuation">)</span>
 
-
-<span class="token comment"># 禁用系统代理，确保本机请求直接发送到 MLX-LM。</span>
-http_client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-
+<span class="token comment"># ChatOpenAI 可以调用 MLX-LM 提供的 OpenAI 兼容接口。</span>
 model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-    model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    model<span class="token operator">=</span>MODEL_NAME<span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>BASE_URL<span class="token punctuation">,</span>
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-    http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
-<span class="token comment"># 本地 MLX-LM 已验证 function_calling，可以返回符合 Feedback 的参数。</span>
+<span class="token comment"># function_calling 让模型按照 Feedback 的字段返回结果。</span>
+<span class="token comment"># 返回值会经过 Pydantic 校验，不再是普通字符串。</span>
 evaluator <span class="token operator">=</span> model<span class="token punctuation">.</span>with_structured_output<span class="token punctuation">(</span>Feedback<span class="token punctuation">,</span> method<span class="token operator">=</span><span class="token string">"function_calling"</span><span class="token punctuation">)</span>
 
-<span class="token comment"># 第 1 步：把固定笑话交给结构化评估器。</span>
-result <span class="token operator">=</span> evaluator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
-    <span class="token triple-quoted-string string">"""请评估下面的中文冷笑话。
+<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""把固定笑话交给结构化评估器并打印结果。"""</span>
+
+    result <span class="token operator">=</span> evaluator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+        <span class="token triple-quoted-string string">"""请评估下面的中文冷笑话。
 
 评估标准：
 1. 内容与主题相关；
@@ -1021,117 +1102,61 @@ result <span class="token operator">=</span> evaluator<span class="token punctua
 笑话：程序员最讨厌哪一种声音？需求变更的提示音。
 
 如果不通过，请给出一条可以直接执行的修改建议。"""</span>
-<span class="token punctuation">)</span>
+    <span class="token punctuation">)</span>
 
-<span class="token comment"># 第 2 步：result 已由 Pydantic 校验，可以直接读取属性。</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"返回类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>grade<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估反馈："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>feedback<span class="token punctuation">)</span>
+    <span class="token comment"># result 已经是 Feedback 对象，可以直接通过属性读取字段。</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"返回类型："</span><span class="token punctuation">,</span> <span class="token builtin">type</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">.</span>__name__<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>grade<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估反馈："</span><span class="token punctuation">,</span> result<span class="token punctuation">.</span>feedback<span class="token punctuation">)</span>
 
-<span class="token comment"># 第 3 步：显式关闭底层 HTTP 连接。</span>
-http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<h2 id="8-启动本地-Qwen3-服务"><a href="#8-启动本地-Qwen3-服务" class="headerlink" title="8. 启动本地 Qwen3 服务"></a><strong>8. 启动本地 Qwen3 服务</strong></h2><p>进入 llm_learning 根目录，在独立终端启动模型服务：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_tool_server/bin/activate
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    main<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<span class="token string">"<span class="token variable">$VIRTUAL_ENV</span>/bin/python"</span> <span class="token parameter variable">-m</span> mlx_lm server <span class="token punctuation">\</span>
-  <span class="token parameter variable">--model</span> Qwen3-14B-AWQ-4bit-MLX <span class="token punctuation">\</span>
-  <span class="token parameter variable">--host</span> <span class="token number">127.0</span>.0.1 <span class="token punctuation">\</span>
-  <span class="token parameter variable">--port</span> <span class="token number">18080</span> <span class="token punctuation">\</span>
-  --prompt-cache-size <span class="token number">0</span> <span class="token punctuation">\</span>
-  --chat-template-args <span class="token string">'&#123;"enable_thinking": false&#125;'</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>运行模型代码之前先检查健康接口：</p>
-<pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token function">curl</span> <span class="token parameter variable">--noproxy</span> <span class="token string">'*'</span> http://127.0.0.1:18080/v1/models<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>再执行结构化评估脚本：</p>
+<p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 python langgraph/p11_evaluator_optimizer/02_test_structured_evaluator.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<p>本次真实输出为：</p>
+<p>一次实际输出如下：</p>
 <pre class="line-numbers language-text" data-language="text"><code class="language-text">返回类型： Feedback
 评估等级： funny
-评估反馈： 该笑话符合冷笑话的标准：内容与主题相关，有清晰的结尾反转，并且表达完整，读者能够理解笑点。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+评估反馈： 该笑话符合所有评估标准：内容与程序员相关，有清晰的结尾反转，表达完整且能够理解笑点。<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
 
-<p>返回类型是经过 Pydantic 校验的 Feedback，不是普通字典，也不是 AIMessage。</p>
-<h2 id="9-编写生成节点"><a href="#9-编写生成节点" class="headerlink" title="9. 编写生成节点"></a><strong>9. 编写生成节点</strong></h2><p>生成节点需要区分第一次生成和后续修改：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">feedback <span class="token operator">=</span> state<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"feedback"</span><span class="token punctuation">)</span>
+<p>反馈文字可能变化，但 <code>result</code> 应该是 <code>Feedback</code> 对象，<code>grade</code> 只能是 <code>funny</code> 或 <code>not funny</code>。如果这一步失败，应先检查模型服务和结构化输出兼容性，不要立即调试 LangGraph 循环。</p>
+<h2 id="5-构建完整评估器优化器"><a href="#5-构建完整评估器优化器" class="headerlink" title="5. 构建完整评估器优化器"></a>5. 构建完整评估器优化器</h2><p>现在把真实生成器、结构化评估器和条件路由组合起来。</p>
+<h3 id="5-1-生成与反馈重试"><a href="#5-1-生成与反馈重试" class="headerlink" title="5.1 生成与反馈重试"></a>5.1 生成与反馈重试</h3><p><code>generate_joke</code> 每执行一次，就把 <code>attempts</code> 加一。第一次没有反馈，提示词只包含主题；重试时把上一轮 <code>feedback</code> 加入提示词，并明确要求针对建议修改。</p>
+<p>模型返回的是 <code>AIMessage</code>，但 State 中的 <code>joke</code> 字段设计为字符串，因此节点只保存 <code>response.content</code>。保持字段类型稳定，可以让后续评估节点和输出代码更简单。</p>
+<h3 id="5-2-结构化评估"><a href="#5-2-结构化评估" class="headerlink" title="5.2 结构化评估"></a>5.2 结构化评估</h3><p><code>evaluate_joke</code> 把主题、当前笑话和三项标准交给结构化评估器。返回的 <code>Feedback</code> 对象不会直接写入 State，而是拆成 <code>grade</code> 和 <code>feedback</code> 两个字段：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"grade"</span><span class="token punctuation">:</span> result<span class="token punctuation">.</span>grade<span class="token punctuation">,</span> <span class="token string">"feedback"</span><span class="token punctuation">:</span> result<span class="token punctuation">.</span>feedback<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<span class="token keyword">if</span> feedback<span class="token punctuation">:</span>
-    instruction <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"请根据反馈重新生成：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>feedback<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span>
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-    instruction <span class="token operator">=</span> <span class="token string">"请根据主题第一次生成"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>如果节点每一轮都只读取 topic，而完全忽略 feedback，虽然图上形成了循环，内容却没有真正被优化。</p>
-<p>另一个容易出错的地方是返回类型。ChatOpenAI.invoke() 返回 AIMessage，但 State 中的 joke 被定义为字符串，因此节点应该保存 response.content：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
-    <span class="token string">"joke"</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">(</span>response<span class="token punctuation">.</span>content<span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-    <span class="token string">"attempts"</span><span class="token punctuation">:</span> attempts<span class="token punctuation">,</span>
-<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h2 id="10-编写评估节点"><a href="#10-编写评估节点" class="headerlink" title="10. 编写评估节点"></a><strong>10. 编写评估节点</strong></h2><p>评估节点读取主题和当前笑话，再调用结构化模型：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">result <span class="token operator">=</span> structured_evaluator<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span>
-
-<span class="token keyword">return</span> <span class="token punctuation">&#123;</span>
-    <span class="token string">"grade"</span><span class="token punctuation">:</span> result<span class="token punctuation">.</span>grade<span class="token punctuation">,</span>
-    <span class="token string">"feedback"</span><span class="token punctuation">:</span> result<span class="token punctuation">.</span>feedback<span class="token punctuation">,</span>
-<span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>评估标准需要尽可能具体。本文检查以下三项：</p>
+<p>路由函数只读取合并后的 State，不修改 State。</p>
+<h3 id="5-3-路由与停止节点"><a href="#5-3-路由与停止节点" class="headerlink" title="5.3 路由与停止节点"></a>5.3 路由与停止节点</h3><p>条件路由的判断顺序是：</p>
 <ol>
-<li>是否与主题相关。</li>
-<li>是否有清晰的双关、误解或结尾反转。</li>
-<li>中文表达是否完整，读者能否理解笑点。</li>
+<li><code>grade == &quot;funny&quot;</code> 时返回 <code>accepted</code>。</li>
+<li>未通过且 <code>attempts &gt;= MAX_ATTEMPTS</code> 时返回 <code>max_attempts</code>。</li>
+<li>其余情况返回 <code>retry</code>。</li>
 </ol>
-<p>如果只要求模型判断“好不好”，评估结果会缺少稳定依据，反馈也很难指导下一轮修改。</p>
-<h2 id="11-编写条件路由"><a href="#11-编写条件路由" class="headerlink" title="11. 编写条件路由"></a><strong>11. 编写条件路由</strong></h2><p>路由函数先检查是否通过，再检查最大次数：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">route_after_evaluation</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"funny"</span><span class="token punctuation">:</span>
-        <span class="token keyword">return</span> <span class="token string">"accepted"</span>
-    <span class="token keyword">if</span> state<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span> <span class="token operator">>=</span> MAX_ATTEMPTS<span class="token punctuation">:</span>
-        <span class="token keyword">return</span> <span class="token string">"max_attempts"</span>
-    <span class="token keyword">return</span> <span class="token string">"retry"</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>三个路由值通过 path_map 映射到真实节点：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
-    <span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span>
-    route_after_evaluation<span class="token punctuation">,</span>
-    <span class="token punctuation">&#123;</span>
-        <span class="token string">"accepted"</span><span class="token punctuation">:</span> <span class="token string">"finish"</span><span class="token punctuation">,</span>
-        <span class="token string">"retry"</span><span class="token punctuation">:</span> <span class="token string">"generate_joke"</span><span class="token punctuation">,</span>
-        <span class="token string">"max_attempts"</span><span class="token punctuation">:</span> <span class="token string">"finish"</span><span class="token punctuation">,</span>
-    <span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>path_map 让路由含义和图中的节点名称分离。accepted 是业务结果，finish 才是真实节点。</p>
-<h2 id="12-为什么必须限制最大次数"><a href="#12-为什么必须限制最大次数" class="headerlink" title="12. 为什么必须限制最大次数"></a><strong>12. 为什么必须限制最大次数</strong></h2><p>评估器可能连续拒绝生成内容。如果只有“通过才结束”这一条规则，工作流可能无限循环。</p>
-<p>本文使用两层保护：</p>
-<h3 id="12-1-业务停止条件"><a href="#12-1-业务停止条件" class="headerlink" title="12.1 业务停止条件"></a><strong>12.1 业务停止条件</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">MAX_ATTEMPTS <span class="token operator">=</span> <span class="token number">3</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>三次生成后仍未通过，就把 stop_reason 写成 max_attempts 并结束。这是程序能够向调用方解释的业务结果。</p>
-<h3 id="12-2-LangGraph-递归限制"><a href="#12-2-LangGraph-递归限制" class="headerlink" title="12.2 LangGraph 递归限制"></a><strong>12.2 LangGraph 递归限制</strong></h3><pre class="line-numbers language-python" data-language="python"><code class="language-python">config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"recursion_limit"</span><span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>recursion_limit 是运行时最后一道保护。如果图因为路由错误一直循环，LangGraph 会抛出 GraphRecursionError。</p>
-<p>它不能替代业务停止条件。递归异常只能说明图没有按预期结束，无法告诉调用方是评估未通过还是程序存在错误。</p>
-<h2 id="13-完整评估器优化器-Workflow"><a href="#13-完整评估器优化器-Workflow" class="headerlink" title="13. 完整评估器优化器 Workflow"></a><strong>13. 完整评估器优化器 Workflow</strong></h2><p>下面把生成器、评估器、条件路由和结束节点组合起来：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token comment"># 本示例使用本地 Qwen3 完成冷笑话的生成、评估、反馈重试和停止判断。</span>
+<p><code>accepted</code> 和 <code>max_attempts</code> 都进入 <code>finish</code>，由该节点写入稳定的 <code>stop_reason</code>。调用方不需要根据最后一条反馈猜测工作流为何结束。</p>
+<h3 id="5-4-完整代码"><a href="#5-4-完整代码" class="headerlink" title="5.4 完整代码"></a>5.4 完整代码</h3><p>下面是 <code>03_qwen3_evaluator_optimizer_workflow.py</code> 的完整代码：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token triple-quoted-string string">"""使用本地 Qwen3 完成冷笑话的生成、评估、反馈重试和停止判断。"""</span>
 
 <span class="token keyword">from</span> typing <span class="token keyword">import</span> Literal<span class="token punctuation">,</span> NotRequired<span class="token punctuation">,</span> TypedDict
 
-<span class="token keyword">import</span> httpx
-<span class="token keyword">from</span> langchain_core<span class="token punctuation">.</span>messages <span class="token keyword">import</span> HumanMessage<span class="token punctuation">,</span> SystemMessage
 <span class="token keyword">from</span> langchain_openai <span class="token keyword">import</span> ChatOpenAI
 <span class="token keyword">from</span> langgraph<span class="token punctuation">.</span>graph <span class="token keyword">import</span> END<span class="token punctuation">,</span> START<span class="token punctuation">,</span> StateGraph
 <span class="token keyword">from</span> pydantic <span class="token keyword">import</span> BaseModel<span class="token punctuation">,</span> Field
 
-
+MODEL_NAME <span class="token operator">=</span> <span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span>
+BASE_URL <span class="token operator">=</span> <span class="token string">"http://127.0.0.1:18080/v1"</span>
 MAX_ATTEMPTS <span class="token operator">=</span> <span class="token number">3</span>
-
 
 <span class="token keyword">class</span> <span class="token class-name">JokeState</span><span class="token punctuation">(</span>TypedDict<span class="token punctuation">)</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""定义评估器优化器工作流中的共享状态。"""</span>
 
+    <span class="token comment"># 用户输入。</span>
     topic<span class="token punctuation">:</span> <span class="token builtin">str</span>
+
+    <span class="token comment"># 工作流运行过程中产生的字段。</span>
     joke<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
     feedback<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span>
     grade<span class="token punctuation">:</span> NotRequired<span class="token punctuation">[</span>Literal<span class="token punctuation">[</span><span class="token string">"funny"</span><span class="token punctuation">,</span> <span class="token string">"not funny"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
@@ -1148,33 +1173,28 @@ MAX_ATTEMPTS <span class="token operator">=</span> <span class="token number">3<
     feedback<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">=</span> Field<span class="token punctuation">(</span>description<span class="token operator">=</span><span class="token string">"判断理由；不通过时给出具体修改建议"</span><span class="token punctuation">)</span>
 
 
-<span class="token comment"># 两个模型访问同一个 Qwen3 服务，可以复用同一个 HTTP 客户端。</span>
 <span class="token comment"># 生成器温度较高以增加变化，评估器温度为 0 以保持判断稳定。</span>
-http_client <span class="token operator">=</span> httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-
 generator_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-    model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    model<span class="token operator">=</span>MODEL_NAME<span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>BASE_URL<span class="token punctuation">,</span>
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0.7</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-    http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
 evaluator_model <span class="token operator">=</span> ChatOpenAI<span class="token punctuation">(</span>
-    model<span class="token operator">=</span><span class="token string">"Qwen3-14B-AWQ-4bit-MLX"</span><span class="token punctuation">,</span>
-    base_url<span class="token operator">=</span><span class="token string">"http://127.0.0.1:18080/v1"</span><span class="token punctuation">,</span>
+    model<span class="token operator">=</span>MODEL_NAME<span class="token punctuation">,</span>
+    base_url<span class="token operator">=</span>BASE_URL<span class="token punctuation">,</span>
     api_key<span class="token operator">=</span><span class="token string">"not-needed"</span><span class="token punctuation">,</span>
     temperature<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">,</span>
     max_tokens<span class="token operator">=</span><span class="token number">256</span><span class="token punctuation">,</span>
-    http_client<span class="token operator">=</span>http_client<span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
 
+<span class="token comment"># 评估器必须返回符合 Feedback Schema 的结构化结果。</span>
 structured_evaluator <span class="token operator">=</span> evaluator_model<span class="token punctuation">.</span>with_structured_output<span class="token punctuation">(</span>
     Feedback<span class="token punctuation">,</span>
     method<span class="token operator">=</span><span class="token string">"function_calling"</span><span class="token punctuation">,</span>
 <span class="token punctuation">)</span>
-
 
 <span class="token keyword">def</span> <span class="token function">generate_joke</span><span class="token punctuation">(</span>state<span class="token punctuation">:</span> JokeState<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">dict</span><span class="token punctuation">:</span>
     <span class="token triple-quoted-string string">"""根据主题生成笑话；重试时必须参考上一次评估反馈。"""</span>
@@ -1191,11 +1211,9 @@ structured_evaluator <span class="token operator">=</span> evaluator_model<span 
         instruction <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""请围绕“</span><span class="token interpolation"><span class="token punctuation">&#123;</span>state<span class="token punctuation">[</span><span class="token string">'topic'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">”写一个简短的中文冷笑话。
 笑话需要有问答结构、双关或结尾反转，只输出笑话正文。"""</span></span>
 
+    <span class="token comment"># 传入普通字符串即可获得 AIMessage，最终只把 content 写入 State。</span>
     response <span class="token operator">=</span> generator_model<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
-        <span class="token punctuation">[</span>
-            SystemMessage<span class="token punctuation">(</span>content<span class="token operator">=</span><span class="token string">"你是一名擅长写简短中文冷笑话的创作者。"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-            HumanMessage<span class="token punctuation">(</span>content<span class="token operator">=</span>instruction<span class="token punctuation">)</span><span class="token punctuation">,</span>
-        <span class="token punctuation">]</span>
+        <span class="token string">"你是一名擅长写简短中文冷笑话的创作者。\n\n"</span> <span class="token operator">+</span> instruction
     <span class="token punctuation">)</span>
 
     <span class="token comment"># State 中的 joke 字段保存字符串，不直接保存 AIMessage 对象。</span>
@@ -1244,12 +1262,13 @@ structured_evaluator <span class="token operator">=</span> evaluator_model<span 
     <span class="token keyword">return</span> <span class="token punctuation">&#123;</span><span class="token string">"stop_reason"</span><span class="token punctuation">:</span> stop_reason<span class="token punctuation">&#125;</span>
 
 
-<span class="token comment"># 第 1 步：构建“生成 → 评估 → 条件路由”的循环。</span>
+<span class="token comment"># 第 1 步：创建图并注册生成、评估和结束 Node。</span>
 builder <span class="token operator">=</span> StateGraph<span class="token punctuation">(</span>JokeState<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> generate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"evaluate_joke"</span><span class="token punctuation">,</span> evaluate_joke<span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_node<span class="token punctuation">(</span><span class="token string">"finish"</span><span class="token punctuation">,</span> finish<span class="token punctuation">)</span>
 
+<span class="token comment"># 第 2 步：使用固定 Edge 和条件 Edge 组成循环。</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span>START<span class="token punctuation">,</span> <span class="token string">"generate_joke"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"generate_joke"</span><span class="token punctuation">,</span> <span class="token string">"evaluate_joke"</span><span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_conditional_edges<span class="token punctuation">(</span>
@@ -1263,186 +1282,118 @@ builder<span class="token punctuation">.</span>add_conditional_edges<span class=
 <span class="token punctuation">)</span>
 builder<span class="token punctuation">.</span>add_edge<span class="token punctuation">(</span><span class="token string">"finish"</span><span class="token punctuation">,</span> END<span class="token punctuation">)</span>
 
+<span class="token comment"># 第 3 步：编译得到可执行工作流。</span>
 workflow <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
 
-initial_state<span class="token punctuation">:</span> JokeState <span class="token operator">=</span> <span class="token punctuation">&#123;</span><span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">&#125;</span>
-final_state <span class="token operator">=</span> initial_state<span class="token punctuation">.</span>copy<span class="token punctuation">(</span><span class="token punctuation">)</span>
 
-<span class="token comment"># 第 2 步：运行工作流，并把各节点更新合并到 final_state。</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"节点更新："</span><span class="token punctuation">)</span>
-<span class="token keyword">for</span> update <span class="token keyword">in</span> workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
-    initial_state<span class="token punctuation">,</span>
-    config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"recursion_limit"</span><span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-    stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">for</span> node_name<span class="token punctuation">,</span> node_update <span class="token keyword">in</span> update<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        final_state<span class="token punctuation">.</span>update<span class="token punctuation">(</span>node_update<span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""运行工作流，并打印 invoke() 返回的最终 State。"""</span>
 
-        <span class="token keyword">if</span> node_name <span class="token operator">==</span> <span class="token string">"generate_joke"</span><span class="token punctuation">:</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- 第 </span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">[</span><span class="token string">'attempts'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string"> 次生成：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">[</span><span class="token string">'joke'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-        <span class="token keyword">elif</span> node_name <span class="token operator">==</span> <span class="token string">"evaluate_joke"</span><span class="token punctuation">:</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- 评估：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">[</span><span class="token string">'grade'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"  反馈：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">[</span><span class="token string">'feedback'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-        <span class="token keyword">else</span><span class="token punctuation">:</span>
-            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"- 停止原因：</span><span class="token interpolation"><span class="token punctuation">&#123;</span>node_update<span class="token punctuation">[</span><span class="token string">'stop_reason'</span><span class="token punctuation">]</span><span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+    final_state <span class="token operator">=</span> workflow<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+        <span class="token punctuation">&#123;</span><span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+        <span class="token comment"># 业务次数上限负责正常停止；recursion_limit 是防止路由错误的最后保护。</span>
+        config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"recursion_limit"</span><span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
+    <span class="token punctuation">)</span>
 
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"\n最终状态："</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"主题："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"topic"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"笑话："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"joke"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"生成次数："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"停止原因："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"stop_reason"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"主题："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"topic"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"笑话："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"joke"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"生成次数："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"attempts"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估等级："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"grade"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"评估反馈："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"feedback"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"停止原因："</span><span class="token punctuation">,</span> final_state<span class="token punctuation">[</span><span class="token string">"stop_reason"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
 
-<span class="token comment"># 第 3 步：两个模型共用一个客户端，只需要关闭一次。</span>
-http_client<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>运行代码：</p>
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    main<span class="token punctuation">(</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+<p>运行：</p>
 <pre class="line-numbers language-bash" data-language="bash"><code class="language-bash"><span class="token builtin class-name">source</span> .venv_langgraph/bin/activate
 python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.py<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
 
-<h2 id="14-观察真实运行结果"><a href="#14-观察真实运行结果" class="headerlink" title="14. 观察真实运行结果"></a><strong>14. 观察真实运行结果</strong></h2><p>本次运行中，生成器连续修改了三次，评估器仍然认为结尾反转不够清晰，因此工作流按次数上限停止：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">节点更新：
-- 第 1 次生成：为什么程序员喜欢用黑暗模式？
-因为亮着的灯容易让他们“代码”出错。
-- 评估：not funny
-  反馈：笑话中的双关不够清晰，可以修改为：为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们‘调试’出错。
-- 第 2 次生成：为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们“调试”出错。
-- 评估：not funny
-  反馈：笑话的结尾反转不够清晰，建议修改为：为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们‘调试’出错。
-- 第 3 次生成：为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们“调试”出错。
-- 评估：not funny
-  反馈：笑话的结尾反转不够清晰，建议修改为：为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们‘调试’出错。
-- 停止原因：max_attempts
+<p>主流程使用 <code>invoke()</code> 直接取得最终 State，不需要手工合并每个节点的局部更新。生成模型使用较高温度增加变化，评估模型使用温度 0 尽量保持判断稳定；温度 0 也不代表所有推理环境下都绝对确定。</p>
+<p>结果: </p>
+<p>一次实际运行在第一轮就通过了：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">主题： 程序员
+笑话： 为什么程序员不喜欢在厨房里工作？  
+因为那里总是有很多“bug”要处理。
+生成次数： 1
+评估等级： funny
+评估反馈： 该笑话符合所有三项标准：内容与程序员主题相关，使用了“bug”这一双关语，表达完整且笑点清晰。
+停止原因： accepted<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-最终状态：
-主题： 程序员
-笑话： 为什么程序员喜欢用黑暗模式？因为亮着的灯容易让他们“调试”出错。
-生成次数： 3
-评估等级： not funny
-停止原因： max_attempts<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<p>这不是程序执行失败，而是一个有效的业务结果：模型确实读取了反馈并重新生成，但三次之内没有达到评估器的标准。</p>
-<p>模型输出存在非确定性。再次运行可能第一次就通过，也可能生成不同笑话。稳定的是 State 结构、路由规则、最大次数和停止原因。</p>
-<h2 id="15-使用-stream-查看每轮更新"><a href="#15-使用-stream-查看每轮更新" class="headerlink" title="15. 使用 stream 查看每轮更新"></a><strong>15. 使用 stream 查看每轮更新</strong></h2><p>invoke() 适合直接取得最终 State：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">result <span class="token operator">=</span> workflow<span class="token punctuation">.</span>invoke<span class="token punctuation">(</span>
+<p>笑话文本、反馈内容和生成次数都可能变化，不应该对它们做固定断言。稳定规则只有：</p>
+<ul>
+<li><code>attempts</code> 不大于 <code>MAX_ATTEMPTS</code>。</li>
+<li><code>grade</code> 只能是 <code>funny</code> 或 <code>not funny</code>。</li>
+<li><code>stop_reason</code> 只能是 <code>accepted</code> 或 <code>max_attempts</code>。</li>
+</ul>
+<p>如果想观察每个节点提交了哪些字段，可以把主流程中的 <code>invoke()</code> 临时换成下面的流式调用：</p>
+<pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">for</span> update <span class="token keyword">in</span> workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span>
     <span class="token punctuation">&#123;</span><span class="token string">"topic"</span><span class="token punctuation">:</span> <span class="token string">"程序员"</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
     config<span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token string">"recursion_limit"</span><span class="token punctuation">:</span> <span class="token number">20</span><span class="token punctuation">&#125;</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+    stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">,</span>
+<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>update<span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>本文使用：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">workflow<span class="token punctuation">.</span>stream<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">,</span> stream_mode<span class="token operator">=</span><span class="token string">"updates"</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><code>stream_mode=&quot;updates&quot;</code> 返回节点的局部更新，形状类似 <code>&#123;&quot;generate_joke&quot;: &#123;&quot;joke&quot;: &quot;...&quot;, &quot;attempts&quot;: 1&#125;&#125;</code>。它适合观察循环过程，但每一项不是完整 State，也不应该在示例中手工维护第二份 State。需要最终结果时直接使用 <code>invoke()</code>；需要观察过程时使用 <code>stream()</code>。</p>
+<p><code>accepted</code> 和 <code>max_attempts</code> 都是可预期的业务结束方式。前者表示内容通过，后者表示工作流已在成本边界内停止，并不代表 LangGraph 执行失败。</p>
+<h2 id="6-成本、局限与常见问题"><a href="#6-成本、局限与常见问题" class="headerlink" title="6. 成本、局限与常见问题"></a>6. 成本、局限与常见问题</h2><h3 id="6-1-调用次数与延迟"><a href="#6-1-调用次数与延迟" class="headerlink" title="6.1 调用次数与延迟"></a>6.1 调用次数与延迟</h3><p>每一轮通常包含一次生成调用和一次评估调用。生成了 N 次时，模型调用次数大约是：</p>
+<pre class="line-numbers language-text" data-language="text"><code class="language-text">总调用次数 ≈ 2 × N<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
-<p>updates 每次返回节点产生的局部更新，所以可以看到：</p>
+<p>因此，增加 <code>MAX_ATTEMPTS</code> 会同时增加延迟和计算成本。生产任务应根据输出价值设置较小的业务上限，并记录每轮次数、等级、反馈和停止原因。</p>
+<h3 id="6-2-评估器并不等于绝对正确"><a href="#6-2-评估器并不等于绝对正确" class="headerlink" title="6.2 评估器并不等于绝对正确"></a>6.2 评估器并不等于绝对正确</h3><p>评估器优化器仍有这些边界：</p>
 <ul>
-<li>生成节点写入了哪一版笑话。</li>
-<li>评估节点返回了什么等级和反馈。</li>
-<li>工作流最终因为什么停止。</li>
+<li>标准不明确时，同一内容可能得到不同判断。</li>
+<li>生成器与评估器使用同一个模型时，可能存在自我评估偏差。</li>
+<li>“符合写作标准”不代表事实一定正确；事实性任务仍需检索、工具或规则校验。</li>
+<li>生成器可能表面改写内容，却没有真正采纳反馈。</li>
+<li>本地 OpenAI 兼容服务对结构化输出方式的支持可能不同。</li>
 </ul>
-<p>它不会自动返回一份累计 State，因此示例使用 final_state.update(node_update) 将每次局部更新合并起来，仅用于最后打印完整结果。</p>
-<h2 id="16-模型调用次数与成本"><a href="#16-模型调用次数与成本" class="headerlink" title="16. 模型调用次数与成本"></a><strong>16. 模型调用次数与成本</strong></h2><p>每一轮通常包含两次模型调用：</p>
-<ol>
-<li>生成器调用一次。</li>
-<li>评估器调用一次。</li>
-</ol>
-<p>如果生成了 N 轮，通常约有 2N 次模型调用。本文最多生成 3 次，因此最多调用模型 6 次。</p>
-<p>实际系统还需要关注：</p>
-<ul>
-<li>单轮生成和评估耗时。</li>
-<li>最大重试次数。</li>
-<li>每轮笑话与最新反馈的长度。</li>
-<li>本地推理资源或在线 API 成本。</li>
-</ul>
-<p>本文的 joke 和 feedback 都使用默认覆盖行为，只保留最新一轮内容，不会把历次反馈自动累积到 State。如果业务需要保存完整修改历史，应单独增加列表字段并配置合适的 Reducer。</p>
-<p>不要为了追求“评估通过”无限增加重试次数。次数上限应该由任务价值、延迟要求和资源预算共同决定。</p>
-<h2 id="17-评估器的局限"><a href="#17-评估器的局限" class="headerlink" title="17. 评估器的局限"></a><strong>17. 评估器的局限</strong></h2><h3 id="17-1-标准不明确会导致反馈不稳定"><a href="#17-1-标准不明确会导致反馈不稳定" class="headerlink" title="17.1 标准不明确会导致反馈不稳定"></a><strong>17.1 标准不明确会导致反馈不稳定</strong></h3><p>“写得更好”不是可执行标准。应尽量拆成主题相关性、格式完整性、字段齐全等可以判断的条件。</p>
-<h3 id="17-2-同一个模型可能存在自我评估偏差"><a href="#17-2-同一个模型可能存在自我评估偏差" class="headerlink" title="17.2 同一个模型可能存在自我评估偏差"></a><strong>17.2 同一个模型可能存在自我评估偏差</strong></h3><p>本文为了本地演示，生成和评估都使用 Qwen3，只是温度不同。在要求更高的系统中，可以使用独立模型、规则校验或人工检查共同评估。</p>
-<h3 id="17-3-通过不代表事实一定正确"><a href="#17-3-通过不代表事实一定正确" class="headerlink" title="17.3 通过不代表事实一定正确"></a><strong>17.3 通过不代表事实一定正确</strong></h3><p>评估器只能按照提示词和自身能力判断。结构化输出保证了结果格式，不保证判断本身绝对正确。</p>
-<h3 id="17-4-优化器可能没有真正采纳反馈"><a href="#17-4-优化器可能没有真正采纳反馈" class="headerlink" title="17.4 优化器可能没有真正采纳反馈"></a><strong>17.4 优化器可能没有真正采纳反馈</strong></h3><p>本次实测中，第二次与第三次生成基本相同。这说明把反馈放进提示词只能提高模型采纳建议的可能性，不能保证每次都产生有效改进。</p>
-<h2 id="18-常见问题"><a href="#18-常见问题" class="headerlink" title="18. 常见问题"></a><strong>18. 常见问题</strong></h2><h3 id="18-1-把-AIMessage-直接写入字符串字段"><a href="#18-1-把-AIMessage-直接写入字符串字段" class="headerlink" title="18.1 把 AIMessage 直接写入字符串字段"></a><strong>18.1 把 AIMessage 直接写入字符串字段</strong></h3><p>ChatOpenAI.invoke() 返回 AIMessage。如果 joke 定义为字符串，应写入 response.content，否则后续格式化提示词时会混入消息对象表示。</p>
-<h3 id="18-2-Pydantic-字段与模型结果不匹配"><a href="#18-2-Pydantic-字段与模型结果不匹配" class="headerlink" title="18.2 Pydantic 字段与模型结果不匹配"></a><strong>18.2 Pydantic 字段与模型结果不匹配</strong></h3><p>路由依赖 grade，Schema 和提示词中就必须使用同一个字段名。字段缺失或 Literal 值不合法会产生验证错误。</p>
-<h3 id="18-3-路由值与-path-map-不一致"><a href="#18-3-路由值与-path-map-不一致" class="headerlink" title="18.3 路由值与 path_map 不一致"></a><strong>18.3 路由值与 path_map 不一致</strong></h3><p>路由函数返回 retry，path_map 中也必须存在 retry。拼写不同会导致图找不到下一节点。</p>
-<h3 id="18-4-生成节点没有读取反馈"><a href="#18-4-生成节点没有读取反馈" class="headerlink" title="18.4 生成节点没有读取反馈"></a><strong>18.4 生成节点没有读取反馈</strong></h3><p>图可以循环不代表内容会改进。重试提示词必须明确包含 state[“feedback”]。</p>
-<h3 id="18-5-没有最大循环次数"><a href="#18-5-没有最大循环次数" class="headerlink" title="18.5 没有最大循环次数"></a><strong>18.5 没有最大循环次数</strong></h3><p>评估器可能永远返回 not funny。必须使用业务次数上限，并保留 recursion_limit 作为最后保护。</p>
-<h3 id="18-6-本地服务不支持默认-json-schema"><a href="#18-6-本地服务不支持默认-json-schema" class="headerlink" title="18.6 本地服务不支持默认 json_schema"></a><strong>18.6 本地服务不支持默认 json_schema</strong></h3><p>with_structured_output() 的具体方法依赖模型服务。本文的 MLX-LM 环境使用已经实测通过的 method&#x3D;”function_calling”。</p>
-<h3 id="18-7-本机请求被代理转发"><a href="#18-7-本机请求被代理转发" class="headerlink" title="18.7 本机请求被代理转发"></a><strong>18.7 本机请求被代理转发</strong></h3><p>如果 VPN 或系统代理影响 127.0.0.1 请求，可以像本文一样传入：</p>
-<pre class="line-numbers language-python" data-language="python"><code class="language-python">httpx<span class="token punctuation">.</span>Client<span class="token punctuation">(</span>trust_env<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-
-<p>同时先用 &#x2F;v1&#x2F;models 健康接口区分“服务没有启动”和“模型调用失败”。</p>
-<h2 id="19-总结"><a href="#19-总结" class="headerlink" title="19. 总结"></a><strong>19. 总结</strong></h2><table>
+<p>更重要的任务可以组合确定性规则、独立评估模型和人工抽检，而不是把所有判断都交给一个模型。</p>
+<h3 id="6-3-常见问题"><a href="#6-3-常见问题" class="headerlink" title="6.3 常见问题"></a>6.3 常见问题</h3><table>
 <thead>
 <tr>
-<th align="left">要点</th>
-<th align="left">作用</th>
-<th align="left">本文验证结果</th>
+<th align="left">问题</th>
+<th align="left">原因与处理方式</th>
 </tr>
 </thead>
 <tbody><tr>
-<td align="left">Evaluator-optimizer</td>
-<td align="left">生成后评估，不通过则携带反馈重试</td>
-<td align="left">冷笑话最多生成三次</td>
+<td align="left">路由无法稳定判断结果</td>
+<td align="left">不要解析自然语言，使用 Pydantic 和 <code>Literal</code> 限定结构</td>
 </tr>
 <tr>
-<td align="left">JokeState</td>
-<td align="left">保存主题、内容、反馈、等级和次数</td>
-<td align="left">每个节点只返回局部更新</td>
+<td align="left">State 字段类型前后不一致</td>
+<td align="left"><code>joke</code> 保存 <code>response.content</code> 字符串，不保存整个 <code>AIMessage</code></td>
 </tr>
 <tr>
-<td align="left">生成节点</td>
-<td align="left">第一次按主题生成，后续按反馈修改</td>
-<td align="left">实测连续生成三版内容</td>
+<td align="left">每轮生成几乎没有变化</td>
+<td align="left">重试提示词必须显式包含上一轮 <code>feedback</code></td>
 </tr>
 <tr>
-<td align="left">评估节点</td>
-<td align="left">按明确标准判断当前结果</td>
-<td align="left">返回 Pydantic Feedback</td>
+<td align="left">工作流一直循环</td>
+<td align="left">增加业务次数上限，并保留合理的 <code>recursion_limit</code></td>
 </tr>
 <tr>
-<td align="left">Literal</td>
-<td align="left">限制评估等级的合法值</td>
-<td align="left">只允许 funny 和 not funny</td>
+<td align="left">结构化输出解析失败</td>
+<td align="left">先单独运行第 4 章脚本，确认服务支持 <code>function_calling</code></td>
 </tr>
 <tr>
-<td align="left">function_calling</td>
-<td align="left">让本地 Qwen3 返回结构化参数</td>
-<td align="left">MLX-LM 实测成功</td>
+<td align="left">请求连接失败</td>
+<td align="left">先启动 Qwen3，再用 <code>curl /v1/models</code> 检查服务</td>
 </tr>
 <tr>
-<td align="left">条件边</td>
-<td align="left">根据评估结果选择结束或重试</td>
-<td align="left">accepted、retry、max_attempts</td>
-</tr>
-<tr>
-<td align="left">path_map</td>
-<td align="left">将业务路由值映射到真实节点</td>
-<td align="left">图结构包含完整分支</td>
-</tr>
-<tr>
-<td align="left">stream_mode&#x3D;”updates”</td>
-<td align="left">查看每个节点的局部状态更新</td>
-<td align="left">可观察每轮生成与反馈</td>
-</tr>
-<tr>
-<td align="left">最大次数</td>
-<td align="left">防止评估器持续拒绝造成无限循环</td>
-<td align="left">三次后以 max_attempts 停止</td>
-</tr>
-<tr>
-<td align="left">recursion_limit</td>
-<td align="left">防止错误图无限执行</td>
-<td align="left">低上限测试触发 GraphRecursionError</td>
-</tr>
-<tr>
-<td align="left">调用次数</td>
-<td align="left">每轮一次生成和一次评估</td>
-<td align="left">N 轮通常约 2N 次模型调用</td>
-</tr>
-<tr>
-<td align="left">评估限制</td>
-<td align="left">结构正确不等于判断绝对正确</td>
-<td align="left">实测反馈未保证生成器有效改进</td>
+<td align="left">最后一次通过却显示达到上限</td>
+<td align="left">路由时先判断 <code>grade</code>，再判断 <code>attempts</code></td>
 </tr>
 </tbody></table>
-<p>评估器优化器的价值不是保证模型一定写出完美结果，而是把“生成、检查、反馈和停止”变成一条可观察、可限制、可解释的 Workflow。</p>
-<p>下一篇开始构建智能小秘书案例。首先处理模型一次生成多个 Tool Call 时的异步并发执行，再使用 ToolNode 简化工具节点。</p>
+<p>结构化输出也可以使用其他方法，但本文选择 <code>function_calling</code>，因为它在当前 MLX-LM OpenAI 兼容服务上已经验证通过。更换模型服务后，应先重新运行独立测试脚本。</p>
+<h2 id="7-总结"><a href="#7-总结" class="headerlink" title="7. 总结"></a>7. 总结</h2><p>评估器优化器 Workflow 的核心可以概括为四点：</p>
+<ol>
+<li>生成器负责产出候选结果，评估器负责按照明确标准判断。</li>
+<li>不通过时，具体反馈通过 State 交回生成器，形成有依据的重试。</li>
+<li>条件边负责接受、重试和达到上限三种路径，<code>finish</code> 记录稳定的停止原因。</li>
+<li>业务次数上限负责控制成本，<code>recursion_limit</code> 只作为图执行的最后保护。</li>
+</ol>
+<p>开发这类工作流时，可以先用真实生成器和固定评估规则验证反馈循环，再单独验证结构化评估器，最后接入完整模型循环。这样遇到问题时，可以快速判断错误来自路由、模型服务还是结构化输出。</p>
 
                 
             </div>
@@ -1897,12 +1848,12 @@ python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.p
                 下一篇&nbsp;<i class="fas fa-chevron-right"></i>
             </div>
             <div class="card">
-                <a href="/posts/59d38774.html">
+                <a href="/posts/40e143f7.html">
                     <div class="card-image">
                         
-                        <img src="https://images.hnbian.cn/new/n-b680f51b35223edf2296e2ff716f9759.jpg" class="responsive-img" alt="LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由">
+                        <img src="https://images.hnbian.cn/new/n-b680f51b35223edf2296e2ff716f9759.jpg" class="responsive-img" alt="LangGraph 系列 10（下）：Workflow 的 Edge、路由与 Studio 完整案例">
                         
-                        <span class="card-title">LangGraph 系列 10：LangGraph Workflow 的 State、Reducer 与路由</span>
+                        <span class="card-title">LangGraph 系列 10（下）：Workflow 的 Edge、路由与 Studio 完整案例</span>
                     </div>
                 </a>
                 <div class="card-content article-content">
@@ -1913,7 +1864,7 @@ python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.p
                     </div>
                     <div class="publish-info">
                             <span class="publish-date">
-                                <i class="far fa-clock fa-fw icon-date"></i>2026-05-24
+                                <i class="far fa-clock fa-fw icon-date"></i>2026-05-26
                             </span>
                         <span class="publish-author">
                             
@@ -1934,16 +1885,16 @@ python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.p
                         <span class="chip bg-color">langgraph</span>
                     </a>
                     
+                    <a href="/tags/studio/">
+                        <span class="chip bg-color">studio</span>
+                    </a>
+                    
                     <a href="/tags/workflow/">
                         <span class="chip bg-color">workflow</span>
                     </a>
                     
-                    <a href="/tags/state/">
-                        <span class="chip bg-color">state</span>
-                    </a>
-                    
-                    <a href="/tags/reducer/">
-                        <span class="chip bg-color">reducer</span>
+                    <a href="/tags/edge/">
+                        <span class="chip bg-color">edge</span>
                     </a>
                     
                 </div>
@@ -2126,7 +2077,7 @@ python langgraph/p11_evaluator_optimizer/03_qwen3_evaluator_optimizer_workflow.p
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1513.7k</span>
+                        class="white-color">1434.7k</span>
             
             
             
