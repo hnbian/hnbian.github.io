@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="keywords" content="LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入, hnbian">
-    <meta name="description" content="上一篇使用 interrupt_before=[&amp;quot;tools&amp;quot;] 在整个工具节点之前设置静态断点。它适合教学和调试，但无法区分同一个 ToolNode 中的安全查询与高风险操作。 本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才…">
+    <meta name="description" content="本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 Command(resume=...) 恢复原 Thread。 完整案例包含： 1. 动态人工介入1.1 两种中断解决的问题不同静…">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="renderer" content="webkit|ie-stand|ie-comp">
@@ -22,14 +22,14 @@
 
     <meta property="og:type" content="article">
     <meta property="og:title" content="LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入 | hnbian">
-    <meta property="og:description" content="上一篇使用 interrupt_before=[&amp;quot;tools&amp;quot;] 在整个工具节点之前设置静态断点。它适合教学和调试，但无法区分同一个 ToolNode 中的安全查询与高风险操作。 本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才…">
+    <meta property="og:description" content="本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 Command(resume=...) 恢复原 Thread。 完整案例包含： 1. 动态人工介入1.1 两种中断解决的问题不同静…">
     <meta property="og:url" content="https://www.hnbian.cn/posts/7cd6846.html">
     <meta property="og:image" content="https://images.hnbian.cn/new/n-0d2ed26dd13750d0814da16cd7206863.jpg">
     <meta property="og:site_name" content="hnbian">
     <meta property="og:locale" content="zh_CN">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入 | hnbian">
-    <meta name="twitter:description" content="上一篇使用 interrupt_before=[&amp;quot;tools&amp;quot;] 在整个工具节点之前设置静态断点。它适合教学和调试，但无法区分同一个 ToolNode 中的安全查询与高风险操作。 本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才…">
+    <meta name="twitter:description" content="本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 Command(resume=...) 恢复原 Thread。 完整案例包含： 1. 动态人工介入1.1 两种中断解决的问题不同静…">
     <meta name="twitter:image" content="https://images.hnbian.cn/new/n-0d2ed26dd13750d0814da16cd7206863.jpg">
     
     <meta property="article:published_time" content="2026-06-11T13:15:37.000Z">
@@ -45,7 +45,7 @@
     
 
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/7cd6846.html#blogposting","url":"https://www.hnbian.cn/posts/7cd6846.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/7cd6846.html"},"headline":"LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入","description":"上一篇使用 interrupt_before=[&quot;tools&quot;] 在整个工具节点之前设置静态断点。它适合教学和调试，但无法区分同一个 ToolNode 中的安全查询与高风险操作。 本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才…","image":["https://images.hnbian.cn/new/n-0d2ed26dd13750d0814da16cd7206863.jpg"],"datePublished":"2026-06-11T13:15:37.000Z","dateModified":"2026-06-11T13:15:37.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, interrupt, command"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/7cd6846.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入","item":"https://www.hnbian.cn/posts/7cd6846.html"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BlogPosting","@id":"https://www.hnbian.cn/posts/7cd6846.html#blogposting","url":"https://www.hnbian.cn/posts/7cd6846.html","mainEntityOfPage":{"@type":"WebPage","@id":"https://www.hnbian.cn/posts/7cd6846.html"},"headline":"LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入","description":"本篇改用动态 interrupt()：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 Command(resume=...) 恢复原 Thread。 完整案例包含： 1. 动态人工介入1.1 两种中断解决的问题不同静…","image":["https://images.hnbian.cn/new/n-0d2ed26dd13750d0814da16cd7206863.jpg"],"datePublished":"2026-06-11T13:15:37.000Z","dateModified":"2026-06-11T13:15:37.000Z","inLanguage":"zh-CN","author":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"publisher":{"@type":"Person","name":"hnbian","url":"https://www.hnbian.cn/about/"},"articleSection":"langgraph","keywords":"langgraph, interrupt, command"},{"@type":"BreadcrumbList","@id":"https://www.hnbian.cn/posts/7cd6846.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.hnbian.cn/"},{"@type":"ListItem","position":2,"name":"langgraph","item":"https://www.hnbian.cn/categories/langgraph/"},{"@type":"ListItem","position":3,"name":"LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入","item":"https://www.hnbian.cn/posts/7cd6846.html"}]}]}</script>
 
 
     <!-- Google Analytics 4: production traffic and blog interaction events. -->
@@ -725,14 +725,14 @@
                 
                 <div class="info-break-policy">
                     <i class="far fa-file-word fa-fw"></i>文章字数:&nbsp;&nbsp;
-                    6.5k
+                    6.3k
                 </div>
                 
 
                 
                 <div class="info-break-policy">
                     <i class="far fa-clock fa-fw"></i>阅读时长:&nbsp;&nbsp;
-                    28 分
+                    27 分
                 </div>
                 
 
@@ -759,23 +759,10 @@
                  data-article-title="LangGraph 系列 15：使用 interrupt 与 Command 实现可恢复人工介入"
                  data-article-category="langgraph"
                  data-article-path="/posts/7cd6846.html">
-                <p>上一篇使用 <code>interrupt_before=[&quot;tools&quot;]</code> 在整个工具节点之前设置静态断点。它适合教学和调试，但无法区分同一个 <code>ToolNode</code> 中的安全查询与高风险操作。</p>
-<p>本篇改用动态 <code>interrupt()</code>：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 <code>Command(resume=...)</code> 恢复原 Thread。</p>
+                <p>本篇改用动态 <code>interrupt()</code>：Bing 搜索和 12306 查询直接执行，只有本地邮件工具真正准备写入发件箱时才暂停。用户检查收件人、主题和正文后，可以批准、拒绝或修改参数，再通过 <code>Command(resume=...)</code> 恢复原 Thread。</p>
 <p>完整案例包含：</p>
-<pre class="line-numbers language-text" data-language="text"><code class="language-text">本地 Qwen3
-    ↓ 产生 Tool Call
-LangGraph Workflow
-    ├─ Bing MCP 查询 ─────────────→ 直接执行
-    ├─ 12306 MCP 查询 ────────────→ 直接执行
-    └─ send_email 本地工具
-             ↓
-          interrupt()
-             ↓
-      批准 / 拒绝 / 修改
-             ↓
-      Command(resume=...)<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-<h2 id="1-从静态断点到动态人工介入"><a href="#1-从静态断点到动态人工介入" class="headerlink" title="1. 从静态断点到动态人工介入"></a><strong>1. 从静态断点到动态人工介入</strong></h2><h3 id="1-1-两种中断解决的问题不同"><a href="#1-1-两种中断解决的问题不同" class="headerlink" title="1.1 两种中断解决的问题不同"></a><strong>1.1 两种中断解决的问题不同</strong></h3><p>静态断点写在图的编译参数中：</p>
+<p><img src="https://images.hnbian.cn/new/n-1718c1f94a25400daa3dac2fd138ceb9.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10"></p>
+<h2 id="1-动态人工介入"><a href="#1-动态人工介入" class="headerlink" title="1. 动态人工介入"></a><strong>1. 动态人工介入</strong></h2><h3 id="1-1-两种中断解决的问题不同"><a href="#1-1-两种中断解决的问题不同" class="headerlink" title="1.1 两种中断解决的问题不同"></a><strong>1.1 两种中断解决的问题不同</strong></h3><p>静态断点写在图的编译参数中：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python">graph <span class="token operator">=</span> builder<span class="token punctuation">.</span><span class="token builtin">compile</span><span class="token punctuation">(</span>interrupt_before<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"tools"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
 
 <p>只要执行路径即将进入 <code>tools</code>，Workflow 就会暂停。运行时并不知道本轮准备执行的是安全搜索，还是会产生外部副作用的工具。</p>
@@ -824,7 +811,7 @@ LangGraph Workflow
 </tr>
 </tbody></table>
 <p>静态断点和动态中断都需要 Checkpoint 与 Thread，但它们不是同一种恢复协议。不要把上一篇的 <code>invoke(None)</code> 当作动态人工审批的通用写法。</p>
-<h3 id="1-2-本文为什么仍保留一个本地邮件工具"><a href="#1-2-本文为什么仍保留一个本地邮件工具" class="headerlink" title="1.2 本文为什么仍保留一个本地邮件工具"></a><strong>1.2 本文为什么仍保留一个本地邮件工具</strong></h3><p>Bing 和 12306 MCP 都是只读查询。为了演示真正有业务意义的风险边界，本文采用：</p>
+<h3 id="1-2-本地邮件工具"><a href="#1-2-本地邮件工具" class="headerlink" title="1.2 本地邮件工具"></a><strong>1.2 本地邮件工具</strong></h3><p>Bing 和 12306 MCP 都是只读查询。为了演示真正有业务意义的风险边界，本文采用：</p>
 <table>
 <thead>
 <tr>
@@ -889,7 +876,7 @@ payload <span class="token operator">=</span> paused<span class="token punctuati
 <span class="token punctuation">)</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>这里的恢复字典会成为工具内部 <code>interrupt()</code> 的返回值。</p>
-<h3 id="2-2-为什么必须有-Checkpoint"><a href="#2-2-为什么必须有-Checkpoint" class="headerlink" title="2.2 为什么必须有 Checkpoint"></a><strong>2.2 为什么必须有 Checkpoint</strong></h3><p>人工审批可能持续几秒，也可能持续数天。Workflow 不能依赖一个一直阻塞的 Python 函数，而要把暂停位置、消息和待执行任务保存下来。</p>
+<h3 id="2-2-Checkpoint"><a href="#2-2-Checkpoint" class="headerlink" title="2.2  Checkpoint"></a><strong>2.2  Checkpoint</strong></h3><p>人工审批可能持续几秒，也可能持续数天。Workflow 不能依赖一个一直阻塞的 Python 函数，而要把暂停位置、消息和待执行任务保存下来。</p>
 <table>
 <thead>
 <tr>
@@ -1744,6 +1731,7 @@ typing-extensions==4.15.0<span aria-hidden="true" class="line-numbers-rows"><spa
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
 <p>结果中应包含 <code>HGH</code> 和 <code>AOH</code>，同样不会暂停。</p>
+<p><img src="https://images.hnbian.cn/new/n-8a5bac018702195038b517b7596a7bc1.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="查车站编码"></p>
 <h3 id="7-5-在-Studio-恢复邮件中断"><a href="#7-5-在-Studio-恢复邮件中断" class="headerlink" title="7.5 在 Studio 恢复邮件中断"></a><strong>7.5 在 Studio 恢复邮件中断</strong></h3><p>新建 Thread，提交：</p>
 <pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
   <span class="token property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
@@ -1766,6 +1754,7 @@ allowed_actions: approve, reject, edit<span aria-hidden="true" class="line-numbe
   <span class="token property">"reason"</span><span class="token operator">:</span> <span class="token string">"Studio 审批通过"</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
+<p><img src="https://images.hnbian.cn/new/n-ff5fb03e9e23a3fc38797d3d0f86f82f.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="审批通过"></p>
 <p>修改时填写：</p>
 <pre class="line-numbers language-json" data-language="json"><code class="language-json"><span class="token punctuation">&#123;</span>
   <span class="token property">"action"</span><span class="token operator">:</span> <span class="token string">"edit"</span><span class="token punctuation">,</span>
@@ -1777,7 +1766,8 @@ allowed_actions: approve, reject, edit<span aria-hidden="true" class="line-numbe
   <span class="token property">"reason"</span><span class="token operator">:</span> <span class="token string">"Studio 修改参数"</span>
 <span class="token punctuation">&#125;</span><span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
-<p>恢复后，<code>send_email</code> 会产生 <code>ToolMessage</code>，其中应包含修改后的参数，随后 <code>chatbot</code> 生成最终回答。</p>
+<p>恢复后，<code>send_email</code> 会产生 <code>ToolMessage</code>，其中应包含修改后的参数，随后 <code>chatbot</code> 生成最终回答。<br><img src="https://images.hnbian.cn/new/n-2db76fc0e5907cbfe776c50f86f2ada9.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="修改内容"></p>
+<p><img src="https://images.hnbian.cn/new/n-0b5a6f8698c0a097f027d4d7517284de.png?imageView2/0/interlace/1/q/100%7Cwatermark/2/text/d3d3LmhuYmlhbi5jbiAgICAgICB3d3cuaG5iaWFuLmNuICAgICAgd3d3LmhuYmlhbi5jbg==/font/6buR5L2T/fontsize/800/fill/IzI1NDZDQw==/dissolve/60/gravity/Center/dx/10/dy/10" alt="审批完成"></p>
 <p>Agent Server API 对应的恢复形式为：</p>
 <pre class="line-numbers language-python" data-language="python"><code class="language-python"><span class="token keyword">await</span> client<span class="token punctuation">.</span>runs<span class="token punctuation">.</span>wait<span class="token punctuation">(</span>
     thread_id<span class="token punctuation">,</span>
@@ -2536,7 +2526,7 @@ allowed_actions: approve, reject, edit<span aria-hidden="true" class="line-numbe
             <br>
             
                 &nbsp;<i class="fas fa-chart-area"></i>&nbsp;站点总字数:&nbsp;<span
-                        class="white-color">1442k</span>
+                        class="white-color">1444.5k</span>
             
             
             
